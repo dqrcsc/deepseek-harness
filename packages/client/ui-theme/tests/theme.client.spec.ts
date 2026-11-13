@@ -28,7 +28,7 @@ describe('ThemeRuntime', () => {
     const { theme } = make()
     const snapshot = theme.getTheme()
     expect(snapshot.preference).toBe('system')
-    expect(snapshot.style).toBe('craft')
+    expect(snapshot.style).toBe('antigravity')
     expect(snapshot.fontSizes.text).toBe(14)
     // jsdom matchMedia is absent; system resolves to light.
     expect(snapshot.active.id).toBe('light')
@@ -67,7 +67,7 @@ describe('ThemeRuntime', () => {
     try {
       const snapshot = make().theme.getTheme()
       expect(snapshot.preference).toBe('system')
-      expect(snapshot.style).toBe('craft')
+      expect(snapshot.style).toBe('antigravity')
     } finally {
       delete document.documentElement.dataset.dsThemeSource
       delete document.body.dataset.dsThemeStyle

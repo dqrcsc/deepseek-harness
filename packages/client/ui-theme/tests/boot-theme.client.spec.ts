@@ -34,12 +34,12 @@ describe('theme bootstrap row', () => {
     expect(head).toMatchObject({ kind: 'style' })
     expect(body).toMatchObject({ kind: 'script', placement: 'body' })
     if (head?.kind !== 'style') throw new Error('theme head bootstrap row is not a style')
-    expect(head.text).toBe(':root{color-scheme:dark}body{background-color:#13151a;--dsh-boot-bg:#13151a}')
+    expect(head.text).toBe(':root{color-scheme:dark}body{background-color:#0d1017;--dsh-boot-bg:#0d1017}')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
     if (body?.kind !== 'script') throw new Error('theme body bootstrap row is not a script')
     runInNewContext(body.text, { document, matchMedia: globalThis.matchMedia })
     expect(document.documentElement.dataset.dsThemeSource).toBe('dark')
-    expect(document.body.dataset.dsThemeStyle).toBe('craft')
+    expect(document.body.dataset.dsThemeStyle).toBe('antigravity')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(true)
   })
 
@@ -48,10 +48,10 @@ describe('theme bootstrap row', () => {
     mockSystemDark(true)
     const [head] = bootThemeInjections('light')
     if (head?.kind !== 'style') throw new Error('theme head bootstrap row is not a style')
-    expect(head.text).toBe(':root{color-scheme:light}body{background-color:#f8fafc;--dsh-boot-bg:#f8fafc}')
+    expect(head.text).toBe(':root{color-scheme:light}body{background-color:#f6f8fe;--dsh-boot-bg:#f6f8fe}')
     executeBootstrap('light')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
-    expect(document.body.dataset.dsThemeStyle).toBe('craft')
+    expect(document.body.dataset.dsThemeStyle).toBe('antigravity')
   })
 
   it.each([
@@ -68,14 +68,18 @@ describe('theme bootstrap row', () => {
     const [head] = bootThemeInjections('system')
     if (head?.kind !== 'style') throw new Error('theme head bootstrap row is not a style')
     expect(head.text).toBe(
-      ':root{color-scheme:light}body{background-color:#f8fafc;--dsh-boot-bg:#f8fafc}'
-      + '@media(prefers-color-scheme:dark){:root{color-scheme:dark}body{background-color:#13151a;--dsh-boot-bg:#13151a}}',
+      ':root{color-scheme:light}body{background-color:#f6f8fe;--dsh-boot-bg:#f6f8fe}'
+      + '@media(prefers-color-scheme:dark){:root{color-scheme:dark}body{background-color:#0d1017;--dsh-boot-bg:#0d1017}}',
     )
   })
 
   it.each([
-    ['warm', '#faf8f4', '#181614'],
-    ['aurora', '#f8faff', '#12141c'],
+    ['codex', '#f7f7f8', '#0f0f10'],
+    ['warm', '#f6f3eb', '#191714'],
+    ['linear', '#f4f5f8', '#0b0c0e'],
+    ['craft', '#f5f8fc', '#11141b'],
+    ['aurora', '#f7f6fe', '#11111c'],
+    ['nord', '#eceff4', '#2e3440'],
     ['classic', '#fff', '#151517'],
   ] as const)('embeds canvas colors and dataset for theme style %s', (style, lightBg, darkBg) => {
     const [head] = bootThemeInjections('system', undefined, undefined, style)

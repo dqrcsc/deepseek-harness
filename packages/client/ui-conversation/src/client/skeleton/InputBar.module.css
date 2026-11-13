@@ -70,7 +70,10 @@
   --dsw-composer-halo-active: 0 0 0 0 rgba(0, 0, 0, 0);
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-specific-input-major);
-  box-shadow: var(--dsw-elevation-soft), var(--dsw-composer-halo-active);
+  box-shadow:
+    var(--dsw-elevation-soft),
+    var(--dsw-specific-composer-resting-shadow, 0 0 0 0 rgba(0, 0, 0, 0)),
+    var(--dsw-composer-halo-active);
   transition: box-shadow 180ms ease, background-color 180ms ease;
   /* The draft text follows the Settings font-size preference (the textarea,
      mirror, and backdrop all inherit from here, so the three layers stay in
@@ -418,11 +421,15 @@
      fill in both themes (design 34:10465). */
   color: var(--dsw-alias-label-on-color);
   cursor: pointer;
-  transition: background-color 140ms ease, opacity 140ms ease;
+  transition: background-color 140ms ease, opacity 140ms ease, box-shadow 140ms ease;
   /* Opts out of the row's 2px downward shift (.row top pad): the send circle
      keeps its original seat while the smaller chips sit lower. Transform, not
      margin, so flex centering math is untouched. */
   transform: translateY(-2px);
+}
+
+.primary:not(:disabled) {
+  box-shadow: var(--dsw-specific-send-shadow, none);
 }
 
 /* Solid artwork uses a smaller footprint than the thin send arrow. */

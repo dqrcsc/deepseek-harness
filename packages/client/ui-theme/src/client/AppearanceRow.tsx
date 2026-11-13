@@ -1,8 +1,8 @@
 /**
  * Appearance preference row registered into the General section item slot
  * (figma 501:30012 'Frame 2117131228'): title + three preference cubes, plus
- * the visual theme-style selector below. Registered by this package — the
- * theme feature owns its own settings surface. Selection follows the persisted
+ * the visual theme gallery below. Registered by this package — the theme
+ * feature owns its own settings surface. Selection follows the persisted
  * preference and style, never the resolved active theme.
  */
 import clsx from 'clsx'
@@ -36,11 +36,15 @@ const CUBES: readonly { id: ThemePreference; labelKey: ThemeKey; Icon: typeof Ic
   { id: 'system', labelKey: 'appearance.system', Icon: IconFollowsystemOutlineMedium },
 ]
 
-/** Visual theme styles shown below the color-scheme cubes. */
+/** Curated visual theme styles shown in the Appearance gallery. */
 const STYLES: readonly { id: ThemeStyle; labelKey: ThemeKey; descriptionKey: ThemeKey }[] = [
-  { id: 'craft', labelKey: 'appearance.style.craft', descriptionKey: 'appearance.style.craft.description' },
+  { id: 'antigravity', labelKey: 'appearance.style.antigravity', descriptionKey: 'appearance.style.antigravity.description' },
+  { id: 'codex', labelKey: 'appearance.style.codex', descriptionKey: 'appearance.style.codex.description' },
   { id: 'warm', labelKey: 'appearance.style.warm', descriptionKey: 'appearance.style.warm.description' },
+  { id: 'linear', labelKey: 'appearance.style.linear', descriptionKey: 'appearance.style.linear.description' },
+  { id: 'craft', labelKey: 'appearance.style.craft', descriptionKey: 'appearance.style.craft.description' },
   { id: 'aurora', labelKey: 'appearance.style.aurora', descriptionKey: 'appearance.style.aurora.description' },
+  { id: 'nord', labelKey: 'appearance.style.nord', descriptionKey: 'appearance.style.nord.description' },
   { id: 'classic', labelKey: 'appearance.style.classic', descriptionKey: 'appearance.style.classic.description' },
 ]
 
@@ -81,14 +85,31 @@ export function AppearanceRow({ t, setTheme, setStyle, useStore }: AppearanceRow
               onClick={() => { setStyle(id) }}
             >
               <span className={css.styleSwatch} data-preview-style={id} aria-hidden="true">
-                <span className={css.swatchSidebar} />
+                <span className={css.swatchSidebar}>
+                  <span className={css.swatchDots}>
+                    <span className={css.swatchDot} />
+                    <span className={css.swatchDot} />
+                    <span className={css.swatchDot} />
+                  </span>
+                  <span className={css.swatchNavActive} />
+                  <span className={css.swatchNavIdle} />
+                </span>
                 <span className={css.swatchMain}>
-                  <span className={css.swatchAccent} />
-                  <span className={css.swatchComposer} />
+                  <span className={css.swatchStage}>
+                    <span className={css.swatchHeroTitle} />
+                    <span className={css.swatchBubble} />
+                  </span>
+                  <span className={css.swatchComposer}>
+                    <span className={css.swatchPrompt} />
+                    <span className={css.swatchAccent} />
+                  </span>
                 </span>
               </span>
               <span className={css.styleCopy}>
-                <span className={css.styleLabel}>{t(labelKey)}</span>
+                <span className={css.styleHeader}>
+                  <span className={css.styleLabel}>{t(labelKey)}</span>
+                  <span className={css.styleIndicator} aria-hidden="true" />
+                </span>
                 <span className={css.styleDescription}>{t(descriptionKey)}</span>
               </span>
             </button>

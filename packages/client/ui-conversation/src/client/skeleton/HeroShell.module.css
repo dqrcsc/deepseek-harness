@@ -41,7 +41,7 @@
   font-size: 26px;
   line-height: 32px;
   font-weight: 500;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--dsw-specific-hero-tracking, -0.018em);
   color: var(--dsw-alias-label-primary);
 }
 
@@ -64,11 +64,11 @@
   align-self: flex-start;
   margin-top: 2px;
   padding: 1px 7px 0;
-  border: 0.5px solid var(--dsw-alias-interactive-bg-hover);
+  border: 0.5px solid var(--dsw-specific-hero-badge-border, var(--dsw-alias-interactive-bg-hover));
   border-radius: 999px;
   corner-shape: round;
-  background: var(--dsw-alias-state-business-tertiary);
-  color: var(--dsw-alias-label-primary-bluish);
+  background: var(--dsw-specific-hero-badge-fill, var(--dsw-alias-state-business-tertiary));
+  color: var(--dsw-specific-hero-badge-ink, var(--dsw-alias-label-primary-bluish));
   font-family: var(--ds-font-family-code);
   font-size: 12px;
   line-height: 18px;
@@ -86,13 +86,13 @@
 }
 
 /* The swim morph's curves poke slightly past the viewBox edges, so clipping
-   would slice the tail mid-wag. The hero mark stays in the same primary ink
-   as its headline. */
+   would slice the tail mid-wag. The hero mark defaults to the headline ink
+   unless the active theme supplies a signature mark tint. */
 .fish {
   display: block;
   overflow: visible;
   transform-origin: 50% 60%;
-  color: var(--dsw-alias-label-primary);
+  color: var(--dsw-specific-hero-mark-color, var(--dsw-alias-label-primary));
 }
 
 /* Hover swim: a slow continuous sway about the body center — the head
@@ -159,7 +159,7 @@
   padding: 0 8px;
   border: none;
   border-radius: var(--dsw-radius-sm);
-  background: transparent;
+  background: var(--dsw-specific-workspace-chip-fill, transparent);
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
   line-height: 20px;

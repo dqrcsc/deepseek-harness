@@ -23,6 +23,17 @@
   pointer-events: none;
 }
 
+.root[data-phase='hero']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--dsw-specific-hero-pattern);
+  background-size: var(--dsw-specific-hero-pattern-size, 24px 24px);
+  mask-image: var(--dsw-specific-hero-pattern-mask);
+  pointer-events: none;
+}
+
 /* 76px with its rule: the height of the Sidebar's tab strip and header row
    (ui-dockkit `.tabStrip` 38px + the pane header's 38px), so the two rules
    meet at the column edge. The rows add up to it — 10px top inset, the 30px

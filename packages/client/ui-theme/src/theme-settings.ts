@@ -6,7 +6,7 @@ import z from '@deepseek-ai/schemastery'
 export const THEME_PREFERENCES = ['light', 'dark', 'system'] as const
 
 /** Built-in visual styles orthogonal to the light/dark color scheme. */
-export const THEME_STYLES = ['craft', 'warm', 'aurora', 'classic'] as const
+export const THEME_STYLES = ['antigravity', 'codex', 'warm', 'linear', 'craft', 'aurora', 'nord', 'classic'] as const
 
 /** Settings namespace owned by the theme plugin. */
 export const THEME_SETTINGS_NAMESPACE = 'ui-theme'
@@ -30,7 +30,7 @@ export type ThemeStyle = typeof THEME_STYLES[number]
 export const DEFAULT_PREFERENCE: ThemePreference = 'system'
 
 /** Default visual theme style when the user-settings document has no override. */
-export const DEFAULT_THEME_STYLE: ThemeStyle = 'craft'
+export const DEFAULT_THEME_STYLE: ThemeStyle = 'antigravity'
 
 /** Smallest accepted content font size (px). */
 export const FONT_SIZE_MIN = 10

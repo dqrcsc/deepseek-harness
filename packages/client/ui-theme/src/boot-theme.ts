@@ -14,9 +14,13 @@ import {
 } from './theme-settings.ts'
 
 const BOOT_BACKGROUNDS: Readonly<Record<ThemeStyle, { readonly light: string; readonly dark: string }>> = {
-  craft: { light: '#f8fafc', dark: '#13151a' },
-  warm: { light: '#faf8f4', dark: '#181614' },
-  aurora: { light: '#f8faff', dark: '#12141c' },
+  antigravity: { light: '#f6f8fe', dark: '#0d1017' },
+  codex: { light: '#f7f7f8', dark: '#0f0f10' },
+  warm: { light: '#f6f3eb', dark: '#191714' },
+  linear: { light: '#f4f5f8', dark: '#0b0c0e' },
+  craft: { light: '#f5f8fc', dark: '#11141b' },
+  aurora: { light: '#f7f6fe', dark: '#11111c' },
+  nord: { light: '#eceff4', dark: '#2e3440' },
   classic: { light: '#fff', dark: '#151517' },
 }
 
