@@ -43,18 +43,160 @@
   line-height: 22px;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
 }
 
 @media (hover: hover) {
-  .themeCube:hover:not(.selected) {
+  .themeCube:hover:not(.selected),
+  .styleCard:hover:not(.selected) {
     background: var(--dsw-alias-interactive-bg-hover);
   }
 }
 
-/* Selected cube: platform fill + the selected border. */
+.styleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.styleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.styleCard {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-xl);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.styleSwatch {
+  flex: none;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  width: 44px;
+  height: 32px;
+  box-sizing: border-box;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  overflow: hidden;
+  background: var(--dsw-preview-canvas);
+}
+
+.styleSwatch[data-preview-style='craft'] {
+  --dsw-preview-canvas: var(--dsw-specific-preview-craft-canvas);
+  --dsw-preview-sidebar: var(--dsw-specific-preview-craft-sidebar);
+  --dsw-preview-card: var(--dsw-specific-preview-craft-card);
+  --dsw-preview-accent: var(--dsw-specific-preview-craft-accent);
+}
+
+.styleSwatch[data-preview-style='warm'] {
+  --dsw-preview-canvas: var(--dsw-specific-preview-warm-canvas);
+  --dsw-preview-sidebar: var(--dsw-specific-preview-warm-sidebar);
+  --dsw-preview-card: var(--dsw-specific-preview-warm-card);
+  --dsw-preview-accent: var(--dsw-specific-preview-warm-accent);
+}
+
+.styleSwatch[data-preview-style='aurora'] {
+  --dsw-preview-canvas: var(--dsw-specific-preview-aurora-canvas);
+  --dsw-preview-sidebar: var(--dsw-specific-preview-aurora-sidebar);
+  --dsw-preview-card: var(--dsw-specific-preview-aurora-card);
+  --dsw-preview-accent: var(--dsw-specific-preview-aurora-accent);
+}
+
+.styleSwatch[data-preview-style='classic'] {
+  --dsw-preview-canvas: var(--dsw-specific-preview-classic-canvas);
+  --dsw-preview-sidebar: var(--dsw-specific-preview-classic-sidebar);
+  --dsw-preview-card: var(--dsw-specific-preview-classic-card);
+  --dsw-preview-accent: var(--dsw-specific-preview-classic-accent);
+}
+
+.swatchSidebar {
+  background: var(--dsw-preview-sidebar);
+  border-right: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.swatchMain {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 5px 5px 4px;
+  background: var(--dsw-preview-canvas);
+}
+
+.swatchAccent {
+  align-self: flex-end;
+  width: 12px;
+  height: 5px;
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--dsw-preview-accent);
+}
+
+.swatchComposer {
+  height: 8px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 3px;
+  background: var(--dsw-preview-card);
+}
+
+.styleCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.styleLabel {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.styleDescription {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Selected cube or style card: platform fill + the selected border. */
 .selected {
   background: var(--dsw-alias-bg-module-platform);
   border-color: var(--dsw-alias-border-selected);
+}
+
+@media (max-width: 560px) {
+  .styleGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .themeCube,
+  .styleCard {
+    transition: none;
+  }
 }
 
 /* Narrow settings panel: all three cubes share one row instead of wrapping to

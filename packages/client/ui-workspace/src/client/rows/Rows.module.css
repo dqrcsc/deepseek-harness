@@ -13,6 +13,7 @@
   -webkit-user-select: none;
   user-select: none;
   color: var(--dsw-alias-label-primary);
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 @media (hover: hover) {
@@ -22,7 +23,11 @@
 }
 
 .sessionRow.selected {
-  background-color: var(--dsw-alias-interactive-bg-hover);
+  background-color: var(--dsw-specific-sidebar-row-active-fill);
+}
+
+.sessionRow.selected .title {
+  font-weight: 500;
 }
 
 .dragPreview {
@@ -45,6 +50,7 @@
   cursor: pointer;
   text-align: left;
   color: var(--dsw-alias-label-primary);
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 @media (hover: hover) {
@@ -54,7 +60,7 @@
 }
 
 .searchResultRow.selected {
-  background-color: var(--dsw-alias-interactive-bg-hover);
+  background-color: var(--dsw-specific-sidebar-row-active-fill);
 }
 
 .searchResultHeading {
@@ -319,6 +325,10 @@
     background-color: var(--dsw-alias-interactive-bg-hover);
   }
 
+  .sessionRow.selected:hover {
+    background-color: var(--dsw-specific-sidebar-row-active-fill);
+  }
+
   .sessionRow:hover .rowActions,
   .sessionRow.menuOpen .rowActions,
   :global(html[data-input-modality='keyboard']) .sessionRow:focus-within .rowActions {
@@ -464,6 +474,7 @@
   background: transparent;
   cursor: pointer;
   color: var(--dsw-alias-label-tertiary);
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 /* Keep the focus ring on its original compact outline. */
@@ -484,7 +495,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arrow {
+  .arrow,
+  .projectRow,
+  .sessionRow,
+  .searchResultRow,
+  .iconButton {
     animation: none;
     transition: none;
   }

@@ -67,9 +67,11 @@
      soft elevation tier. Fill: the input surface token (elevated in dark). */
   border: 0;
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
+  --dsw-composer-halo-active: 0 0 0 0 rgba(0, 0, 0, 0);
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-specific-input-major);
-  box-shadow: var(--dsw-elevation-soft);
+  box-shadow: var(--dsw-elevation-soft), var(--dsw-composer-halo-active);
+  transition: box-shadow 180ms ease, background-color 180ms ease;
   /* The draft text follows the Settings font-size preference (the textarea,
      mirror, and backdrop all inherit from here, so the three layers stay in
      step); the line height keeps the default 10px leading via the shared px
@@ -83,6 +85,11 @@
      (see ui-theme styles/scrollbar.css for the rebinding contract). */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.card:not(.cardWorkspaceTrigger):focus-within {
+  --dsw-elevation-stroke-color: var(--dsw-specific-composer-focus-stroke);
+  --dsw-composer-halo-active: var(--dsw-specific-composer-halo);
 }
 
 @media (pointer: coarse) {
@@ -345,6 +352,7 @@
   background: var(--dsw-specific-selector);
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+  transition: background-color 140ms ease;
 }
 
 @media (hover: hover) {
@@ -379,6 +387,7 @@
   white-space: nowrap;
   cursor: pointer;
   appearance: none;
+  transition: background-color 140ms ease;
 }
 
 @media (hover: hover) {
@@ -409,7 +418,7 @@
      fill in both themes (design 34:10465). */
   color: var(--dsw-alias-label-on-color);
   cursor: pointer;
-  transition: background-color 100ms ease;
+  transition: background-color 140ms ease, opacity 140ms ease;
   /* Opts out of the row's 2px downward shift (.row top pad): the send circle
      keeps its original seat while the smaller chips sit lower. Transform, not
      margin, so flex centering math is untouched. */
@@ -446,6 +455,14 @@
 @media (prefers-reduced-motion: reduce) {
   .sendingSpinner {
     animation-duration: 2400ms;
+  }
+
+  .card,
+  .cardWorkspaceTrigger::after,
+  .add,
+  .select,
+  .primary {
+    transition: none;
   }
 }
 

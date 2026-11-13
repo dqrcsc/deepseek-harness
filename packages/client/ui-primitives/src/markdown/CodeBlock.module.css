@@ -11,9 +11,11 @@
   --dsl-code-block-background: var(--dsw-alias-markdown-code-block);
 
   position: relative;
+  box-sizing: border-box;
   margin: 16px 0;
   color: var(--dsw-alias-label-primary);
   background: var(--dsl-code-block-background);
+  border: 0.5px solid var(--dsw-specific-code-block-border);
   border-radius: var(--dsl-code-block-border-radius);
 }
 
@@ -38,6 +40,7 @@
   align-items: center;
   gap: 12px;
   font: var(--dsl-code-block-banner-font);
+  border-bottom: 0.5px solid var(--dsw-specific-code-block-divider);
   border-top-left-radius: var(--dsl-code-block-border-radius);
   border-top-right-radius: var(--dsl-code-block-border-radius);
 }

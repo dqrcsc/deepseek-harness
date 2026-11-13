@@ -348,6 +348,7 @@
   background: transparent;
   cursor: pointer;
   color: var(--dsw-alias-label-secondary);
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 @media (hover: hover) {
@@ -438,6 +439,7 @@
   line-height: 22px;
   cursor: pointer;
   overflow: hidden;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 @media (hover: hover) {
@@ -619,6 +621,7 @@
   border-inline: var(--dsh-sidebar-paint-inset) solid transparent;
   border-radius: var(--dsw-radius-md);
   background-clip: padding-box;
+  transition: background-color 140ms ease;
 }
 
 .panelEntryWide > *:first-child {
@@ -634,9 +637,16 @@
   background: transparent;
 }
 
-.panelEntryActive,
 .panelEntry:has(:focus-visible) {
   background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+.panelEntryActive {
+  background-color: var(--dsw-specific-sidebar-row-active-fill);
+}
+
+.panelEntryActive .panelTitle {
+  font-weight: 500;
 }
 
 .panelUnpin {
@@ -654,6 +664,7 @@
   background: transparent;
   color: var(--dsw-alias-label-caption);
   cursor: pointer;
+  transition: opacity 140ms ease, color 140ms ease;
 }
 
 .panelUnpin:focus-visible {
@@ -664,6 +675,7 @@
 @media (hover: hover) {
   .panelUnpin { opacity: 0; }
   .panelEntry:hover { background-color: var(--dsw-alias-interactive-bg-hover); }
+  .panelEntryActive:hover { background-color: var(--dsw-specific-sidebar-row-active-fill); }
   .panelEntry .panelRow:hover { background: transparent; }
   .panelUnpin:hover { color: var(--dsw-alias-label-primary); }
   .panelEntry:hover .panelUnpin,
@@ -700,6 +712,7 @@
   line-height: 22px;
   text-align: left;
   cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 @media (hover: hover) {
@@ -814,7 +827,12 @@
   .railIn .newSession,
   .railIn .panelList,
   .railIn .footArea,
-  .railIn .regionArea {
+  .railIn .regionArea,
+  .iconButton,
+  .newSession,
+  .panelEntry,
+  .panelRow,
+  .panelUnpin {
     transition: none;
     animation: none;
   }

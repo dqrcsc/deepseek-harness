@@ -5,11 +5,17 @@ import z from '@deepseek-ai/schemastery'
 /** Built-in preferences accepted at the registry and settings boundaries. */
 export const THEME_PREFERENCES = ['light', 'dark', 'system'] as const
 
+/** Built-in visual styles orthogonal to the light/dark color scheme. */
+export const THEME_STYLES = ['craft', 'warm', 'aurora', 'classic'] as const
+
 /** Settings namespace owned by the theme plugin. */
 export const THEME_SETTINGS_NAMESPACE = 'ui-theme'
 
 /** Field carrying the selected built-in theme preference. */
 export const THEME_PREFERENCE_FIELD = 'preference'
+
+/** Field carrying the selected visual theme style. */
+export const THEME_STYLE_FIELD = 'style'
 
 /** Field carrying the conversation content font size. */
 export const FONT_SIZE_FIELD = 'fontSize'
@@ -17,8 +23,14 @@ export const FONT_SIZE_FIELD = 'fontSize'
 /** Theme preference persisted by the product Appearance row. */
 export type ThemePreference = typeof THEME_PREFERENCES[number]
 
+/** Visual theme style persisted by the product Appearance row. */
+export type ThemeStyle = typeof THEME_STYLES[number]
+
 /** Default preference when the user-settings document has no override. */
 export const DEFAULT_PREFERENCE: ThemePreference = 'system'
+
+/** Default visual theme style when the user-settings document has no override. */
+export const DEFAULT_THEME_STYLE: ThemeStyle = 'craft'
 
 /** Smallest accepted content font size (px). */
 export const FONT_SIZE_MIN = 10
@@ -92,6 +104,8 @@ export type FontFamilies = Readonly<Record<FontRole, string>>
 export interface ThemeSettings {
   /** Selected built-in preference. */
   preference: ThemePreference
+  /** Selected visual theme style across light and dark palettes. */
+  style: ThemeStyle
   /** Conversation content font size in px (integer within {@link FONT_SIZE_MIN}..{@link FONT_SIZE_MAX}). */
   fontSize: number
   /** Code-block font size in px (integer within the {@link FONT_SIZE_SPECS} `code` range). */
@@ -138,6 +152,7 @@ export function isFontSize(role: FontRole, px: number): boolean {
 /** Durable theme schema; also the wire envelope the browser scope validates against. */
 export const ThemeSettingsSchema: z<ThemeSettings> = z.object({
   [THEME_PREFERENCE_FIELD]: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE),
+  [THEME_STYLE_FIELD]: z.union([...THEME_STYLES]).default(DEFAULT_THEME_STYLE),
   [FONT_SIZE_FIELD]: fontSizeSchema(FONT_SIZE_SPECS.text),
   [FONT_SIZE_SPECS.code.field]: fontSizeSchema(FONT_SIZE_SPECS.code),
   [FONT_SIZE_SPECS.terminal.field]: fontSizeSchema(FONT_SIZE_SPECS.terminal),
@@ -175,4 +190,13 @@ export function normalizeFontFamily(value: string): string {
  */
 export function isThemePreference(value: unknown): value is ThemePreference {
   return THEME_PREFERENCES.some(preference => preference === value)
+}
+
+/**
+ * Narrow one wire or boot value to a supported visual theme style.
+ * @param value - value crossing the settings or boot boundary.
+ * @returns whether the value is a built-in theme style.
+ */
+export function isThemeStyle(value: unknown): value is ThemeStyle {
+  return THEME_STYLES.some(style => style === value)
 }

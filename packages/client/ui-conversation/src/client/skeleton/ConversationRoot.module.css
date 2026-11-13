@@ -14,6 +14,15 @@
   isolation: isolate;
 }
 
+.root[data-phase='hero']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--dsw-specific-hero-ambient);
+  pointer-events: none;
+}
+
 /* 76px with its rule: the height of the Sidebar's tab strip and header row
    (ui-dockkit `.tabStrip` 38px + the pane header's 38px), so the two rules
    meet at the column edge. The rows add up to it — 10px top inset, the 30px
@@ -154,6 +163,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 @media (hover: hover) {
@@ -272,6 +282,7 @@
   font-weight: 500;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
+  transition: color 140ms ease;
 }
 
 .tab::after {
@@ -294,6 +305,12 @@
 
 .tabActive::after {
   background: var(--dsw-alias-state-business-primary);
+}
+
+@media (hover: hover) {
+  .tab:not(.tabActive):hover {
+    color: var(--dsw-alias-label-primary);
+  }
 }
 
 /* The More launcher centers its 22px box on the tab's 16px text line. */
@@ -644,4 +661,11 @@
 .root[data-phase='settling'] .composerSeat,
 .embeddedBody[data-content-phase='settling'] .composerSeat {
   visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crumb,
+  .tab {
+    transition: none;
+  }
 }

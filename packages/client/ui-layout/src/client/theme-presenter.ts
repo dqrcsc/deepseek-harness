@@ -16,6 +16,9 @@ import type { FontRole, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/c
 /** Body attribute selecting the dark base palette in the token stylesheets. */
 export const DARK_ATTRIBUTE = 'data-ds-dark-theme'
 
+/** Body attribute selecting the visual theme style across light and dark palettes. */
+export const THEME_STYLE_ATTRIBUTE = 'data-ds-theme-style'
+
 /**
  * Root attribute publishing the theme source (`light`, `dark`, or `system`)
  * for host shells that mirror it into the native theme (the Electron preload
@@ -74,6 +77,7 @@ export class ThemePresenter {
     const body = document.body
     if (scheme === 'dark') body.setAttribute(DARK_ATTRIBUTE, '')
     else body.removeAttribute(DARK_ATTRIBUTE)
+    body.setAttribute(THEME_STYLE_ATTRIBUTE, snapshot.style)
     for (const [role, name] of Object.entries(FONT_SIZE_VARIABLES)) {
       body.style.setProperty(name, `${snapshot.fontSizes[role as FontRole]}px`)
     }
@@ -101,6 +105,7 @@ export class ThemePresenter {
     document.documentElement.removeAttribute(THEME_SOURCE_ATTRIBUTE)
     const body = document.body
     body.removeAttribute(DARK_ATTRIBUTE)
+    body.removeAttribute(THEME_STYLE_ATTRIBUTE)
     for (const name of Object.values(FONT_SIZE_VARIABLES)) body.style.removeProperty(name)
     for (const name of Object.values(FONT_FAMILY_VARIABLES)) body.style.removeProperty(name)
     for (const name of this.appliedTokens) body.style.removeProperty(name)

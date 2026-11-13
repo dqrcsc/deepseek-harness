@@ -35,7 +35,7 @@ async function bench(isLoopback = true) {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const section: Record<string, unknown> = { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
+  const section: Record<string, unknown> = { preference: 'system', style: 'craft', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
   const namespace = () => ({
     ns: THEME_SETTINGS_NAMESPACE,
     schema: ThemeSettingsSchema.toJSON(),
@@ -171,7 +171,7 @@ describe('ui-theme apply', () => {
 
   it('adopts all durable font sizes together after a refused batch settles', async () => {
     const host = stubConfigForm<ThemeSettings>()
-    const section: ThemeSettings = { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13,
+    const section: ThemeSettings = { preference: 'system', style: 'craft', fontSize: 14, codeFontSize: 11, terminalFontSize: 13,
       textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
     host.publish({ status: 'ready', value: section, revision: 1, writable: true })
     const { theme, keyboard } = await keyboardTheme(host)
@@ -339,7 +339,10 @@ describe('ui-theme apply', () => {
     face.setTheme('system')
     expect(theme.getTheme().preference).toBe('system')
     expect(instance.getSnapshot().preference).toBe('system')
-    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(2) })
+    face.setStyle('aurora')
+    expect(theme.getTheme().style).toBe('aurora')
+    expect(instance.getSnapshot().style).toBe('aurora')
+    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(3) })
   })
 
   it('projects font-size snapshots into its row store and routes face writes back', async () => {

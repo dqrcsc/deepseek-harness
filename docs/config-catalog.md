@@ -732,13 +732,15 @@ export interface Config {
 ## `@deepseek-ai/dsh-client-ui-theme`
 
 - `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/client/ui-theme/src/index.ts:20`](../packages/client/ui-theme/src/index.ts)
+- `source`: [`packages/client/ui-theme/src/index.ts:22`](../packages/client/ui-theme/src/index.ts)
 
 ```ts config-catalog
 /** Runtime preferences projected to the browser. */
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
+  /** Visual theme style across light and dark palettes. */
+  style: Volatile<ThemeStyle>
   /** Browser font size in pixels. */
   fontSize: Volatile<number>
   /** Code-block font size in pixels. */
@@ -755,6 +757,9 @@ export interface Config {
 
 /** Theme preference persisted by the product Appearance row. */
 export type ThemePreference = typeof THEME_PREFERENCES[number]
+
+/** Visual theme style persisted by the product Appearance row. */
+export type ThemeStyle = typeof THEME_STYLES[number]
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-theme -->
 

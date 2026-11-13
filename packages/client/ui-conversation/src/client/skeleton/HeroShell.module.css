@@ -41,6 +41,7 @@
   font-size: 26px;
   line-height: 32px;
   font-weight: 500;
+  letter-spacing: -0.015em;
   color: var(--dsw-alias-label-primary);
 }
 
@@ -164,6 +165,7 @@
   line-height: 20px;
   font-weight: 500;
   cursor: pointer;
+  transition: background-color 140ms ease;
 }
 
 .workspace[aria-expanded='true'] {
@@ -234,4 +236,10 @@
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-state-error-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace {
+    transition: none;
+  }
 }

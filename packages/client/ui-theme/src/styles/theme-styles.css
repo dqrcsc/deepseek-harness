@@ -1,0 +1,332 @@
+/* Multi-style visual themes layered orthogonally over the light and dark base
+   palettes. `classic` inherits the baseline `design-platform.css` palette plus
+   the default polish tokens below; `craft`, `warm`, and `aurora` refine canvas
+   depth, hairlines, ambient washes, and surface harmony without visual weight. */
+
+body {
+  --dsw-specific-hero-ambient: none;
+  --dsw-specific-composer-focus-stroke: rgba(65, 118, 230, 0.34);
+  --dsw-specific-composer-halo: 0 6px 24px -6px rgba(65, 118, 230, 0.08);
+  --dsw-specific-bubble-border: rgba(65, 118, 230, 0.1);
+  --dsw-specific-code-block-border: rgba(0, 0, 0, 0.06);
+  --dsw-specific-code-block-divider: rgba(0, 0, 0, 0.05);
+  --dsw-specific-sidebar-row-active-fill: rgba(38, 49, 72, 0.085);
+
+  --dsw-specific-preview-craft-canvas: rgb(248, 250, 252);
+  --dsw-specific-preview-craft-sidebar: rgb(241, 244, 249);
+  --dsw-specific-preview-craft-card: rgb(255, 255, 255);
+  --dsw-specific-preview-craft-accent: rgb(59, 118, 236);
+  --dsw-specific-preview-warm-canvas: rgb(250, 248, 244);
+  --dsw-specific-preview-warm-sidebar: rgb(242, 238, 230);
+  --dsw-specific-preview-warm-card: rgb(255, 253, 249);
+  --dsw-specific-preview-warm-accent: rgb(184, 98, 62);
+  --dsw-specific-preview-aurora-canvas: rgb(248, 250, 255);
+  --dsw-specific-preview-aurora-sidebar: rgb(239, 243, 253);
+  --dsw-specific-preview-aurora-card: rgb(255, 255, 255);
+  --dsw-specific-preview-aurora-accent: rgb(88, 101, 242);
+  --dsw-specific-preview-classic-canvas: rgb(255, 255, 255);
+  --dsw-specific-preview-classic-sidebar: rgb(249, 250, 251);
+  --dsw-specific-preview-classic-card: rgb(255, 255, 255);
+  --dsw-specific-preview-classic-accent: rgb(65, 118, 230);
+}
+
+body[data-ds-dark-theme] {
+  --dsw-specific-hero-ambient: none;
+  --dsw-specific-composer-focus-stroke: rgba(122, 170, 255, 0.34);
+  --dsw-specific-composer-halo: 0 6px 24px -6px rgba(86, 134, 254, 0.14);
+  --dsw-specific-bubble-border: rgba(255, 255, 255, 0.08);
+  --dsw-specific-code-block-border: rgba(255, 255, 255, 0.075);
+  --dsw-specific-code-block-divider: rgba(255, 255, 255, 0.06);
+  --dsw-specific-sidebar-row-active-fill: rgba(255, 255, 255, 0.12);
+
+  --dsw-specific-preview-craft-canvas: rgb(19, 21, 26);
+  --dsw-specific-preview-craft-sidebar: rgb(15, 17, 22);
+  --dsw-specific-preview-craft-card: rgb(27, 30, 38);
+  --dsw-specific-preview-craft-accent: rgb(112, 165, 255);
+  --dsw-specific-preview-warm-canvas: rgb(24, 22, 20);
+  --dsw-specific-preview-warm-sidebar: rgb(19, 17, 15);
+  --dsw-specific-preview-warm-card: rgb(34, 31, 28);
+  --dsw-specific-preview-warm-accent: rgb(219, 138, 100);
+  --dsw-specific-preview-aurora-canvas: rgb(18, 20, 28);
+  --dsw-specific-preview-aurora-sidebar: rgb(14, 16, 23);
+  --dsw-specific-preview-aurora-card: rgb(25, 28, 40);
+  --dsw-specific-preview-aurora-accent: rgb(129, 140, 248);
+  --dsw-specific-preview-classic-canvas: rgb(21, 21, 23);
+  --dsw-specific-preview-classic-sidebar: rgb(27, 27, 28);
+  --dsw-specific-preview-classic-card: rgb(44, 44, 46);
+  --dsw-specific-preview-classic-accent: rgb(122, 170, 255);
+}
+
+/* ---------- 1. Craft: crisp cool micro-layering & airy surfaces ---------- */
+body[data-ds-theme-style='craft'] {
+  --dsw-alias-bg-base: rgb(248, 250, 252);
+  --dsw-alias-bg-layer-1: rgb(255, 255, 255);
+  --dsw-alias-bg-layer-2: rgb(255, 255, 255);
+  --dsw-alias-bg-layer-3: rgb(243, 246, 250);
+  --dsw-alias-bg-module-platform: rgb(241, 245, 251);
+  --dsw-alias-border-l1: rgba(15, 23, 42, 0.04);
+  --dsw-alias-border-l2: rgba(15, 23, 42, 0.08);
+  --dsw-alias-border-l3: rgba(15, 23, 42, 0.09);
+  --dsw-alias-border-l4: rgba(15, 23, 42, 0.13);
+  --dsw-alias-border-selected: rgb(96, 142, 230);
+  --dsw-alias-button-elevated-fill: rgb(255, 255, 255);
+  --dsw-alias-button-floating-fill: rgb(255, 255, 255);
+  --dsw-alias-button-floating-hover: rgb(241, 245, 250);
+  --dsw-alias-card-fill: rgb(255, 255, 255);
+  --dsw-alias-card-fill-hover: rgb(242, 246, 252);
+  --dsw-alias-interactive-bg-hover: rgba(30, 41, 59, 0.055);
+  --dsw-alias-interactive-bg-active: rgba(30, 41, 59, 0.095);
+  --dsw-alias-markdown-code-block: rgb(242, 245, 250);
+  --dsw-alias-markdown-code-block-banner: rgb(236, 240, 247);
+  --dsw-alias-markdown-inline-code: rgb(239, 243, 249);
+  --dsw-specific-sidebar-fill: rgb(241, 244, 249);
+  --dsw-specific-input-major: rgb(255, 255, 255);
+  --dsw-specific-selector: rgb(241, 244, 250);
+  --dsw-specific-tip: rgb(241, 245, 250);
+  --dsw-specific-bubble: rgb(237, 244, 255);
+  --dsw-specific-bubble-border: rgba(59, 118, 236, 0.14);
+  --dsw-specific-code-block-border: rgba(15, 23, 42, 0.065);
+  --dsw-specific-code-block-divider: rgba(15, 23, 42, 0.05);
+  --dsw-specific-sidebar-row-active-fill: rgba(59, 118, 236, 0.09);
+  --dsw-specific-hero-ambient:
+    radial-gradient(ellipse 72% 46% at 50% 0%, rgba(99, 145, 255, 0.085) 0%, rgba(139, 162, 255, 0.025) 48%, transparent 80%);
+  --dsw-specific-composer-focus-stroke: rgba(59, 118, 236, 0.36);
+  --dsw-specific-composer-halo: 0 8px 28px -6px rgba(59, 118, 236, 0.12);
+  --dsw-linear-gradient-think: linear-gradient(180deg, #f8fafc 20.19%, rgba(248, 250, 252, 0) 100%);
+}
+
+body[data-ds-theme-style='craft'][data-ds-dark-theme] {
+  --dsw-alias-bg-base: rgb(19, 21, 26);
+  --dsw-alias-bg-layer-1: rgb(25, 28, 35);
+  --dsw-alias-bg-layer-2: rgb(30, 34, 43);
+  --dsw-alias-bg-layer-3: rgb(37, 42, 53);
+  --dsw-alias-bg-module-platform: rgb(30, 34, 44);
+  --dsw-alias-border-l1: rgba(255, 255, 255, 0.055);
+  --dsw-alias-border-l2: rgba(255, 255, 255, 0.1);
+  --dsw-alias-border-l3: rgba(255, 255, 255, 0.085);
+  --dsw-alias-border-l4: rgba(255, 255, 255, 0.14);
+  --dsw-alias-border-selected: rgb(112, 165, 255);
+  --dsw-alias-button-elevated-fill: rgb(28, 32, 41);
+  --dsw-alias-button-floating-fill: rgb(30, 34, 43);
+  --dsw-alias-button-floating-hover: rgb(37, 42, 53);
+  --dsw-alias-card-fill: rgb(25, 28, 36);
+  --dsw-alias-card-fill-hover: rgb(32, 36, 46);
+  --dsw-alias-markdown-code-block: rgb(15, 17, 22);
+  --dsw-alias-markdown-code-block-banner: rgb(23, 26, 34);
+  --dsw-alias-markdown-inline-code: rgb(31, 35, 45);
+  --dsw-specific-sidebar-fill: rgb(15, 17, 22);
+  --dsw-specific-input-major: rgb(27, 30, 38);
+  --dsw-specific-selector: rgb(36, 40, 50);
+  --dsw-specific-tip: rgb(30, 34, 44);
+  --dsw-specific-bubble: rgb(29, 37, 54);
+  --dsw-specific-bubble-border: rgba(122, 170, 255, 0.16);
+  --dsw-specific-code-block-border: rgba(255, 255, 255, 0.075);
+  --dsw-specific-code-block-divider: rgba(255, 255, 255, 0.06);
+  --dsw-specific-sidebar-row-active-fill: rgba(122, 170, 255, 0.13);
+  --dsw-specific-hero-ambient:
+    radial-gradient(ellipse 70% 44% at 50% 0%, rgba(77, 130, 246, 0.11) 0%, rgba(99, 102, 241, 0.035) 48%, transparent 80%);
+  --dsw-specific-composer-focus-stroke: rgba(122, 170, 255, 0.36);
+  --dsw-specific-composer-halo: 0 8px 30px -6px rgba(77, 130, 246, 0.18);
+  --dsw-linear-gradient-think: linear-gradient(180deg, #13151a 20.19%, rgba(19, 21, 26, 0) 100%);
+}
+
+/* ---------- 2. Warm: soft alabaster paper & editorial warmth ---------- */
+body[data-ds-theme-style='warm'] {
+  --dsw-alias-bg-base: rgb(250, 248, 244);
+  --dsw-alias-bg-layer-1: rgb(255, 253, 249);
+  --dsw-alias-bg-layer-2: rgb(255, 253, 249);
+  --dsw-alias-bg-layer-3: rgb(244, 240, 232);
+  --dsw-alias-bg-module-platform: rgb(242, 237, 228);
+  --dsw-alias-border-l1: rgba(62, 50, 36, 0.045);
+  --dsw-alias-border-l2: rgba(62, 50, 36, 0.09);
+  --dsw-alias-border-l3: rgba(62, 50, 36, 0.1);
+  --dsw-alias-border-l4: rgba(62, 50, 36, 0.15);
+  --dsw-alias-border-selected: rgb(172, 118, 86);
+  --dsw-alias-button-elevated-fill: rgb(255, 253, 249);
+  --dsw-alias-button-floating-fill: rgb(255, 253, 249);
+  --dsw-alias-button-floating-hover: rgb(238, 233, 223);
+  --dsw-alias-button-info-fill: rgb(184, 98, 62);
+  --dsw-alias-button-info-hover: rgb(165, 84, 50);
+  --dsw-alias-card-fill: rgb(246, 242, 235);
+  --dsw-alias-card-fill-hover: rgb(239, 234, 225);
+  --dsw-alias-interactive-bg-hover: rgba(62, 50, 36, 0.06);
+  --dsw-alias-interactive-bg-active: rgba(62, 50, 36, 0.1);
+  --dsw-alias-interactive-bg-hover-solid: rgb(236, 231, 221);
+  --dsw-alias-label-primary: rgb(31, 29, 26);
+  --dsw-alias-label-secondary: rgb(92, 87, 79);
+  --dsw-alias-label-tertiary: rgb(126, 120, 110);
+  --dsw-alias-label-caption: rgb(156, 149, 138);
+  --dsw-alias-label-primary-bluish: rgb(138, 68, 40);
+  --dsw-alias-link: rgb(172, 88, 52);
+  --dsw-alias-markdown-code-block: rgb(243, 239, 231);
+  --dsw-alias-markdown-code-block-banner: rgb(236, 231, 221);
+  --dsw-alias-markdown-inline-code: rgb(240, 235, 226);
+  --dsw-alias-state-business-primary: rgb(180, 94, 58);
+  --dsw-alias-state-business-tertiary: rgb(245, 232, 224);
+  --dsw-specific-sidebar-fill: rgb(242, 238, 230);
+  --dsw-specific-input-major: rgb(255, 253, 250);
+  --dsw-specific-selector: rgb(242, 237, 229);
+  --dsw-specific-tip: rgb(242, 237, 228);
+  --dsw-specific-bubble: rgb(241, 235, 225);
+  --dsw-specific-bubble-border: rgba(120, 96, 68, 0.14);
+  --dsw-specific-code-block-border: rgba(62, 50, 36, 0.08);
+  --dsw-specific-code-block-divider: rgba(62, 50, 36, 0.06);
+  --dsw-specific-sidebar-row-active-fill: rgba(180, 94, 58, 0.1);
+  --dsw-specific-hero-ambient:
+    radial-gradient(ellipse 72% 46% at 50% 0%, rgba(214, 158, 114, 0.1) 0%, rgba(196, 145, 108, 0.03) 50%, transparent 80%);
+  --dsw-specific-composer-focus-stroke: rgba(180, 94, 58, 0.35);
+  --dsw-specific-composer-halo: 0 8px 28px -6px rgba(180, 94, 58, 0.11);
+  --dsw-linear-gradient-think: linear-gradient(180deg, #faf8f4 20.19%, rgba(250, 248, 244, 0) 100%);
+}
+
+body[data-ds-theme-style='warm'][data-ds-dark-theme] {
+  --dsw-alias-bg-base: rgb(24, 22, 20);
+  --dsw-alias-bg-layer-1: rgb(31, 28, 25);
+  --dsw-alias-bg-layer-2: rgb(36, 33, 29);
+  --dsw-alias-bg-layer-3: rgb(44, 40, 36);
+  --dsw-alias-bg-module-platform: rgb(38, 34, 30);
+  --dsw-alias-border-l1: rgba(255, 244, 230, 0.055);
+  --dsw-alias-border-l2: rgba(255, 244, 230, 0.1);
+  --dsw-alias-border-l3: rgba(255, 244, 230, 0.085);
+  --dsw-alias-border-l4: rgba(255, 244, 230, 0.14);
+  --dsw-alias-border-selected: rgb(206, 142, 106);
+  --dsw-alias-button-elevated-fill: rgb(36, 33, 29);
+  --dsw-alias-button-floating-fill: rgb(36, 33, 29);
+  --dsw-alias-button-floating-hover: rgb(45, 41, 37);
+  --dsw-alias-button-info-fill: rgb(212, 126, 88);
+  --dsw-alias-button-info-hover: rgb(224, 142, 105);
+  --dsw-alias-card-fill: rgb(32, 29, 26);
+  --dsw-alias-card-fill-hover: rgb(40, 36, 32);
+  --dsw-alias-interactive-bg-hover-solid: rgb(45, 41, 37);
+  --dsw-alias-label-primary: rgb(243, 239, 232);
+  --dsw-alias-label-secondary: rgb(196, 189, 178);
+  --dsw-alias-label-tertiary: rgb(148, 141, 130);
+  --dsw-alias-label-caption: rgb(115, 109, 99);
+  --dsw-alias-link: rgb(219, 138, 100);
+  --dsw-alias-markdown-code-block: rgb(19, 17, 15);
+  --dsw-alias-markdown-code-block-banner: rgb(29, 26, 23);
+  --dsw-alias-markdown-inline-code: rgb(39, 35, 31);
+  --dsw-alias-state-business-primary: rgb(219, 138, 100);
+  --dsw-alias-state-business-tertiary: rgb(62, 42, 33);
+  --dsw-specific-sidebar-fill: rgb(19, 17, 15);
+  --dsw-specific-input-major: rgb(34, 31, 28);
+  --dsw-specific-selector: rgb(45, 41, 37);
+  --dsw-specific-tip: rgb(38, 34, 30);
+  --dsw-specific-bubble: rgb(42, 37, 32);
+  --dsw-specific-bubble-border: rgba(224, 168, 132, 0.15);
+  --dsw-specific-code-block-border: rgba(255, 244, 230, 0.075);
+  --dsw-specific-code-block-divider: rgba(255, 244, 230, 0.06);
+  --dsw-specific-sidebar-row-active-fill: rgba(219, 138, 100, 0.13);
+  --dsw-specific-hero-ambient:
+    radial-gradient(ellipse 70% 44% at 50% 0%, rgba(212, 126, 88, 0.1) 0%, rgba(180, 110, 78, 0.035) 48%, transparent 80%);
+  --dsw-specific-composer-focus-stroke: rgba(219, 138, 100, 0.36);
+  --dsw-specific-composer-halo: 0 8px 30px -6px rgba(212, 126, 88, 0.16);
+  --dsw-linear-gradient-think: linear-gradient(180deg, #181614 20.19%, rgba(24, 22, 20, 0) 100%);
+}
+
+/* ---------- 3. Aurora: generous whitespace & luminous ambient glow ---------- */
+body[data-ds-theme-style='aurora'] {
+  --dsw-alias-bg-base: rgb(248, 250, 255);
+  --dsw-alias-bg-layer-1: rgb(255, 255, 255);
+  --dsw-alias-bg-layer-2: rgb(255, 255, 255);
+  --dsw-alias-bg-layer-3: rgb(241, 244, 253);
+  --dsw-alias-bg-module-platform: rgb(239, 243, 254);
+  --dsw-alias-border-l1: rgba(30, 41, 82, 0.04);
+  --dsw-alias-border-l2: rgba(30, 41, 82, 0.08);
+  --dsw-alias-border-l3: rgba(30, 41, 82, 0.09);
+  --dsw-alias-border-l4: rgba(30, 41, 82, 0.13);
+  --dsw-alias-border-selected: rgb(118, 128, 246);
+  --dsw-alias-button-elevated-fill: rgb(255, 255, 255);
+  --dsw-alias-button-floating-fill: rgb(255, 255, 255);
+  --dsw-alias-button-floating-hover: rgb(234, 239, 253);
+  --dsw-alias-button-info-fill: rgb(88, 101, 242);
+  --dsw-alias-button-info-hover: rgb(71, 82, 214);
+  --dsw-alias-card-fill: rgb(255, 255, 255);
+  --dsw-alias-card-fill-hover: rgb(241, 244, 254);
+  --dsw-alias-interactive-bg-hover: rgba(42, 52, 108, 0.055);
+  --dsw-alias-interactive-bg-active: rgba(42, 52, 108, 0.095);
+  --dsw-alias-interactive-bg-hover-solid: rgb(234, 239, 253);
+  --dsw-alias-link: rgb(88, 101, 242);
+  --dsw-alias-markdown-code-block: rgb(242, 245, 253);
+  --dsw-alias-markdown-code-block-banner: rgb(235, 240, 251);
+  --dsw-alias-markdown-inline-code: rgb(238, 242, 252);
+  --dsw-alias-state-business-primary: rgb(88, 101, 242);
+  --dsw-alias-state-business-tertiary: rgb(228, 233, 255);
+  --dsw-specific-sidebar-fill: rgb(239, 243, 253);
+  --dsw-specific-input-major: rgb(255, 255, 255);
+  --dsw-specific-selector: rgb(240, 243, 253);
+  --dsw-specific-tip: rgb(239, 243, 254);
+  --dsw-specific-bubble: rgb(236, 241, 255);
+  --dsw-specific-bubble-border: rgba(99, 102, 241, 0.15);
+  --dsw-specific-code-block-border: rgba(67, 56, 202, 0.07);
+  --dsw-specific-code-block-divider: rgba(67, 56, 202, 0.055);
+  --dsw-specific-sidebar-row-active-fill: rgba(88, 101, 242, 0.095);
+  --dsw-specific-hero-ambient:
+    radial-gradient(ellipse 56% 42% at 36% 4%, rgba(96, 165, 250, 0.12) 0%, transparent 72%),
+    radial-gradient(ellipse 52% 40% at 66% 8%, rgba(139, 92, 246, 0.1) 0%, transparent 72%);
+  --dsw-specific-composer-focus-stroke: rgba(99, 102, 241, 0.42);
+  --dsw-specific-composer-halo:
+    0 8px 32px -6px rgba(99, 102, 241, 0.16),
+    0 2px 12px -2px rgba(56, 189, 248, 0.1);
+  --dsw-linear-gradient-think: linear-gradient(180deg, #f8faff 20.19%, rgba(248, 250, 255, 0) 100%);
+}
+
+body[data-ds-theme-style='aurora'][data-ds-dark-theme] {
+  --dsw-alias-bg-base: rgb(18, 20, 28);
+  --dsw-alias-bg-layer-1: rgb(24, 27, 38);
+  --dsw-alias-bg-layer-2: rgb(29, 33, 46);
+  --dsw-alias-bg-layer-3: rgb(36, 41, 57);
+  --dsw-alias-bg-module-platform: rgb(29, 33, 47);
+  --dsw-alias-border-l1: rgba(199, 210, 254, 0.055);
+  --dsw-alias-border-l2: rgba(199, 210, 254, 0.11);
+  --dsw-alias-border-l3: rgba(199, 210, 254, 0.09);
+  --dsw-alias-border-l4: rgba(199, 210, 254, 0.15);
+  --dsw-alias-border-selected: rgb(139, 142, 255);
+  --dsw-alias-button-elevated-fill: rgb(27, 31, 44);
+  --dsw-alias-button-floating-fill: rgb(29, 33, 46);
+  --dsw-alias-button-floating-hover: rgb(36, 41, 58);
+  --dsw-alias-button-info-fill: rgb(114, 125, 255);
+  --dsw-alias-button-info-hover: rgb(134, 144, 255);
+  --dsw-alias-card-fill: rgb(24, 27, 38);
+  --dsw-alias-card-fill-hover: rgb(31, 35, 49);
+  --dsw-alias-interactive-bg-hover-solid: rgb(36, 41, 58);
+  --dsw-alias-link: rgb(129, 140, 248);
+  --dsw-alias-markdown-code-block: rgb(14, 16, 23);
+  --dsw-alias-markdown-code-block-banner: rgb(22, 25, 36);
+  --dsw-alias-markdown-inline-code: rgb(31, 35, 49);
+  --dsw-alias-state-business-primary: rgb(129, 140, 248);
+  --dsw-alias-state-business-tertiary: rgb(42, 46, 82);
+  --dsw-specific-sidebar-fill: rgb(14, 16, 23);
+  --dsw-specific-input-major: rgb(25, 28, 40);
+  --dsw-specific-selector: rgb(35, 39, 54);
+  --dsw-specific-tip: rgb(29, 33, 47);
+  --dsw-specific-bubble: rgb(30, 35, 58);
+  --dsw-specific-bubble-border: rgba(139, 142, 255, 0.18);
+  --dsw-specific-code-block-border: rgba(165, 180, 252, 0.09);
+  --dsw-specific-code-block-divider: rgba(165, 180, 252, 0.07);
+  --dsw-specific-sidebar-row-active-fill: rgba(129, 140, 248, 0.14);
+  --dsw-specific-hero-ambient:
+    radial-gradient(ellipse 56% 42% at 36% 4%, rgba(56, 189, 248, 0.11) 0%, transparent 72%),
+    radial-gradient(ellipse 52% 40% at 66% 8%, rgba(139, 92, 246, 0.12) 0%, transparent 72%);
+  --dsw-specific-composer-focus-stroke: rgba(139, 142, 255, 0.44);
+  --dsw-specific-composer-halo:
+    0 8px 34px -6px rgba(99, 102, 241, 0.24),
+    0 2px 14px -2px rgba(56, 189, 248, 0.12);
+  --dsw-linear-gradient-think: linear-gradient(180deg, #12141c 20.19%, rgba(18, 20, 28, 0) 100%);
+}
+
+/* macOS vibrancy washes tuned to warm & aurora palettes. */
+html[data-platform='darwin'] body[data-ds-theme-style='warm'] {
+  --dsw-specific-sidebar-tint: color-mix(in srgb, color-mix(in srgb, var(--dsw-specific-sidebar-fill) 96%, rgb(214 158 114)) 42%, transparent);
+  --dsw-specific-sidebar-wash-top: rgb(214 158 114 / 0.1);
+  --dsw-specific-sidebar-wash-top-clear: rgb(214 158 114 / 0);
+  --dsw-specific-sidebar-wash-bottom: rgb(184 142 118 / 0.08);
+  --dsw-specific-sidebar-wash-bottom-clear: rgb(184 142 118 / 0);
+}
+
+html[data-platform='darwin'] body[data-ds-theme-style='aurora'] {
+  --dsw-specific-sidebar-wash-top: rgb(96 165 250 / 0.13);
+  --dsw-specific-sidebar-wash-top-clear: rgb(96 165 250 / 0);
+  --dsw-specific-sidebar-wash-bottom: rgb(139 92 246 / 0.11);
+  --dsw-specific-sidebar-wash-bottom-clear: rgb(139 92 246 / 0);
+}

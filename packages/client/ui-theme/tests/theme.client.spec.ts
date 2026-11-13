@@ -28,6 +28,7 @@ describe('ThemeRuntime', () => {
     const { theme } = make()
     const snapshot = theme.getTheme()
     expect(snapshot.preference).toBe('system')
+    expect(snapshot.style).toBe('craft')
     expect(snapshot.fontSizes.text).toBe(14)
     // jsdom matchMedia is absent; system resolves to light.
     expect(snapshot.active.id).toBe('light')
@@ -36,33 +37,40 @@ describe('ThemeRuntime', () => {
   })
 
   it.each(['light', 'dark', 'system'] as const)('preserves boot preference %s until Host settings arrive', (preference) => {
-    for (const row of bootThemeInjections(preference)) {
+    for (const row of bootThemeInjections(preference, undefined, undefined, 'warm')) {
       if (row.kind === 'script') runInNewContext(row.text, { document })
     }
     try {
       const { theme, host, events } = make()
       expect(theme.getTheme().preference).toBe(preference)
+      expect(theme.getTheme().style).toBe('warm')
       expect({ preference: theme.getTheme().preference, palette: theme.getTheme().active.colorScheme }).toMatchSnapshot()
       expect(events).toEqual([])
       host.publish({ status: 'ready', value: {
-        preference: 'light', fontSize: 14, codeFontSize: 13, terminalFontSize: 13,
+        preference: 'light', style: 'craft', fontSize: 14, codeFontSize: 13, terminalFontSize: 13,
         textFontFamily: '', codeFontFamily: '', terminalFontFamily: '',
       }, revision: 1, writable: true })
       expect(theme.getTheme().preference).toBe('light')
+      expect(theme.getTheme().style).toBe('craft')
       expect(host.set).not.toHaveBeenCalled()
     } finally {
       delete document.documentElement.dataset.dsThemeSource
+      delete document.body.dataset.dsThemeStyle
       document.body.removeAttribute('data-ds-dark-theme')
       document.body.removeAttribute('style')
     }
   })
 
-  it('uses the default when the boot preference is invalid', () => {
+  it('uses the default when the boot preference or style is invalid', () => {
     document.documentElement.dataset.dsThemeSource = 'invalid'
+    document.body.dataset.dsThemeStyle = 'neon'
     try {
-      expect(make().theme.getTheme().preference).toBe('system')
+      const snapshot = make().theme.getTheme()
+      expect(snapshot.preference).toBe('system')
+      expect(snapshot.style).toBe('craft')
     } finally {
       delete document.documentElement.dataset.dsThemeSource
+      delete document.body.dataset.dsThemeStyle
     }
   })
 
@@ -123,7 +131,7 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host font size without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', fontSize: 12, codeFontSize: 15, terminalFontSize: 18, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', style: 'craft', fontSize: 12, codeFontSize: 15, terminalFontSize: 18, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().fontSizes).toEqual({ text: 12, code: 15, terminal: 18 })
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
@@ -153,10 +161,10 @@ describe('ThemeRuntime', () => {
 
   it('adopts published Host font lists, normalizing hand-edited values, without writing them back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: 'Inter', codeFontFamily: '"Fira Code"', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', style: 'craft', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: 'Inter', codeFontFamily: '"Fira Code"', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().fontFamilies).toEqual({ text: '"Inter"', code: '"Fira Code"', terminal: '' })
     expect(events).toHaveLength(1)
-    host.publish({ value: { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '"Inter"', codeFontFamily: 'Fira Code', terminalFontFamily: '' }, revision: 2 })
+    host.publish({ value: { preference: 'system', style: 'craft', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '"Inter"', codeFontFamily: 'Fira Code', terminalFontFamily: '' }, revision: 2 })
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
   })
@@ -177,19 +185,36 @@ describe('ThemeRuntime', () => {
     expect(host.set).toHaveBeenCalledOnce()
   })
 
+  it('setStyle switches, writes through the scope, republishes, and rejects unsupported values', () => {
+    const { theme, events, host } = make()
+    theme.setStyle('aurora')
+    expect(theme.getTheme().style).toBe('aurora')
+    expect(host.set).toHaveBeenCalledWith('style', 'aurora')
+    expect(events).toHaveLength(1)
+    expect(document.body.dataset.dsThemeStyle).toBeUndefined()
+    theme.setStyle('aurora')
+    expect(events).toHaveLength(1)
+    expect(host.set).toHaveBeenCalledOnce()
+    expect(() => { theme.setStyle('neon' as never) }).toThrow('not supported')
+  })
+
   it('adopts a published Host section without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', style: 'warm', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().preference).toBe('dark')
+    expect(theme.getTheme().style).toBe('warm')
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
-    host.publish({ value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 2 })
+    host.publish({ value: { preference: 'dark', style: 'warm', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 2 })
     expect(events).toHaveLength(1)
+    host.publish({ value: { preference: 'dark', style: 'classic', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 3 })
+    expect(theme.getTheme().style).toBe('classic')
+    expect(events).toHaveLength(2)
   })
 
   it('holds its own changes while writes are pending, then converges on the durable section', async () => {
     const { theme, host } = make()
-    const section = { preference: 'system' as const, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
+    const section = { preference: 'system' as const, style: 'craft' as const, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
     host.publish({ status: 'ready', value: section, revision: 1, writable: true })
     const write = Promise.withResolvers<boolean>()
     host.set.mockReturnValue(write.promise)
@@ -204,9 +229,10 @@ describe('ThemeRuntime', () => {
 
   it('adopts a section already standing at construction', () => {
     const host = stubConfigForm<ThemeSettings>()
-    host.publish({ status: 'ready', value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', style: 'aurora', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     const { theme } = make(host)
     expect(theme.getTheme().preference).toBe('dark')
+    expect(theme.getTheme().style).toBe('aurora')
   })
 
   it('throws on unknown setTheme ids, duplicate registration, and the system id', () => {

@@ -29,17 +29,17 @@ import { installIconSprite, type IconReplacements } from './icon-sprite.ts'
 import { installThemeStyles } from './styles.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type ThemeKey } from './locales.ts'
 import {
-  DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_SPECS,
-  fontFamilyVariable, isFontSize, isThemePreference, normalizeFontFamily, sectionFontSizes,
-  THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
-  type FontFamilies, type FontRole, type FontSizes, type ThemePreference, type ThemeSettings,
+  DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, DEFAULT_THEME_STYLE, FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_SPECS,
+  fontFamilyVariable, isFontSize, isThemePreference, isThemeStyle, normalizeFontFamily, sectionFontSizes,
+  THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE, THEME_STYLE_FIELD,
+  type FontFamilies, type FontRole, type FontSizes, type ThemePreference, type ThemeSettings, type ThemeStyle,
 } from '../theme-settings.ts'
 
 export type { AppearanceRowComponentProps, AppearanceRowInjected } from './AppearanceRow.tsx'
 export type { FontSettingsGroupProps, FontSettingsInjected } from './FontSettingsGroup.tsx'
 export type { AppearanceRowState, FontRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
-export type { FontFamilies, FontRole, FontSizes, ThemePreference, ThemeSettings } from '../theme-settings.ts'
+export type { FontFamilies, FontRole, FontSizes, ThemePreference, ThemeSettings, ThemeStyle } from '../theme-settings.ts'
 
 /** Namespace owning this feature's settings-row copy. */
 export const SETTINGS_NS = 'settings.theme'
@@ -100,6 +100,8 @@ export interface ThemeDefinition {
 export interface ThemeSnapshot {
   /** The persisted preference (may be `system`). */
   preference: ThemePreference
+  /** The persisted visual theme style across light and dark palettes. */
+  style: ThemeStyle
   /** Integer px font sizes by role, each within its `FONT_SIZE_SPECS` range (`text` is the conversation content size). */
   fontSizes: FontSizes
   /** Normalized user font lists by role; `''` selects the role's built-in stack. */
@@ -183,6 +185,7 @@ export class ThemeRuntime {
   private readonly host: ConfigForm<ThemeSettings>
   private themes: ThemeDefinition[] = [...BUILTIN_THEMES]
   private preference: ThemePreference
+  private style: ThemeStyle = bootstrapStyle()
   private fontSizes: FontSizes = bootstrapFontSizes()
   private fontFamilies: FontFamilies = bootstrapFontFamilies()
   private revision = 0
@@ -266,6 +269,19 @@ export class ThemeRuntime {
   }
 
   /**
+   * Switch the visual theme style across light and dark modes. Accepted values
+   * are written through the settings scope and emit `theme/change`.
+   * @param style - supported built-in theme style; unknown values throw.
+   */
+  setStyle(style: ThemeStyle): void {
+    if (!isThemeStyle(style)) throw new Error(`theme style "${String(style)}" is not supported`)
+    if (this.style === style) return
+    this.style = style
+    this.write(() => this.host.set(THEME_STYLE_FIELD, style))
+    this.publish()
+  }
+
+  /**
    * Change one role's font size. Accepted
    * values are written through the settings scope and emit `theme/change`.
    * @param role - font role.
@@ -334,8 +350,10 @@ export class ThemeRuntime {
     const fontFamilies = durableFontFamilies(section)
     const fontSizes = sectionFontSizes(section)
     if (this.preference === section.preference
+      && this.style === section.style
       && FONT_ROLES.every(role => this.fontSizes[role] === fontSizes[role] && this.fontFamilies[role] === fontFamilies[role])) return
     this.preference = section.preference
+    this.style = section.style
     this.fontSizes = fontSizes
     this.fontFamilies = fontFamilies
     this.publish()
@@ -407,6 +425,7 @@ export class ThemeRuntime {
     if (active === undefined) throw new Error(`theme registry lost "${resolvedId}"`)
     return Object.freeze({
       preference: this.preference,
+      style: this.style,
       fontSizes: this.fontSizes,
       fontFamilies: this.fontFamilies,
       active: this.composeActive(active),
@@ -445,6 +464,14 @@ function bootstrapPreference(): ThemePreference {
   if (typeof document === 'undefined') return DEFAULT_PREFERENCE
   const preference = document.documentElement.dataset.dsThemeSource
   return isThemePreference(preference) ? preference : DEFAULT_PREFERENCE
+}
+
+/** Preserve the Host boot visual style while the settings scope is loading. */
+function bootstrapStyle(): ThemeStyle {
+  /* v8 ignore next -- documentless client compositions have no boot injection */
+  if (typeof document === 'undefined') return DEFAULT_THEME_STYLE
+  const style = document.body.dataset.dsThemeStyle
+  return isThemeStyle(style) ? style : DEFAULT_THEME_STYLE
 }
 
 /**
@@ -614,7 +641,7 @@ export function apply(ctx: ClientContext): void {
   const fontStore = createFontRowStore()
   let fontBound: BoundActions<typeof fontStore> | undefined
   const sync = (snapshot: ThemeSnapshot): void => {
-    bound?.sync(snapshot.preference, snapshot.revision)
+    bound?.sync(snapshot.preference, snapshot.style, snapshot.revision)
     fontBound?.sync(snapshot.fontSizes, snapshot.fontFamilies, snapshot.revision)
   }
   ctx.on('theme/change', sync)
@@ -625,6 +652,7 @@ export function apply(ctx: ClientContext): void {
     sync(theme.getTheme())
     return {
       setTheme: (id) => { theme.setTheme(id) },
+      setStyle: (style) => { theme.setStyle(style) },
     }
   }
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({

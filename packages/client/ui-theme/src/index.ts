@@ -2,24 +2,28 @@
 import type {} from '@deepseek-ai/dsh-settings'
 
 import type { Volatile } from '@deepseek-ai/cordis'
-import type { ThemePreference } from './theme-settings.ts'
+import type { ThemePreference, ThemeStyle } from './theme-settings.ts'
 import z from '@deepseek-ai/schemastery'
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { bootThemeInjections } from './boot-theme.ts'
-import { DEFAULT_PREFERENCE, FONT_SIZE_SPECS, fontSizeSchema, THEME_PREFERENCES } from './theme-settings.ts'
+import {
+  DEFAULT_PREFERENCE, DEFAULT_THEME_STYLE, FONT_SIZE_SPECS, fontSizeSchema, THEME_PREFERENCES, THEME_STYLES,
+} from './theme-settings.ts'
 
 export {
   DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD, FONT_SIZE_MAX, FONT_SIZE_MIN,
   THEME_PREFERENCE_FIELD, THEME_PREFERENCES, THEME_SETTINGS_NAMESPACE,
-  type ThemePreference, type ThemeSettings,
+  type ThemePreference, type ThemeSettings, type ThemeStyle,
 } from './theme-settings.ts'
 
 /** Runtime preferences projected to the browser. */
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
+  /** Visual theme style across light and dark palettes. */
+  style: Volatile<ThemeStyle>
   /** Browser font size in pixels. */
   fontSize: Volatile<number>
   /** Code-block font size in pixels. */
@@ -37,6 +41,7 @@ export interface Config {
 /** Live theme and typography preferences. */
 export const Config = z.object({
   preference: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE).volatile(),
+  style: z.union([...THEME_STYLES]).default(DEFAULT_THEME_STYLE).volatile(),
   fontSize: fontSizeSchema(FONT_SIZE_SPECS.text).volatile(),
   codeFontSize: fontSizeSchema(FONT_SIZE_SPECS.code).volatile(),
   terminalFontSize: fontSizeSchema(FONT_SIZE_SPECS.terminal).volatile(),
@@ -60,6 +65,6 @@ export function apply(ctx: Context, config: Config): void {
       text: config.textFontFamily.get(),
       code: config.codeFontFamily.get(),
       terminal: config.terminalFontFamily.get(),
-    }))
+    }, config.style.get()))
   }, { prepend: true })
 }

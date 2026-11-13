@@ -36,7 +36,7 @@
   height: calc(24px + var(--dsh-content-font-delta, 0px));
   min-width: 0;
   color: var(--dsw-alias-label-tertiary);
-  transition: color 100ms ease;
+  transition: color 140ms ease;
 }
 
 .row[data-expandable] {
@@ -80,7 +80,7 @@ button.leading {
 .iconIdle {
   display: inline-flex;
   opacity: 1;
-  transition: opacity 100ms ease;
+  transition: opacity 140ms ease;
 }
 
 .chevronHover {
@@ -88,7 +88,7 @@ button.leading {
   inset: 0;
   margin: auto;
   opacity: 0;
-  transition: opacity 100ms ease;
+  transition: opacity 140ms ease;
 }
 
 @media (hover: hover) {
@@ -109,7 +109,9 @@ button.leading {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .row {
+  .row,
+  .iconIdle,
+  .chevronHover {
     transition: none;
   }
 }
