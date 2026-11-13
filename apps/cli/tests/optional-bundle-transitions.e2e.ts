@@ -26,7 +26,6 @@ import { textResponse, toolCallResponse } from '../../../packages/core/agent-loo
 const root = fileURLToPath(new URL('../../..', import.meta.url))
 const installAnchor = join(root, 'apps/cli/package.json')
 const bundles = {
-  search: '@deepseek-ai/dsh-experimental-session-search',
   ralph: '@deepseek-ai/dsh-experimental-ralph-bundle',
   terminal: '@deepseek-ai/dsh-experimental-terminal-bundle',
   badge: '@deepseek-ai/dsh-experimental-badge-skill-bundle',
@@ -173,12 +172,12 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     const standard = await agent()
     expect(names()).toEqual(['team_task_create', 'team_task_get', 'team_task_list', 'team_task_update', 'working_directory'])
     expect(names(minimal.agent)).toEqual([process.platform === 'win32' ? 'pwsh' : 'bash', 'read_image', 'team_task_create', 'team_task_get', 'team_task_list', 'team_task_update', 'working_directory'])
-    for (const name of ['str_replace_editor', 'session_search', 'terminal_open', 'user_terminal_list', 'ralph']) expect(names(standard.agent)).not.toContain(name)
+    expect(names(standard.agent)).toContain('session_search')
+    for (const name of ['str_replace_editor', 'terminal_open', 'user_terminal_list', 'ralph']) expect(names(standard.agent)).not.toContain(name)
     expect((await ctx.skills.list({ cwd: workspace, scope: standard.agent })).some(skill => skill.name === 'dsh-badge')).toBe(false)
   })
 
-  it('generates and executes the PTC SDK for the selected search bundle', async () => {
-    await select(bundles.search, true)
+  it('delivers cross-workspace hybrid session search and PTC SDK bindings on shipped presets by default', async () => {
     const coded = await agent('ptc')
     const native = await agent('cordis')
     const minimal = await agent('minimal')
@@ -186,7 +185,7 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     expect(assembly.tools.map(tool => tool.name)).toEqual(['run_code'])
     expect(assembly.sections.find(section => section.name === 'tools:sdk')?.text).toContain('session_trace')
     expect(names(native.agent)).toContain('session_search')
-    expect(names(minimal.agent)).toContain('session_search')
+    expect(names(minimal.agent)).not.toContain('session_search')
     await turn(coded.agent, 'Read this session lineage through run_code.', [
       toolCallResponse('ptc-search', 'run_code', {
         code: 'inspect(await tools.session_trace({}));',
@@ -195,10 +194,7 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     ])
     expect(toolResult(coded.agent, 'ptc-search')).toContain(coded.agent.session.id)
     expect(coded.agent.session.snapshotEvents().some(event => event.type === 'tool/ptc-dispatch' && event.data.name === 'session_trace')).toBe(true)
-    await select(bundles.search, false)
-  })
 
-  it('searches persisted conversation content only through the selected search bundle', async () => {
     const seed = await agent()
     await turn(seed.agent, 'Remember OPTIONAL_SEARCH_MARKER for a later session.', [textResponse('Recorded the marker.')])
     const seedId = seed.agent.session.id
@@ -210,25 +206,14 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     await mkdir(otherWorkspace)
     const foreign = await agent('standard', otherWorkspace)
     await turn(foreign.agent, 'Keep OPTIONAL_SEARCH_MARKER in the other workspace.', [textResponse('Other marker recorded.')])
-    await select(bundles.search, true)
-    expect(names(live.agent)).toContain('session_search')
     const searcher = await agent()
     await turn(searcher.agent, 'Find the previous marker in session history.', [
       toolCallResponse('search-history', 'session_search', { query: 'OPTIONAL_SEARCH_MARKER' }), textResponse('SEARCH_DONE'),
     ])
     expect(toolResult(searcher.agent, 'search-history')).toContain(seedId)
     expect(toolResult(searcher.agent, 'search-history')).toContain(live.agent.session.id)
-    expect(toolResult(searcher.agent, 'search-history')).not.toContain(foreign.agent.session.id)
+    expect(toolResult(searcher.agent, 'search-history')).toContain(foreign.agent.session.id)
     expect(toolResult(searcher.agent, 'search-history')).toContain('OPTIONAL_SEARCH_MARKER')
-    await select(bundles.search, false)
-    expect(names(searcher.agent)).not.toContain('session_search')
-    expect(names((await agent()).agent)).not.toContain('session_search')
-    const sessionId = searcher.agent.session.id
-    await searcher.dispose()
-    handles.delete(searcher)
-    const reopened = await ctx.agents.resume({ resumeSessionId: sessionId, setup: scoped => ctx.agentPresets.mount(scoped, 'standard').then(() => undefined) })
-    handles.add(reopened)
-    expect(names(reopened.agent)).not.toContain('session_search')
   })
 
   it('loads the actual badge asset only while its bundle is selected', async () => {
@@ -329,25 +314,25 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     expect(titleRequests(restored.agent)[0]?.data.titleProvider).toBe('session-title-first-prompt-llm')
   })
 
-  it('composes all five bundles as global tools across every preset', async () => {
+  it('composes all four bundles as global tools across every preset', async () => {
     for (const name of Object.values(bundles)) await select(name, true)
     let coded: Agent | undefined
     for (const preset of ['standard', 'cordis', 'ptc', 'minimal']) {
       const owner = await agent(preset)
-      expect(names(owner.agent)).toEqual(expect.arrayContaining(['session_search', 'terminal_open', 'user_terminal_read', 'ralph']))
+      expect(names(owner.agent)).toEqual(expect.arrayContaining(['terminal_open', 'user_terminal_read', 'ralph']))
       if (preset === 'ptc') coded = owner.agent
     }
     if (coded === undefined) throw new Error('the PTC Agent was not created')
     await turn(coded, 'Read this session lineage and load the badge through one program.', [
       toolCallResponse('combined-program', 'run_code', {
         code: 'inspect(await tools.session_trace({})); inspect(await tools.skill({ name: "dsh-badge" }));',
-        description: 'Use optional session search and badge together',
+        description: 'Use session trace and optional badge together',
       }), textResponse('COMBINED_DONE'),
     ])
     expect(toolResult(coded, 'combined-program')).toContain(coded.session.id)
     expect(toolResult(coded, 'combined-program')).toContain('dsh-badge')
-    expect(names()).toEqual(expect.arrayContaining(['session_search', 'terminal_open', 'ralph', 'working_directory']))
+    expect(names()).toEqual(expect.arrayContaining(['terminal_open', 'ralph', 'working_directory']))
     for (const name of [...Object.values(bundles)].reverse()) await select(name, false)
-    expect(names((await agent()).agent)).not.toContain('session_search')
+    expect(names((await agent('minimal')).agent)).not.toContain('terminal_open')
   })
 })

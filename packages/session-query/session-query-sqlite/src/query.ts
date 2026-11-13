@@ -12,6 +12,7 @@ import type {
   SessionEventSearchRequest,
   SessionResultFilter,
   SessionSearchCursor,
+  SessionSearchMode,
   SessionSearchRequest,
 } from '@deepseek-ai/dsh-session-query'
 
@@ -66,6 +67,7 @@ export interface QueryLimits {
 /** Normalized cross-session request. */
 export interface NormalizedSessionRequest {
   query: string
+  mode?: SessionSearchMode
   sessionFilters: readonly SessionResultFilter[]
   eventFilters: readonly SessionEventMetadataFilter[]
   limit: number
@@ -76,6 +78,7 @@ export interface NormalizedSessionRequest {
 export interface NormalizedEventRequest {
   sessionId: SessionEventSearchRequest['sessionId']
   query: string
+  mode?: SessionSearchMode
   filters: readonly SessionEventMetadataFilter[]
   limit: number
   cursor?: SessionSearchCursor
@@ -101,11 +104,13 @@ export function normalizeSessionRequest(
   request: SessionSearchRequest,
   limits: QueryLimits,
 ): NormalizedSessionRequest {
+  const mode = normalizeMode(request.mode)
   const sessionFilters = materializeSessionResultFilters(request.sessionFilters ?? [])
   const eventFilters = materializeMetadataFilters(request.eventFilters ?? [])
   const cursor = materializeCursor(request.cursor)
   return {
     query: normalizeQuery(request.query),
+    ...mode === undefined ? {} : { mode },
     sessionFilters,
     eventFilters,
     limit: normalizeLimit(request.limit, limits),
@@ -126,11 +131,13 @@ export function normalizeEventRequest(
   if (typeof request.sessionId !== 'string') {
     throw new SessionQueryError('session-search session id must be text', 'SESSION_QUERY_INVALID_FILTER')
   }
+  const mode = normalizeMode(request.mode)
   const filters = materializeMetadataFilters(request.filters ?? [])
   const cursor = materializeCursor(request.cursor)
   return {
     sessionId: request.sessionId,
     query: normalizeQuery(request.query),
+    ...mode === undefined ? {} : { mode },
     filters,
     limit: normalizeLimit(request.limit, limits),
     ...cursor === undefined ? {} : { cursor },
@@ -239,14 +246,23 @@ export function sanitizeFtsText(text: string): string {
 /**
  * Build the stable normalized request identity stored in opaque cursors.
  * @param request - normalized request whose filter ordering is canonicalized.
+ * @param runtimeIdentity - optional provider/model identity when hybrid dense ranking is active.
  * @returns deterministic JSON identity for cursor binding.
  */
-export function requestFingerprint(request: NormalizedSessionRequest | NormalizedEventRequest): string {
+export function requestFingerprint(
+  request: NormalizedSessionRequest | NormalizedEventRequest,
+  runtimeIdentity?: string,
+): string {
+  const effectiveMode = request.mode ?? 'phrase'
+  const modeEntry = effectiveMode === 'phrase' ? {} : { mode: effectiveMode }
+  const runtimeEntry = runtimeIdentity === undefined ? {} : { runtime: runtimeIdentity }
   if ('sessionId' in request) {
     return JSON.stringify({
       scope: 'events',
       sessionId: request.sessionId,
       query: request.query,
+      ...modeEntry,
+      ...runtimeEntry,
       filters: canonicalFilters(request.filters),
       limit: request.limit,
     })
@@ -254,6 +270,8 @@ export function requestFingerprint(request: NormalizedSessionRequest | Normalize
   return JSON.stringify({
     scope: 'sessions',
     query: request.query,
+    ...modeEntry,
+    ...runtimeEntry,
     sessionFilters: canonicalFilters(request.sessionFilters),
     eventFilters: canonicalFilters(request.eventFilters),
     limit: request.limit,
@@ -333,6 +351,16 @@ function normalizeQuery(value: string): string {
     )
   }
   return sanitizeFtsText(query)
+}
+
+function normalizeMode(mode: SessionSearchMode | undefined): SessionSearchMode | undefined {
+  if (mode === undefined) return undefined
+  const candidate: unknown = mode
+  if (candidate === 'phrase' || candidate === 'lexical' || candidate === 'hybrid') return candidate
+  throw new SessionQueryError(
+    `session-search mode "${String(candidate)}" is not supported; expected "phrase", "lexical", or "hybrid"`,
+    'SESSION_QUERY_INVALID_QUERY',
+  )
 }
 
 function materializeCursor(cursor: SessionSearchCursor | undefined): SessionSearchCursor | undefined {

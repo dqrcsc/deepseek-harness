@@ -37,6 +37,8 @@
             name: '@deepseek-ai/dsh-tool-jobs'
           - id: tool-schedule
             name: '@deepseek-ai/dsh-tool-schedule'
+          - id: tool-session-query
+            name: '@deepseek-ai/dsh-tool-session-query'
           - id: skill-filesystem
             name: '@deepseek-ai/dsh-skill-filesystem'
             config:

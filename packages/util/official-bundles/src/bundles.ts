@@ -39,6 +39,9 @@ export const RETIRED_BUNDLES: ReadonlySet<string> = new Set([
   // ([upgrade guide](../../../../docs/upgrade-guide/v0.2.0-rc.2/schedule-bundle-retired/guide.md)).
   '@deepseek-ai/dsh-experimental-schedule-bundle',
   '@deepseek-ai/dsh-experimental-agent-team-profile',
+  // Base and Web presets mount persistent hybrid session recall by default
+  // ([upgrade guide](../../../../docs/upgrade-guide/v0.2.2-rc.2/session-search-bundle-retired/guide.md)).
+  '@deepseek-ai/dsh-experimental-session-search',
 ])
 
 /** The bundle list a `dsh plugin` init uses for a name with no shipped template. */
@@ -56,7 +59,6 @@ export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-bas
 export const OPTIONAL_BUNDLES: readonly string[] = [
   '@deepseek-ai/dsh-personalized-recommendations',
   '@deepseek-ai/dsh-cua-bundle',
-  '@deepseek-ai/dsh-experimental-session-search',
   '@deepseek-ai/dsh-experimental-ralph-bundle',
   '@deepseek-ai/dsh-experimental-terminal-bundle',
   '@deepseek-ai/dsh-experimental-badge-skill-bundle',

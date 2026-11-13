@@ -413,7 +413,7 @@
     },
     {
       "name": "session_search",
-      "description": "Search prior sessions in the caller workspace and return the strongest matching event from each session.",
+      "description": "Search prior sessions across workspaces and return the strongest matching event from each session.",
       "parameters": {
         "type": "object",
         "properties": {

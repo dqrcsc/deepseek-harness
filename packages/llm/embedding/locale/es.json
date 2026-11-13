@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Incrustaciones de texto",
+    "description": "Calcula incrustaciones de texto densas normalizadas mediante proveedores registrados o HTTP compatibles con OpenAI."
+  }
+}

@@ -1143,6 +1143,38 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'embedding',
+    summary: 'Runtime service coordinating dense text embedding providers and batch normalization.',
+    description: 'Runtime service coordinating dense text embedding providers and batch normalization.',
+    methods: [
+      {
+        signature: 'isAvailable(): boolean',
+        description: 'Report whether an active embedding provider is registered or configured.',
+        parameters: [],
+        returns: '`true` when {@link embed} can serve requests; `false` when callers should fall back to lexical ranking.',
+      },
+      {
+        signature: 'activeModelId(): string | undefined',
+        description: 'Return the active provider\'s stable model identifier, or `undefined` when unavailable.',
+        parameters: [],
+        returns: 'active `modelId` string, or `undefined`.',
+      },
+      {
+        signature: 'registerProvider(provider: EmbeddingProvider): () => void',
+        description: 'Register a custom EmbeddingProvider bound to the caller\'s fiber lifetime. The most recently registered live provider takes precedence over the configured HTTP fallback.',
+        parameters: [{ name: 'provider', description: 'provider implementation to activate.' }],
+        returns: 'disposer removing this provider registration.',
+      },
+      {
+        signature: 'async embed(texts: readonly string[], options?: EmbedOptions): Promise<EmbeddingResult>',
+        description: 'Embed an ordered list of non-empty texts in bounded batches and L2-normalize every vector.',
+        parameters: [{ name: 'texts', description: 'non-empty list of non-whitespace texts to embed.' }, { name: 'options', description: 'optional cancellation signal.' }],
+        returns: 'normalized `Float32Array` vectors and their shared model/dimension metadata.',
+        throws: ['{@link EmbeddingError} when no provider is configured, input is invalid, aborted, or the provider fails.'],
+      },
+    ],
+  },
+  {
     key: 'fileReferences',
     summary: 'Host capability for cancellable file-reference discovery.',
     description: 'Host capability for cancellable file-reference discovery.',
@@ -6678,6 +6710,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface EditGoalRequest {\n    readonly objective?: string;\n    readonly maxGoalRounds?: number;\n}',
   },
   {
+    name: 'EmbeddingProvider',
+    declaration: 'export interface EmbeddingProvider {\n    readonly modelId: string;\n    embed(texts: readonly string[], options?: EmbedOptions): Promise<readonly (readonly number[] | Float32Array)[]>;\n}',
+  },
+  {
+    name: 'EmbeddingResult',
+    declaration: 'export interface EmbeddingResult {\n    readonly modelId: string;\n    readonly dimensions: number;\n    readonly vectors: readonly Float32Array[];\n}',
+  },
+  {
+    name: 'EmbedOptions',
+    declaration: 'export interface EmbedOptions {\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
     name: 'EncodedFileAttachment',
     declaration: 'export interface EncodedFileAttachment {\n    data: string;\n    name?: string;\n}',
   },
@@ -8903,7 +8947,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionEventSearchRequest',
-    declaration: 'export interface SessionEventSearchRequest {\n    sessionId: SessionId;\n    query: string;\n    filters?: readonly SessionEventMetadataFilter[];\n    limit?: number;\n    cursor?: SessionSearchCursor;\n}',
+    declaration: 'export interface SessionEventSearchRequest {\n    sessionId: SessionId;\n    query: string;\n    mode?: SessionSearchMode;\n    filters?: readonly SessionEventMetadataFilter[];\n    limit?: number;\n    cursor?: SessionSearchCursor;\n}',
   },
   {
     name: 'SessionEventsPage',
@@ -9248,6 +9292,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionSearchItem',
     declaration: 'export interface SessionSearchItem {\n    readonly sessionId: SessionId;\n    readonly snippet: string;\n}',
+  },
+  {
+    name: 'SessionSearchMode',
+    declaration: 'export type SessionSearchMode = \'phrase\' | \'lexical\' | \'hybrid\';',
   },
   {
     name: 'SessionSearchPage',

@@ -5,10 +5,13 @@ import { mkdir, open } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 /** Current derived-index schema version. Incompatible versions reset in place. */
-export const SESSION_QUERY_SQLITE_SCHEMA_VERSION = 8
+export const SESSION_QUERY_SQLITE_SCHEMA_VERSION = 9
 
 /** SQLite application id protecting unrelated databases from derived resets. */
 export const SESSION_QUERY_SQLITE_APPLICATION_ID = 0x44534851
+
+/** Default SQLite busy timeout in milliseconds for concurrent multi-process access. */
+export const SESSION_QUERY_SQLITE_DEFAULT_BUSY_TIMEOUT_MS = 5_000
 
 /** Supported SQLite journal modes. */
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
@@ -16,6 +19,7 @@ export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 const DERIVED_USER_TABLES = new Set([
   'search_state',
   'persisted_sessions',
+  'persisted_embeddings',
   'persisted_docs',
   'persisted_docs_data',
   'persisted_docs_idx',
@@ -41,9 +45,14 @@ async function createDatabaseFile(path: string): Promise<void> {
  * Open, validate, and initialize persistent and connection-local schemas.
  * @param path - dedicated derived-index path or `:memory:`; missing filesystem paths are created owner-only.
  * @param journalMode - validated SQLite journal mode.
+ * @param busyTimeoutMs - validated non-negative SQLite busy timeout in milliseconds.
  * @returns initialized database handle owned by the search service.
  */
-export async function openSearchDatabase(path: string, journalMode: JournalMode): Promise<DatabaseSync> {
+export async function openSearchDatabase(
+  path: string,
+  journalMode: JournalMode,
+  busyTimeoutMs: number = SESSION_QUERY_SQLITE_DEFAULT_BUSY_TIMEOUT_MS,
+): Promise<DatabaseSync> {
   const actual = path === ':memory:' ? path : resolve(path)
   if (actual !== ':memory:') {
     await mkdir(dirname(actual), { recursive: true, mode: 0o700 })
@@ -66,8 +75,9 @@ export async function openSearchDatabase(path: string, journalMode: JournalMode)
       if (version !== SESSION_QUERY_SQLITE_SCHEMA_VERSION) resetDerivedSchema(db, userTables)
     }
     // Apply mutating pragmas only after refusing foreign or canonical files.
-    // journalMode is a validated closed union, not caller-controlled SQL.
+    // journalMode and busyTimeoutMs are validated configuration primitives, not caller-controlled SQL.
     db.exec(`PRAGMA journal_mode = ${journalMode.toUpperCase()}`)
+    db.exec(`PRAGMA busy_timeout = ${busyTimeoutMs}`)
     ensurePersistentSchema(db)
     ensureTemporarySchema(db)
     return db
@@ -126,6 +136,7 @@ function ensurePersistentSchema(db: DatabaseSync): void {
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS persisted_docs USING fts5(
       text,
+      segmented_text,
       session_id UNINDEXED,
       seq UNINDEXED,
       type UNINDEXED,
@@ -134,6 +145,17 @@ function ensurePersistentSchema(db: DatabaseSync): void {
       codepoint_length UNINDEXED,
       tokenize = 'unicode61'
     )
+  `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS persisted_embeddings (
+      session_id TEXT NOT NULL,
+      seq        INTEGER NOT NULL,
+      model_id   TEXT NOT NULL,
+      text_hash  TEXT NOT NULL,
+      dims       INTEGER NOT NULL,
+      vector     BLOB NOT NULL,
+      PRIMARY KEY (session_id, seq, model_id)
+    ) STRICT
   `)
   db.exec(`PRAGMA user_version = ${SESSION_QUERY_SQLITE_SCHEMA_VERSION}`)
 }
@@ -157,6 +179,7 @@ function ensureTemporarySchema(db: DatabaseSync): void {
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS temp.live_docs USING fts5(
       text,
+      segmented_text,
       session_id UNINDEXED,
       seq UNINDEXED,
       type UNINDEXED,

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Incorporações de texto",
+    "description": "Calcula incorporações densas de texto normalizadas por meio de provedores registrados ou HTTP compatíveis com OpenAI."
+  }
+}

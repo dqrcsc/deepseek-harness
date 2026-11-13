@@ -27,7 +27,8 @@ Each package README describes what you can do with its part of the family.
 | Package | Role | ctx key |
 |---|---|---|
 | [`session-query/`](session-query/README.md) | Unified session-history query service: exact reads, relationship traces, and filters | `ctx.sessionQuery` |
-| [`session-query-sqlite/`](session-query-sqlite/README.md) | Full-text search across session history backed by a SQLite FTS5 index | registers on `ctx.sessionQuery` |
+| [`session-query-sqlite/`](session-query-sqlite/README.md) | Hybrid full-text and optional vector search across session history backed by SQLite FTS5 | registers on `ctx.sessionQuery` |
+| [`tool-session-query/`](tool-session-query/README.md) | Model-facing session search, relationship trace, and event read tools | registers on `ctx.tools` |
 | [`session-log-export/`](session-log-export/README.md) | Web `/export` command and browser download of a session ZIP | `ctx.sessionLogDownload` (browser) |
 
 -----
@@ -35,9 +36,9 @@ Each package README describes what you can do with its part of the family.
 <a id="related-documentation"></a>
 ## Related documentation
 
-Start with the subsystem reference for the shared query vocabulary, then the design records behind tracing and search.
+Start with the subsystem reference for the shared query types, then the design records behind tracing and search.
 
-The default Web and Desktop use this shared query, index, and export infrastructure. The [experimental model-facing tools](../experimental/tool-session-query/README.md) are a separate optional consumer.
+The default Web and Desktop compositions mount this shared query, hybrid index, model-facing recall toolset, and export infrastructure.
 
 - [Session Query subsystem reference](../../docs/subsystems/session-query.md) — logical records, filters, search pages, lineage, bounded reads, and event relationships.
 - [Session query relationship tracing](../../.agents/notes/archived/feature/2026-07-13-session-query-tracing.md) — trace semantics and the validation boundary.

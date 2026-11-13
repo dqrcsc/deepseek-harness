@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Use this package to add ranked SQLite FTS5 search across session history, either across sessions or within one session, with cursor pagination. It indexes live and persisted history in a separate derived database, so searches reflect current state without modifying the session-persistence store. Exact reads, filters, and traces remain available through the same query API. Search is opt-in in shipped compositions; configure `openAt` to open the index at startup, on first search, or never. Results match tokens and phrases rather than arbitrary substrings, and each index path has a single process owner.
+Use this package to add ranked SQLite FTS5 and optional dense-vector hybrid search across session history, either across sessions or within one session, with cursor pagination. It indexes live and persisted history in a separate derived database, so searches reflect current state without modifying the session-persistence store. Exact reads, filters, and traces remain available through the same query API. Shipped compositions mount a persistent derived index with `openAt: first-search`, supporting exact `phrase`, multilingual `lexical`, and RRF `hybrid` search modes out of the box.
 
 ## Table of Contents
 
@@ -45,9 +45,13 @@ Choose it when you want full-text recall over prior sessions with ranking and pa
 | `path` | required | Dedicated derived-index SQLite path, or `:memory:`; missing paths are created owner-only on POSIX |
 | `openAt` | `startup` | `startup` opens at activation; `first-search` defers the SQLite module until the first search; `never` disables full-text search while inherited reads stay available |
 | `journalMode` | `wal` | `wal`, `delete`, `truncate`, or `persist` |
+| `busyTimeoutMs` | `5000` | SQLite lock wait timeout in milliseconds across processes sharing a derived index |
 | `defaultLimit` | `20` | Page size when a request omits `limit` |
 | `maxLimit` | `100` | Largest accepted request page size |
 | `snippetChars` | `240` | Maximum snippet length in Unicode code points |
+| `maxEmbedDocsPerSearch` | `48` | Maximum uncached candidate events embedded per `hybrid` search call |
+| `maxSemanticCandidates` | `200` | Recent candidate events inspected for dense vector similarity in `hybrid` mode |
+| `minVectorScore` | `0.25` | Minimum cosine similarity required for a pure semantic match in `hybrid` mode |
 | `readWindowMax` | `50` | Maximum `before`/`after` raw events for the inherited `readEvent()` |
 | `persistedReadConcurrency` | `4` | Concurrent persisted-log reads for inherited batch reads |
 | `preparedSessionCacheSize` | `5` | Cold prepared-Session observations the inherited `observeSession` reader retains for reuse |
@@ -56,7 +60,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 ### Search behavior
 
-`searchSessions` searches the whole corpus and groups results by each session's strongest matching event; `searchEvents` searches one logical session. Queries are literal phrases: they are trimmed and whitespace-normalized, and FTS5 syntax such as quotes, `OR`, `NEAR`, and `*` is treated as data, never as executable query syntax. Metadata filters (session id, cwd, created-at, parent, availability, event seq/time/type/surface) narrow results before ranking. All `current`, `shadowed`, and `log-only` events are searchable by default; pass a surface filter to narrow.
+`searchSessions` searches the whole corpus and groups results by each session's strongest matching event; `searchEvents` searches one logical session. Requests accept `mode: 'phrase' | 'lexical' | 'hybrid'` (default `'phrase'`): `phrase` matches exact FTS5 token sequences; `lexical` segments Latin words plus CJK unigrams and bigrams with `Intl.Segmenter` and ranks with BM25 plus exact-phrase boost; `hybrid` fuses `lexical` ranks with cosine similarity from optional `ctx.embedding` via Reciprocal Rank Fusion (`k = 60`), degrading automatically to `lexical` when no embedding provider is active. FTS5 syntax in queries is always treated as data. Metadata filters narrow results before ranking, and all `current`, `shadowed`, and `log-only` events are searchable by default.
 
 Ranking is deterministic: more actual FTS5 highlighted-match spans first, then shorter documents, with event time, session id, and seq breaking ties. Results carry plain-text snippets bounded by `snippetChars` Unicode code points, with no provider-specific numeric score. Pages continue through an opaque `SessionSearchCursor` bound to the exact normalized request; a cursor becomes stale when its relevant corpus changes (`SESSION_QUERY_STALE_CURSOR`), and a within-session cursor survives changes to unrelated sessions while a cross-session cursor does not.
 
@@ -96,6 +100,8 @@ The design history lives in the [SQLite FTS5 session search note](../../../.agen
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Service: config, openAt lifecycle, serialized reconciliation, query execution, cursors |
+| [`src/hybrid.ts`](src/hybrid.ts) | Lexical BM25 + dense vector RRF fusion, incremental vector backfill, float32 codec |
+| [`src/segmenter.ts`](src/segmenter.ts) | Multilingual `Intl.Segmenter` word and CJK unigram/bigram query and document segmentation |
 | [`src/query.ts`](src/query.ts) | Request normalization, parameterized predicates, snippets, predicate and binding budgets |
 | [`src/schema.ts`](src/schema.ts) | Database schema, application-id ownership, in-place reset, owner-only file creation |
 
@@ -105,7 +111,7 @@ Persisted FTS rows live in a dedicated derived database and survive restarts; li
 
 ### Schema ownership
 
-The database carries an application id and schema version 8. Opening refuses a file owned by another application or a canonical database, rejects unknown user tables, and only a recognized incompatible derived schema resets in place — so an unrelated or session-persistence database is never touched. On POSIX filesystems, missing directories and database files are created owner-only (`0700` and `0600` before the process umask). Exactly one service in one process owns a derived-index path; generations and TEMP shadow state are connection-owned.
+The database carries an application id and schema version 9 (including `segmented_text` FTS5 columns and `persisted_embeddings` vector cache rows), and applies `PRAGMA busy_timeout` on open. Opening refuses a file owned by another application or a canonical database, rejects unknown user tables, and only a recognized incompatible derived schema resets in place — so an unrelated or session-persistence database is never touched. On POSIX filesystems, missing directories and database files are created owner-only (`0700` and `0600` before the process umask). Generations and TEMP live-session shadow state remain connection-owned.
 
 </details>
 
@@ -118,7 +124,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 - [Session Query subsystem reference](../../../docs/subsystems/session-query.md) — the full type-level contract this backend implements.
 - [dsh-session-query](../session-query/README.md) — the service definition: exact reads, filters, and traces this backend inherits.
-- [dsh-tool-session-query](../../experimental/tool-session-query/README.md) — the model-facing consumer that calls these search methods.
+- [dsh-tool-session-query](../tool-session-query/README.md) — the model-facing consumer that calls these search methods.
 - [SQLite FTS5 session search](../../../.agents/notes/archived/feature/2026-07-10-sqlite-session-query-provider.md) — search semantics, reconciliation, and the tokenizer decision.
 - [JSONL session persistence](../../session/session-persistence-jsonl/README.md) — the authoritative Session store this disposable index observes; keep its root separate from this package's database path.
 

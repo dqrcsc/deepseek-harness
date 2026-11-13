@@ -1255,7 +1255,6 @@ describe('PluginManagerPage', () => {
           pkg({ name: '@deepseek-ai/dsh-subagent-claude-code', official: true, availability: 'missing', installed: false, enabled: false }),
           pkg({ name: '@deepseek-ai/dsh-subagent-codex', official: true, enabled: false }),
           pkg({ name: '@deepseek-ai/dsh-experimental-tool-worktree', official: true, enabled: false }),
-          pkg({ name: '@deepseek-ai/dsh-experimental-session-search', installed: false, optional: true, enabled: false, listedByDefault: false }),
           pkg({ name: '@deepseek-ai/dsh-experimental-ralph-bundle', installed: false, optional: true, enabled: false, listedByDefault: false }),
           pkg({ name: '@acme/new-official', official: true }),
           pkg(),
@@ -1319,7 +1318,6 @@ describe('PluginManagerPage', () => {
     })
 
     it.each([
-      '@deepseek-ai/dsh-experimental-session-search',
       '@deepseek-ai/dsh-experimental-ralph-bundle',
       '@acme/shipped-exploration',
     ])('omits %s from default lists while retaining explicit profile selections and installations', (name) => {

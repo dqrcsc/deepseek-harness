@@ -958,6 +958,32 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-deepseek-account -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-embedding -->
+<a id="deepseek-aidsh-embedding"></a>
+
+## `@deepseek-ai/dsh-embedding`
+
+- `source`: [`packages/llm/embedding/src/types.ts:58`](../packages/llm/embedding/src/types.ts)
+
+```ts config-catalog
+/** Deployment configuration for `ctx.embedding` and its optional OpenAI-compatible HTTP endpoint. */
+export interface Config {
+  /** Base URL of an OpenAI-compatible HTTP API (for example `http://127.0.0.1:11434/v1`). Omit to leave HTTP embeddings unconfigured. */
+  readonly baseUrl?: string
+  /** Embedding model identifier sent to `POST {baseUrl}/embeddings`. Required when `baseUrl` is set. */
+  readonly model?: string
+  /** Optional bearer token sent in the `Authorization` header. */
+  readonly apiKey?: string
+  /** Optional explicit output dimensionality passed as `dimensions` in the JSON body. */
+  readonly dimensions?: number
+  /** Maximum number of texts sent in a single provider batch. Defaults to 32. */
+  readonly maxBatchSize?: number
+  /** Per-batch HTTP timeout in milliseconds. Defaults to 30000. */
+  readonly timeoutMs?: number
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-embedding -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-api-speech-to-text -->
 <a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
 
@@ -3281,7 +3307,7 @@ export interface Config {
 
 - `inject`: `sessions`
 - `refs`: [`SessionQueryConfig`](../packages/session-query/session-query/src/index.ts)
-- `source`: [`packages/session-query/session-query-sqlite/src/index.ts:92`](../packages/session-query/session-query-sqlite/src/index.ts)
+- `source`: [`packages/session-query/session-query-sqlite/src/index.ts:126`](../packages/session-query/session-query-sqlite/src/index.ts)
 
 ```ts config-catalog
 /** Combined session-query configuration backed by SQLite full-text search. */
@@ -3302,12 +3328,20 @@ export interface Config extends SessionQueryConfig {
   openAt?: OpenAt
   /** SQLite journal mode. Defaults to `wal`. */
   journalMode?: JournalMode
+  /** SQLite busy timeout in milliseconds for concurrent multi-process access. Defaults to 5000. */
+  busyTimeoutMs?: number
   /** Page size when a request omits `limit`. At most `Number.MAX_SAFE_INTEGER - 1`; defaults to 20. */
   defaultLimit?: number
   /** Largest accepted page size. At most `Number.MAX_SAFE_INTEGER - 1`; defaults to 100. */
   maxLimit?: number
   /** Maximum snippet length in Unicode code points. Defaults to 240. */
   snippetChars?: number
+  /** Maximum unembedded candidate documents backfilled during one hybrid search. Defaults to 64. */
+  maxEmbedDocsPerSearch?: number
+  /** Maximum recent documents evaluated for dense vector retrieval per hybrid search. Defaults to 500. */
+  maxSemanticCandidates?: number
+  /** Minimum cosine similarity in `[-1, 1]` required for dense vector hits. Defaults to 0.2. */
+  minVectorScore?: number
   /** Maximum concurrent persisted-log reads in one inherited batch read. Defaults to 4. */
   persistedReadConcurrency?: number
   /** Maximum cold prepared-Session observations the inherited reader retains for reuse. Defaults to 5. */
@@ -4520,16 +4554,24 @@ export interface Config {
 ## `@deepseek-ai/dsh-tool-session-query`
 
 - `inject`: `tools` · `systemPrompt` · `sessionQuery` · `agents`
-- `source`: [`packages/experimental/tool-session-query/src/index.ts:28`](../packages/experimental/tool-session-query/src/index.ts)
+- `refs`: [`SessionSearchMode`](subsystems/session-query.zh.md)
+- `source`: [`packages/session-query/tool-session-query/src/index.ts:38`](../packages/session-query/tool-session-query/src/index.ts)
 
 ```ts config-catalog
-/** Deployment-owned search count and timeout bounds. */
+/** Deployment-owned search count, timeout, workspace scope, and search mode bounds. */
 export interface Config {
   /** Maximum authorized hits returned by one search call. Defaults to 100. */
   maxSearchResults?: number
   /** Cooperative full-text search deadline in milliseconds. Defaults to 30000. */
   searchTimeoutMs?: number
+  /** Cross-session workspace boundary (`cross-workspace` or `same-workspace`). Defaults to `cross-workspace`. */
+  workspaceScope?: WorkspaceScope
+  /** Query ranking mode (`phrase`, `lexical`, or `hybrid`). Defaults to `hybrid`. */
+  searchMode?: SessionSearchMode
 }
+
+/** Workspace boundary applied to cross-session search, trace, and read tools. */
+export type WorkspaceScope = 'cross-workspace' | 'same-workspace'
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-session-query -->
 
@@ -5261,7 +5303,6 @@ export interface Config {
 | `@deepseek-ai/dsh-experimental-liveshare-protocol` | — | [`packages/experimental/liveshare-protocol/src/index.ts`](../packages/experimental/liveshare-protocol/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-plugin-market-bundle` | — | [`packages/experimental/plugin-market-bundle/src/index.ts`](../packages/experimental/plugin-market-bundle/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-ralph-bundle` | — | [`packages/experimental/ralph-bundle/src/index.ts`](../packages/experimental/ralph-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-session-search` | — | [`packages/experimental/session-search/src/index.ts`](../packages/experimental/session-search/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-session-titles-bundle` | — | [`packages/experimental/session-titles-bundle/src/index.ts`](../packages/experimental/session-titles-bundle/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-terminal-bundle` | — | [`packages/experimental/terminal-bundle/src/index.ts`](../packages/experimental/terminal-bundle/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-voice-input-bundle` | — | [`packages/experimental/voice-input-bundle/src/index.ts`](../packages/experimental/voice-input-bundle/src/index.ts) |

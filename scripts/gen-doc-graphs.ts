@@ -300,6 +300,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Adapters register provider implementations; the loop and compaction call the provider-neutral stream service.',
   },
   {
+    key: 'embedding',
+    pkg: 'embedding',
+    title: 'Dense text embedding seam',
+    mode: 'seam',
+    implementations: ['embedding'],
+    consumers: ['session-query-sqlite'],
+    note: 'Providers register dense vector models or use the optional OpenAI-compatible HTTP adapter; hybrid search falls back to lexical BM25 when unconfigured.',
+  },
+  {
     key: 'sessionLogDeepSeek',
     pkg: 'session-log-deepseek',
     title: 'Session-log upload policy',
