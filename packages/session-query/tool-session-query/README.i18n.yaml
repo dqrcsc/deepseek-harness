@@ -1,0 +1,100 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/session-query/tool-session-query/README.md
+/:
+  en: c37af48d623fa5fd
+  zh: 28229ee024157ec8
+/deepseek-ai-dsh-tool-session-query:
+  en: e54233a0061ef78e
+  zh: b4569dd1d15f313b
+/deepseek-ai-dsh-tool-session-query/summary:
+  en: 88849d40fd038652
+  zh: d47238ccd733f314
+/deepseek-ai-dsh-tool-session-query/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-tool-session-query/use-this-package:
+  en: 254da5383deef146
+  zh: ed2987972006e180
+/deepseek-ai-dsh-tool-session-query/use-this-package/when-to-choose-it:
+  en: 0b2e358d20e04a0b
+  zh: 51a0d0870e41b96e
+/deepseek-ai-dsh-tool-session-query/use-this-package/configuration:
+  en: a93524ea856838d4
+  zh: dc14aee1971bdc10
+/deepseek-ai-dsh-tool-session-query/use-this-package/what-the-model-can-do:
+  en: 222240c01719f801
+  zh: 3108d3f739d246c4
+/deepseek-ai-dsh-tool-session-query/use-this-package/failures-and-recovery:
+  en: 60a3ae7461ce733a
+  zh: ea66f1ed1b26339b
+/deepseek-ai-dsh-tool-session-query/understand-the-implementation:
+  en: 92e7ecd62603c216
+  zh: 164acba94a592205
+/deepseek-ai-dsh-tool-session-query/understand-the-implementation/design-philosophy:
+  en: b51a517db56f07f2
+  zh: 5bf52f893f204a2e
+/deepseek-ai-dsh-tool-session-query/understand-the-implementation/source-map:
+  en: d70aeb7767358ee8
+  zh: adc8800cfff49664
+/deepseek-ai-dsh-tool-session-query/understand-the-implementation/operation-flow:
+  en: b489dd9d714ea46a
+  zh: f59cb307c15c154d
+/deepseek-ai-dsh-tool-session-query/further-exploration:
+  en: 3a95c5ddbb4d9223
+  zh: 47a676da16688e76
+/deepseek-ai-dsh-tool-session-query/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-tool-session-query/model-experience/system-prompt:
+  en: cf78b9dd5596495f
+  zh: bd44560f8c2435e8
+/deepseek-ai-dsh-tool-session-query/model-experience/system-prompt/what-the-model-sees:
+  en: 58d99b309dfb2c15
+  zh: 7cccd6bcb78d6f87
+/deepseek-ai-dsh-tool-session-query/model-experience/system-prompt/what-the-model-sees/cross-workspace-guidance:
+  en: 25cc8df6ac510c5f
+  zh: c42f38b3da2af736
+/deepseek-ai-dsh-tool-session-query/model-experience/system-prompt/what-the-model-sees/same-workspace-guidance:
+  en: e10b28a4137013c8
+  zh: 51e14a695087d020
+/deepseek-ai-dsh-tool-session-query/model-experience/system-prompt/token-effect:
+  en: 6ee4d42e6b3b56c1
+  zh: e6f8cc5d9461dcac
+/deepseek-ai-dsh-tool-session-query/model-experience/system-prompt/kv-cache-effect:
+  en: a816dfd7276488e9
+  zh: 379e3013b9eea37c
+/deepseek-ai-dsh-tool-session-query/model-experience/tool-schemas:
+  en: 3039bc5e7a796b21
+  zh: 6b7a9eaf69c9ea53
+/deepseek-ai-dsh-tool-session-query/model-experience/tool-schemas/what-the-model-sees:
+  en: 9399fc8822bcee2e
+  zh: ce83ad6a03d32992
+/deepseek-ai-dsh-tool-session-query/model-experience/tool-schemas/token-effect:
+  en: 3c001ca824c5bc52
+  zh: 314a8fdf37a470c1
+/deepseek-ai-dsh-tool-session-query/model-experience/tool-schemas/kv-cache-effect:
+  en: c8cbbef533bdb90f
+  zh: 9477247f981b9e7d
+/deepseek-ai-dsh-tool-session-query/model-experience/tool-results:
+  en: beaabb79f229692a
+  zh: 8573891441963be4
+/deepseek-ai-dsh-tool-session-query/model-experience/tool-results/what-the-model-sees:
+  en: a006fd51761ae266
+  zh: 3a3efbeef93e466d
+/deepseek-ai-dsh-tool-session-query/model-experience/tool-results/token-effect:
+  en: 8078153192ce8c6b
+  zh: 839e94c31f741241
+/deepseek-ai-dsh-tool-session-query/model-experience/tool-results/kv-cache-effect:
+  en: 9dbeb5d10d26d110
+  zh: 277d8574207bcb90
+/deepseek-ai-dsh-tool-session-query/known-limitations-and-deferred-work:
+  en: b1857df3e513315c
+  zh: 75f381d306c83792
+/deepseek-ai-dsh-tool-session-query/known-limitations-and-deferred-work/dev-note:
+  en: 53c76b0df9c1a5de
+  zh: 301c4e46876d641e
+/deepseek-ai-dsh-tool-session-query/known-limitations-and-deferred-work/dev-note/canonical-path-matching-in-same-workspace-mode:
+  en: afc5e35c785fca1c
+  zh: f378f3fa0a811508

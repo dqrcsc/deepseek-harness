@@ -573,8 +573,8 @@ const TOOL_PACKAGES: ToolPackage[] = [
   {
     pkg: '@deepseek-ai/dsh-tool-session-query',
     dir: 'tool-session-query',
-    source: 'packages/experimental/tool-session-query/src/index.ts',
-    requires: ['ctx.tools', 'ctx.systemPrompt', 'ctx.sessionQuery', 'ctx.agents', 'a calling Agent for workspace authority'],
+    source: 'packages/session-query/tool-session-query/src/index.ts',
+    requires: ['ctx.tools', 'ctx.systemPrompt', 'ctx.sessionQuery', 'ctx.agents', 'a calling Agent for session authority'],
     writes: ['tool/call', 'tool/result'],
     async mount(ctx) {
       await ctx.plugin(SessionStore)
@@ -583,7 +583,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolSessionQuery)
     },
     note:
-      'The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session. The package is opt-in; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies.',
+      'The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session (cross-workspace by default, excluding incognito sessions). Shipped Web presets mount this package; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies.',
   },
   {
     pkg: '@deepseek-ai/dsh-experimental-tool-subagent-oar',

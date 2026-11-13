@@ -40,7 +40,7 @@ kind: "package-reference"
 | `readEvent(request)` | 一个完整事件加其周围有界的原始日志窗口 |
 | `traceSession(id)` | 已知祖先链与递归后代树 |
 | `traceEvent(request)` | 一个事件的位置替换与被引用源事件关系 |
-| `searchSessions(request)` / `searchEvents(request)` | 全文搜索分页结果，由挂载的后端实现 |
+| `searchSessions(request)` / `searchEvents(request)` | 带排序的搜索分页结果（`phrase`、`lexical` 或 `hybrid`），由挂载的后端实现 |
 
 不带正文的记录只公开 `SessionHeader.isSeeded`。返回事件正文的读取（`readSession`、`readSurface`、`readEvent`）与保留的 `SessionObservation` 值还携带精确 `inheritedEventCount`，因此调用方无需从日志推断切点即可区分继承事件与自有事件。
 
@@ -126,7 +126,7 @@ kind: "package-reference"
 
 - [会话查询子系统参考](../../../docs/subsystems/session-query.zh.md)——完整类型级约定：记录、过滤器、搜索页、血缘、有界读取与错误。
 - [dsh-session-query-sqlite](../session-query-sqlite/README.zh.md)——已发布的全文后端及其索引生命周期。
-- [dsh-tool-session-query](../../experimental/tool-session-query/README.zh.md)——构建在本服务之上的面向模型消费方。
+- [dsh-tool-session-query](../tool-session-query/README.zh.md)——构建在本服务之上的面向模型消费方。
 - [会话查询关系追踪](../../../.agents/notes/archived/feature/2026-07-13-session-query-tracing.md)——追踪语义与校验边界。
 - [SQLite FTS5 会话搜索](../../../.agents/notes/archived/feature/2026-07-10-sqlite-session-query-provider.md)——搜索表面如何实现与对账。
 
@@ -163,6 +163,6 @@ kind: "package-reference"
 
 #### 未来：提取器与搜索提供方注册表
 
-对被引用源事件的递归遍历、提取器与搜索提供方注册表以及更多面向模型表面均被推迟；[tool-session-query README](../../experimental/tool-session-query/README.zh.md)说明了当前的消费方表面。
+对被引用源事件的递归遍历、提取器与搜索提供方注册表以及更多面向模型表面均被推迟；[tool-session-query README](../tool-session-query/README.zh.md)说明了当前的消费方表面。
 
 </details>

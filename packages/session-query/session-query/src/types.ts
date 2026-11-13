@@ -249,10 +249,15 @@ export interface SessionSearchExecContext {
   signal?: AbortSignal
 }
 
+/** Ranking strategy for cross-session and within-session text search. */
+export type SessionSearchMode = 'phrase' | 'lexical' | 'hybrid'
+
 /** Cross-session full-text search request. */
 export interface SessionSearchRequest {
   /** Full-text query interpreted as data, never executable FTS syntax. */
   query: string
+  /** Ranking mode: literal `phrase` (default), multilingual BM25 `lexical`, or `hybrid` BM25 + dense vector RRF. */
+  mode?: SessionSearchMode
   /** Logical-session predicates applied before event ranking. */
   sessionFilters?: readonly SessionResultFilter[]
   /** Event predicates applied before event ranking. */
@@ -269,6 +274,8 @@ export interface SessionEventSearchRequest {
   sessionId: SessionId
   /** Full-text query interpreted as data, never executable FTS syntax. */
   query: string
+  /** Ranking mode: literal `phrase` (default), multilingual BM25 `lexical`, or `hybrid` BM25 + dense vector RRF. */
+  mode?: SessionSearchMode
   /** Event predicates applied before ranking. */
   filters?: readonly SessionEventMetadataFilter[]
   /** Maximum events in this page. */

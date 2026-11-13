@@ -353,7 +353,9 @@ describe('the shipped Web composition', () => {
         'ask_user_question', 'bash', 'create_goal', 'edit', 'exit_plan_mode',
         'get_goal', 'job_kill', 'job_list', 'job_output', 'list_agents', 'list_subagent_models', 'office_convert', 'office_recalculate', 'office_render', 'plugin_manager', 'present', 'read', 'read_image',
         'schedule_create', 'schedule_edit', 'schedule_list', 'schedule_view',
-        'send_message', 'skill',
+        'send_message',
+        'session_event_read', 'session_event_search', 'session_event_trace', 'session_search', 'session_trace',
+        'skill',
         'subagent', 'subagent_fork', 'team_task_create', 'team_task_get', 'team_task_list', 'team_task_update', 'todo_write', 'update_goal', 'wait_agent', 'web_fetch', 'web_search',
         'workflow', 'working_directory', 'write',
       ])

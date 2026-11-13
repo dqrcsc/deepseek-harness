@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "文本向量化",
+    "description": "通过已注册或兼容 OpenAI 的 HTTP 提供方计算归一化稠密文本向量。"
+  }
+}

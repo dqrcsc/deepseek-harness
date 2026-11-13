@@ -10,6 +10,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { Context, Service, type Fiber } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Session, SessionEvent, SessionHeader, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
+import type EmbeddingRuntime from '@deepseek-ai/dsh-embedding'
 import type SessionPersistence from '@deepseek-ai/dsh-session-persistence'
 import type {
   SessionPersistenceRevision,
@@ -39,8 +40,19 @@ import type {
 } from '@deepseek-ai/dsh-session-query'
 import {
   type JournalMode,
+  SESSION_QUERY_SQLITE_DEFAULT_BUSY_TIMEOUT_MS,
   openSearchDatabase,
 } from './schema.ts'
+import {
+  type HybridQueryOptions,
+  type SearchRow,
+  type SessionHeaderRow,
+  queryHybridEvents,
+  queryHybridSessions,
+  queryLexicalEvents,
+  queryLexicalSessions,
+} from './hybrid.ts'
+import { segmentDocumentText } from './segmenter.ts'
 import {
   type NormalizedEventRequest,
   type NormalizedSessionRequest,
@@ -64,6 +76,7 @@ export {
   SESSION_QUERY_SQLITE_SCHEMA_VERSION,
   type JournalMode,
 } from './schema.ts'
+export type { CompiledLexicalQuery } from './segmenter.ts'
 
 /** Boot-context slot for a launcher-owned absolute path to this process's derived query index. */
 export const SESSION_QUERY_SQLITE_PATH_KEY = 'launcherSessionQueryPath'
@@ -81,6 +94,9 @@ export const SESSION_QUERY_SQLITE_DEFAULT_LIMIT = 20
 export const SESSION_QUERY_SQLITE_MAX_LIMIT = 100
 /** Default maximum snippet length in Unicode code points. */
 export const SESSION_QUERY_SQLITE_SNIPPET_CHARS = 240
+const SESSION_QUERY_SQLITE_DEFAULT_MAX_EMBED_DOCS = 64
+const SESSION_QUERY_SQLITE_DEFAULT_MAX_SEMANTIC_CANDIDATES = 500
+const SESSION_QUERY_SQLITE_DEFAULT_MIN_VECTOR_SCORE = 0.2
 
 // One transient source change gets a retry; repeated churn fails rather than monopolizing the queue.
 const STABLE_OBSERVATION_ATTEMPTS = 2
@@ -106,12 +122,20 @@ export interface Config extends SessionQueryConfig {
   openAt?: OpenAt
   /** SQLite journal mode. Defaults to `wal`. */
   journalMode?: JournalMode
+  /** SQLite busy timeout in milliseconds for concurrent multi-process access. Defaults to 5000. */
+  busyTimeoutMs?: number
   /** Page size when a request omits `limit`. At most `Number.MAX_SAFE_INTEGER - 1`; defaults to 20. */
   defaultLimit?: number
   /** Largest accepted page size. At most `Number.MAX_SAFE_INTEGER - 1`; defaults to 100. */
   maxLimit?: number
   /** Maximum snippet length in Unicode code points. Defaults to 240. */
   snippetChars?: number
+  /** Maximum unembedded candidate documents backfilled during one hybrid search. Defaults to 64. */
+  maxEmbedDocsPerSearch?: number
+  /** Maximum recent documents evaluated for dense vector retrieval per hybrid search. Defaults to 500. */
+  maxSemanticCandidates?: number
+  /** Minimum cosine similarity in `[-1, 1]` required for dense vector hits. Defaults to 0.2. */
+  minVectorScore?: number
   /** Maximum concurrent persisted-log reads in one inherited batch read. Defaults to 4. */
   persistedReadConcurrency?: number
   /** Maximum cold prepared-Session observations the inherited reader retains for reuse. Defaults to 5. */
@@ -122,9 +146,13 @@ interface ResolvedConfig {
   path: string
   openAt: OpenAt
   journalMode: JournalMode
+  busyTimeoutMs: number
   defaultLimit: number
   maxLimit: number
   snippetChars: number
+  maxEmbedDocsPerSearch: number
+  maxSemanticCandidates: number
+  minVectorScore: number
   readWindowMax: number
   persistedReadConcurrency: number
   preparedSessionCacheSize: number
@@ -148,6 +176,10 @@ interface PersistenceBinding {
   readonly service?: SessionPersistence
 }
 
+interface EmbeddingBinding {
+  readonly service?: EmbeddingRuntime
+}
+
 interface Observation {
   persistenceBinding: PersistenceBinding
   persisted: Map<SessionId, ObservedPersistedSession>
@@ -167,29 +199,6 @@ interface IndexedLiveRow {
   generation: number
 }
 
-interface SessionHeaderRow {
-  session_id: string
-  version: number
-  created_at: number
-  cwd: string | null
-  parent_session: string | null
-  seed_length: number | null
-  delegation_depth: number | null
-  agent_preset: string | null
-}
-
-interface SearchRow extends SessionHeaderRow {
-  live: number
-  persisted: number
-  seq: number
-  type: string
-  time: number
-  surface: string
-  marked_text: string
-  match_count: number
-  document_length: number
-}
-
 interface CursorPayload {
   version: 1
   instance: string
@@ -207,9 +216,13 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     path: z.string().required(),
     openAt: z.union(['startup', 'first-search', 'never'] as const).default('startup'),
     journalMode: z.union(['wal', 'delete', 'truncate', 'persist'] as const).default('wal'),
+    busyTimeoutMs: z.number().step(1).min(0).default(SESSION_QUERY_SQLITE_DEFAULT_BUSY_TIMEOUT_MS),
     defaultLimit: z.number().step(1).min(1).max(SQLITE_MAX_PAGE_LIMIT).default(SESSION_QUERY_SQLITE_DEFAULT_LIMIT),
     maxLimit: z.number().step(1).min(1).max(SQLITE_MAX_PAGE_LIMIT).default(SESSION_QUERY_SQLITE_MAX_LIMIT),
     snippetChars: z.number().step(1).min(1).default(SESSION_QUERY_SQLITE_SNIPPET_CHARS),
+    maxEmbedDocsPerSearch: z.number().step(1).min(0).default(SESSION_QUERY_SQLITE_DEFAULT_MAX_EMBED_DOCS),
+    maxSemanticCandidates: z.number().step(1).min(1).default(SESSION_QUERY_SQLITE_DEFAULT_MAX_SEMANTIC_CANDIDATES),
+    minVectorScore: z.number().min(-1).max(1).default(SESSION_QUERY_SQLITE_DEFAULT_MIN_VECTOR_SCORE),
     readWindowMax: z.number().step(1).min(0).default(SESSION_QUERY_READ_WINDOW_MAX),
     persistedReadConcurrency: z.number()
       .step(1)
@@ -230,6 +243,8 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
   private _ready: Promise<void> | undefined
   private _db: DatabaseSync | undefined
   private _persistenceBinding: PersistenceBinding = { identity: Symbol() }
+  private _embeddingBinding: EmbeddingBinding = {}
+  private readonly _liveEmbeddingCache = new Map<string, Float32Array>()
   private _lastPersistenceIdentity: symbol | undefined
   private _persistenceEpoch = 0
   private _globalGeneration = 0
@@ -238,6 +253,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
   private _closed = false
   private _closePromise: Promise<void> | undefined
   private readonly _optionalPersistenceFiber: Fiber
+  private readonly _optionalEmbeddingFiber: Fiber
 
   constructor(ctx: Context, config: Config) {
     // The assignment expression resolves before the base constructor can
@@ -254,9 +270,22 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
         this._persistenceBinding = { identity: Symbol() }
       }, 'sessionQuerySqlite.persistenceBinding')
     })
+    this._optionalEmbeddingFiber = ctx.inject(['embedding'], (childCtx: Context) => {
+      const service = childCtx.embedding
+      const binding: EmbeddingBinding = { service }
+      this._embeddingBinding = binding
+      childCtx.effect(() => () => {
+        /* v8 ignore next -- a stale optional-service disposer cannot clear a replacement */
+        if (this._embeddingBinding !== binding) return
+        this._embeddingBinding = {}
+      }, 'sessionQuerySqlite.embeddingBinding')
+    })
     ctx.effect(() => {
       return () => this._optionalPersistenceFiber.dispose()
     }, 'sessionQuerySqlite.optionalPersistence')
+    ctx.effect(() => {
+      return () => this._optionalEmbeddingFiber.dispose()
+    }, 'sessionQuerySqlite.optionalEmbedding')
     ctx.effect(() => async () => this.close(), 'sessionQuerySqlite.close')
   }
 
@@ -277,11 +306,8 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       const persistenceBinding = await this._reconcile(signal)
       assertNotAborted(signal)
       const generation = String(this._globalGeneration)
-      const fingerprint = requestFingerprint(normalized)
-      const offset = normalized.cursor === undefined
-        ? 0
-        : decodeCursor(normalized.cursor, this._instance, 'sessions', fingerprint, generation)
-      const rows = this._querySessions(normalized, offset, persistenceBinding)
+      const { mode, fingerprint, offset } = this._resolvePagination('sessions', normalized, generation)
+      const rows = await this._executeSessionSearch(normalized, mode, offset, persistenceBinding, signal)
       return page(rows, normalized.limit, row => this._sessionHit(row), cursorOffset => encodeCursor({
         version: 1,
         instance: this._instance,
@@ -305,11 +331,8 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       const persistenceBinding = await this._reconcile(signal)
       assertNotAborted(signal)
       const target = this._targetObservation(normalized.sessionId, persistenceBinding)
-      const fingerprint = requestFingerprint(normalized)
-      const offset = normalized.cursor === undefined
-        ? 0
-        : decodeCursor(normalized.cursor, this._instance, 'events', fingerprint, target.generation)
-      const rows = this._queryEvents(normalized, offset, persistenceBinding)
+      const { mode, fingerprint, offset } = this._resolvePagination('events', normalized, target.generation)
+      const rows = await this._executeEventSearch(normalized, mode, offset, persistenceBinding, signal)
       return {
         session: target.header,
         ...page(rows, normalized.limit, row => this._eventHit(row), cursorOffset => encodeCursor({
@@ -322,6 +345,22 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
         }), offset),
       }
     })
+  }
+
+  private _resolvePagination(
+    scope: 'sessions' | 'events',
+    normalized: NormalizedSessionRequest | NormalizedEventRequest,
+    generation: string,
+  ): { mode: 'phrase' | 'lexical' | 'hybrid'; fingerprint: string; offset: number } {
+    const mode = normalized.mode ?? 'phrase'
+    const runtimeIdentity = mode === 'hybrid'
+      ? (this._embeddingBinding.service?.activeModelId() ?? 'lexical-only')
+      : undefined
+    const fingerprint = requestFingerprint(normalized, runtimeIdentity)
+    const offset = normalized.cursor === undefined
+      ? 0
+      : decodeCursor(normalized.cursor, this._instance, scope, fingerprint, generation)
+    return { mode, fingerprint, offset }
   }
 
   /** Close the database after every accepted operation reaches quiescence. */
@@ -353,12 +392,13 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
         // Opening already closed a partially-created handle; disposal only waits.
       }
     }
+    this._liveEmbeddingCache.clear()
     this._db?.close()
     this._db = undefined
   }
 
   private async _open(): Promise<void> {
-    this._db = await openSearchDatabase(this.config.path, this.config.journalMode)
+    this._db = await openSearchDatabase(this.config.path, this.config.journalMode, this.config.busyTimeoutMs)
     const state = this._db.prepare(
       'SELECT global_generation FROM search_state WHERE singleton = 1',
     ).get() as { global_generation: number }
@@ -453,7 +493,10 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       try {
         db.exec('BEGIN IMMEDIATE')
         began = true
-        for (const row of persistentDeletes) this._deleteSession('persisted', row.id as SessionId)
+        for (const row of persistentDeletes) {
+          this._deleteSession('persisted', row.id as SessionId)
+          db.prepare('DELETE FROM persisted_embeddings WHERE session_id = ?').run(row.id as SessionId)
+        }
         for (const entry of persistentChanges) {
           /* v8 ignore next -- observation loads every entry whose revision differs */
           if (entry.loaded === undefined) throw new Error(`missing loaded revision for session "${entry.header.id}"`)
@@ -595,22 +638,12 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       revision,
       generation,
     )
-    const insert = db.prepare(`
-      INSERT INTO persisted_docs (text, session_id, seq, type, time, surface, codepoint_length)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `)
-    for (const document of entry.documents) {
-      const text = sanitizeFtsText(document.text)
-      insert.run(
-        text,
-        document.sessionId,
-        document.seq,
-        document.type,
-        document.time,
-        document.surface,
-        Array.from(text).length,
-      )
-    }
+    insertIndexedDocuments(db, 'persisted_docs', entry.documents)
+    db.prepare(`
+      DELETE FROM persisted_embeddings
+      WHERE session_id = ?
+        AND seq NOT IN (SELECT CAST(seq AS INTEGER) FROM persisted_docs WHERE session_id = ?)
+    `).run(entry.header.id, entry.header.id)
   }
 
   private _replaceLiveSession(entry: ObservedSession, generation: number, persisted: boolean): void {
@@ -626,21 +659,55 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       persisted ? 1 : 0,
       generation,
     )
-    const insert = db.prepare(`
-      INSERT INTO temp.live_docs (text, session_id, seq, type, time, surface, codepoint_length)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `)
-    for (const document of entry.documents) {
-      const text = sanitizeFtsText(document.text)
-      insert.run(
-        text,
-        document.sessionId,
-        document.seq,
-        document.type,
-        document.time,
-        document.surface,
-        Array.from(text).length,
-      )
+    insertIndexedDocuments(db, 'temp.live_docs', entry.documents)
+  }
+
+  private _hybridOptions(persistenceVisible: boolean, signal: AbortSignal | undefined): HybridQueryOptions {
+    return {
+      db: this._requireDb(),
+      persistenceVisible,
+      ...(this._embeddingBinding.service === undefined ? {} : { embedding: this._embeddingBinding.service }),
+      liveEmbeddingCache: this._liveEmbeddingCache,
+      maxEmbedDocsPerSearch: this.config.maxEmbedDocsPerSearch,
+      maxSemanticCandidates: this.config.maxSemanticCandidates,
+      minVectorScore: this.config.minVectorScore,
+      ...(signal === undefined ? {} : { signal }),
+    }
+  }
+
+  private async _executeSessionSearch(
+    request: NormalizedSessionRequest,
+    mode: 'phrase' | 'lexical' | 'hybrid',
+    offset: number,
+    persistenceBinding: PersistenceBinding,
+    signal: AbortSignal | undefined,
+  ): Promise<SearchRow[]> {
+    const persistenceVisible = persistenceBinding.service !== undefined
+    switch (mode) {
+      case 'phrase':
+        return this._querySessions(request, offset, persistenceBinding)
+      case 'lexical':
+        return queryLexicalSessions(request, offset, this._requireDb(), persistenceVisible)
+      case 'hybrid':
+        return queryHybridSessions(request, offset, this._hybridOptions(persistenceVisible, signal))
+    }
+  }
+
+  private async _executeEventSearch(
+    request: NormalizedEventRequest,
+    mode: 'phrase' | 'lexical' | 'hybrid',
+    offset: number,
+    persistenceBinding: PersistenceBinding,
+    signal: AbortSignal | undefined,
+  ): Promise<SearchRow[]> {
+    const persistenceVisible = persistenceBinding.service !== undefined
+    switch (mode) {
+      case 'phrase':
+        return this._queryEvents(request, offset, persistenceBinding)
+      case 'lexical':
+        return queryLexicalEvents(request, offset, this._requireDb(), persistenceVisible)
+      case 'hybrid':
+        return queryHybridEvents(request, offset, this._hybridOptions(persistenceVisible, signal))
     }
   }
 
@@ -852,7 +919,7 @@ function selectedDocumentsSql(): { sql: string } {
 }
 
 function selectedDocumentsParams(query: string, persistenceVisible: boolean): Array<string | number> {
-  const expression = quoteFtsData(query)
+  const expression = `text : ${quoteFtsData(query)}`
   const visible = persistenceVisible ? 1 : 0
   return [
     FTS_HIGHLIGHT_START,
@@ -1022,9 +1089,13 @@ function resolveConfig(config: Config): ResolvedConfig {
     path: config.path,
     openAt: config.openAt ?? 'startup',
     journalMode: config.journalMode ?? 'wal',
+    busyTimeoutMs: config.busyTimeoutMs ?? SESSION_QUERY_SQLITE_DEFAULT_BUSY_TIMEOUT_MS,
     defaultLimit: config.defaultLimit ?? SESSION_QUERY_SQLITE_DEFAULT_LIMIT,
     maxLimit: config.maxLimit ?? SESSION_QUERY_SQLITE_MAX_LIMIT,
     snippetChars: config.snippetChars ?? SESSION_QUERY_SQLITE_SNIPPET_CHARS,
+    maxEmbedDocsPerSearch: config.maxEmbedDocsPerSearch ?? SESSION_QUERY_SQLITE_DEFAULT_MAX_EMBED_DOCS,
+    maxSemanticCandidates: config.maxSemanticCandidates ?? SESSION_QUERY_SQLITE_DEFAULT_MAX_SEMANTIC_CANDIDATES,
+    minVectorScore: config.minVectorScore ?? SESSION_QUERY_SQLITE_DEFAULT_MIN_VECTOR_SCORE,
     readWindowMax: config.readWindowMax ?? SESSION_QUERY_READ_WINDOW_MAX,
     persistedReadConcurrency: config.persistedReadConcurrency
       ?? SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY,
@@ -1036,9 +1107,21 @@ function resolveConfig(config: Config): ResolvedConfig {
   }
   const openPhases: readonly string[] = ['startup', 'first-search', 'never']
   if (!openPhases.includes(resolved.openAt)) throw invalidConfig('openAt is not supported')
+  if (!Number.isSafeInteger(resolved.busyTimeoutMs) || resolved.busyTimeoutMs < 0) {
+    throw invalidConfig('busyTimeoutMs must be a non-negative safe integer')
+  }
   assertPageLimit('defaultLimit', resolved.defaultLimit)
   assertPageLimit('maxLimit', resolved.maxLimit)
   assertPositiveInteger('snippetChars', resolved.snippetChars)
+  if (!Number.isSafeInteger(resolved.maxEmbedDocsPerSearch) || resolved.maxEmbedDocsPerSearch < 0) {
+    throw invalidConfig('maxEmbedDocsPerSearch must be a non-negative safe integer')
+  }
+  if (!Number.isSafeInteger(resolved.maxSemanticCandidates) || resolved.maxSemanticCandidates < 1) {
+    throw invalidConfig('maxSemanticCandidates must be a positive safe integer')
+  }
+  if (typeof resolved.minVectorScore !== 'number' || !Number.isFinite(resolved.minVectorScore) || resolved.minVectorScore < -1 || resolved.minVectorScore > 1) {
+    throw invalidConfig('minVectorScore must be a finite number between -1 and 1')
+  }
   if (!Number.isInteger(resolved.readWindowMax) || resolved.readWindowMax < 0) {
     throw invalidConfig('readWindowMax must be a non-negative integer')
   }
@@ -1126,6 +1209,30 @@ function errorMessage(error: unknown): string {
 
 function isRuntimeArray(value: unknown): boolean {
   return Array.isArray(value)
+}
+
+function insertIndexedDocuments(
+  db: DatabaseSync,
+  tableName: 'persisted_docs' | 'temp.live_docs',
+  documents: readonly SessionEventSearchDocument[],
+): void {
+  const insert = db.prepare(`
+    INSERT INTO ${tableName} (text, segmented_text, session_id, seq, type, time, surface, codepoint_length)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  for (const document of documents) {
+    const text = sanitizeFtsText(document.text)
+    insert.run(
+      text,
+      segmentDocumentText(text),
+      document.sessionId,
+      document.seq,
+      document.type,
+      document.time,
+      document.surface,
+      Array.from(text).length,
+    )
+  }
 }
 
 export default SqliteSessionQueryEngine

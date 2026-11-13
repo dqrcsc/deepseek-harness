@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Plongements de texte",
+    "description": "Calcule des plongements de texte denses normalisés via des fournisseurs enregistrés ou HTTP compatibles OpenAI."
+  }
+}

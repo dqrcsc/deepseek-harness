@@ -1017,6 +1017,45 @@ async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeek
 
 Source: [`packages/llm/deepseek-llm-api-extensions/src/index.ts`](../../packages/llm/deepseek-llm-api-extensions/src/index.ts)
 
+<a id="ctxembedding--embeddingruntime"></a>
+
+### `ctx.embedding` — `EmbeddingRuntime`
+
+Runtime service coordinating dense text embedding providers and batch normalization.
+
+```ts cordis-catalog
+/**
+ * Report whether an active embedding provider is registered or configured.
+ * @returns `true` when {@link embed} can serve requests; `false` when callers should fall back to lexical ranking.
+ */
+isAvailable(): boolean
+
+/**
+ * Return the active provider's stable model identifier, or `undefined` when unavailable.
+ * @returns active `modelId` string, or `undefined`.
+ */
+activeModelId(): string | undefined
+
+/**
+ * Register a custom {@link EmbeddingProvider} bound to the caller's fiber lifetime.
+ * The most recently registered live provider takes precedence over the configured HTTP fallback.
+ * @param provider - provider implementation to activate.
+ * @returns disposer removing this provider registration.
+ */
+registerProvider(provider: EmbeddingProvider): () => void
+
+/**
+ * Embed an ordered list of non-empty texts in bounded batches and L2-normalize every vector.
+ * @param texts - non-empty list of non-whitespace texts to embed.
+ * @param options - optional cancellation signal.
+ * @returns normalized `Float32Array` vectors and their shared model/dimension metadata.
+ * @throws {@link EmbeddingError} when no provider is configured, input is invalid, aborted, or the provider fails.
+ */
+async embed(texts: readonly string[], options?: EmbedOptions): Promise<EmbeddingResult>
+```
+
+Source: [`packages/llm/embedding/src/index.ts`](../../packages/llm/embedding/src/index.ts)
+
 <a id="ctxllm--llmruntime"></a>
 
 ### `ctx.llm` — `LlmRuntime`

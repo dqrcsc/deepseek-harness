@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Texteinbettungen",
+    "description": "Berechnet normalisierte dichte Texteinbettungen über registrierte oder OpenAI-kompatible HTTP-Anbieter."
+  }
+}

@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-使用本包可为会话历史增加带排序的 SQLite FTS5 搜索，既能跨会话搜索，也能在单个会话内搜索，并支持游标分页。它把实时与持久化历史索引到独立的派生数据库，因此搜索反映当前状态，同时不会修改会话持久化存储。精确读取、过滤与追踪仍通过同一查询 API 提供。已发布组合中的搜索是可选能力；配置 `openAt` 可让索引在启动时、首次搜索时打开，或永不打开。结果匹配 token 与短语，而非任意子字符串；每个索引路径只能由一个进程持有。
+使用本包可为会话历史增加带排序的 SQLite FTS5 与可选稠密向量混合搜索，既能跨会话搜索，也能在单个会话内搜索，并支持游标分页。它把实时与持久化历史索引到独立的派生数据库，因此搜索反映当前状态，同时不会修改会话持久化存储。精确读取、过滤与追踪仍通过同一查询 API 提供。已发布组合默认以 `openAt: first-search` 挂载持久化派生索引，开箱即支持精确 `phrase`、多语种 `lexical` 与 RRF `hybrid` 三种搜索模式。
 
 ## 目录
 
@@ -45,9 +45,13 @@ kind: "package-reference"
 | `path` | 必填 | 专用派生索引 SQLite 路径，或 `:memory:`；POSIX 上缺失的路径会以仅所有者可访问的方式创建 |
 | `openAt` | `startup` | `startup` 在激活时打开；`first-search` 把 SQLite 模块推迟到首次搜索；`never` 关闭全文搜索，继承的读取保持可用 |
 | `journalMode` | `wal` | `wal`、`delete`、`truncate` 或 `persist` |
+| `busyTimeoutMs` | `5000` | 共享派生索引的多个进程之间的 SQLite 锁等待超时时间（毫秒） |
 | `defaultLimit` | `20` | 请求省略 `limit` 时的分页大小 |
 | `maxLimit` | `100` | 接受的最大请求分页大小 |
 | `snippetChars` | `240` | 按 Unicode 码点计算的最大 snippet 长度 |
+| `maxEmbedDocsPerSearch` | `48` | 单次 `hybrid` 搜索调用最多向量化回填的未缓存候选事件数 |
+| `maxSemanticCandidates` | `200` | `hybrid` 模式下参与稠密向量相似度检查的近期候选事件数 |
+| `minVectorScore` | `0.25` | `hybrid` 模式下纯语义命中所需的最低余弦相似度 |
 | `readWindowMax` | `50` | 继承的 `readEvent()` 的 `before`/`after` 原始事件数上限 |
 | `persistedReadConcurrency` | `4` | 继承批量读取的并发持久化日志读取数 |
 | `preparedSessionCacheSize` | `5` | 继承的 `observeSession` 读取器为复用保留的冷 prepared-Session 观察数 |
@@ -56,7 +60,7 @@ kind: "package-reference"
 
 ### 搜索行为
 
-`searchSessions` 搜索整个语料库，并按每个会话匹配最强的事件分组结果；`searchEvents` 搜索一个逻辑会话。查询是字面短语：首尾空白会被移除、内部空白会被规范化，引号、`OR`、`NEAR` 和 `*` 等 FTS5 语法被视为数据，绝不作为可执行查询语法。元数据过滤器（会话 id、cwd、创建时间、父级、可用性、事件 seq/时间/类型/表层）在排序前缩小结果。默认搜索全部 `current`、`shadowed` 与 `log-only` 事件；传入表层过滤器可缩小范围。
+`searchSessions` 搜索整个语料库，并按每个会话匹配最强的事件分组结果；`searchEvents` 搜索一个逻辑会话。请求接受 `mode: 'phrase' | 'lexical' | 'hybrid'`（默认 `'phrase'`）：`phrase` 匹配精确 FTS5 token 序列；`lexical` 用 `Intl.Segmenter` 切分拉丁词及中日韩单字与双字，并以 BM25 加完整短语加成排序；`hybrid` 通过倒数排名融合（RRF，`k = 60`）将 `lexical` 排名与可选 `ctx.embedding` 的余弦相似度融合，且在未挂载向量提供方时自动回退至 `lexical`。查询中的 FTS5 语法始终被视为纯数据。元数据过滤器在排序前缩小结果，默认搜索全部 `current`、`shadowed` 与 `log-only` 事件。
 
 排序是确定性的：实际 FTS5 高亮匹配 span 更多的在前，然后文档更短的在前，事件时间、会话 id 与 seq 打破平局。结果携带按 `snippetChars` 个 Unicode 码点截断的纯文本摘录，没有提供方专用数值分数。分页通过不透明 `SessionSearchCursor` 延续，游标绑定到规范化后的确切请求；相关语料库变化时游标变为陈旧（`SESSION_QUERY_STALE_CURSOR`），会话内游标可在不相关会话变化后延续，跨会话游标则不能。
 
@@ -96,6 +100,8 @@ kind: "package-reference"
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 服务：配置、openAt 生命周期、串行化对账、查询执行、游标 |
+| [`src/hybrid.ts`](src/hybrid.ts) | 词法 BM25 与稠密向量 RRF 融合、增量向量回填、float32 编解码 |
+| [`src/segmenter.ts`](src/segmenter.ts) | 多语种 `Intl.Segmenter` 单词及中日韩单字/双字查询与文档分词 |
 | [`src/query.ts`](src/query.ts) | 请求规范化、参数化谓词、摘录、谓词与绑定预算 |
 | [`src/schema.ts`](src/schema.ts) | 数据库 schema、application id 归属、原地重置、仅所有者文件创建 |
 
@@ -105,7 +111,7 @@ kind: "package-reference"
 
 ### Schema 归属
 
-数据库携带 application id 与 schema 版本 8。打开时拒绝其他应用程序拥有的文件或规范数据库，拒绝未知用户表；只有已识别的不兼容派生 schema 才会原地重置——因此不相关或 session-persistence 数据库绝不会被触碰。在 POSIX 文件系统上，缺失的目录与数据库文件以仅所有者可访问的方式创建（进程 umask 前为 `0700` 与 `0600`）。每个派生索引路径在一个进程中只能由一个服务拥有；世代与 TEMP 遮蔽状态由连接持有。
+数据库携带 application id 与 schema 版本 9（含 `segmented_text` FTS5 列与 `persisted_embeddings` 向量缓存行），并在打开时设置 `PRAGMA busy_timeout`。打开时拒绝其他应用程序拥有的文件或规范数据库，拒绝未知用户表；只有已识别的不兼容派生 schema 才会原地重置——因此不相关或 session-persistence 数据库绝不会被触碰。在 POSIX 文件系统上，缺失的目录与数据库文件以仅所有者可访问的方式创建（进程 umask 前为 `0700` 与 `0600`）。世代与 TEMP 实时会话遮蔽状态由连接持有。
 
 </details>
 
@@ -118,7 +124,7 @@ kind: "package-reference"
 
 - [会话查询子系统参考](../../../docs/subsystems/session-query.zh.md)——本后端实现的完整类型级约定。
 - [dsh-session-query](../session-query/README.zh.md)——服务定义：本后端继承的精确读取、过滤与追踪。
-- [dsh-tool-session-query](../../experimental/tool-session-query/README.zh.md)——调用这些搜索方法的面向模型消费方。
+- [dsh-tool-session-query](../tool-session-query/README.zh.md)——调用这些搜索方法的面向模型消费方。
 - [SQLite FTS5 会话搜索](../../../.agents/notes/archived/feature/2026-07-10-sqlite-session-query-provider.md)——搜索语义、对账与 tokenizer 决策。
 - [JSONL 会话持久化](../../session/session-persistence-jsonl/README.zh.md)——本可丢弃索引观察的权威 Session store；其 root 必须与本包的数据库路径分开。
 

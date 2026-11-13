@@ -10,6 +10,9 @@
 - id: tool-schedule
   disabled: true
 
+- id: tool-session-query
+  disabled: true
+
 - id: file-reference-local
   disabled: true
 

@@ -9,7 +9,7 @@ import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { readPluginMeta } from '../packages/boot/app-boot/src/package-meta.ts'
 import { bundlePatchPaths, composeEntries, initProfile, readProfileManifest } from '../packages/boot/app-boot/src/profile.ts'
-import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } from '../packages/util/official-bundles/src/bundles.ts'
+import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES, RETIRED_BUNDLES } from '../packages/util/official-bundles/src/bundles.ts'
 import type { DshBundleManifest } from '../packages/util/package-manifest/src/types.ts'
 import { createPluginProfile } from '../apps/desktop/src/project-manager.ts'
 
@@ -32,7 +32,6 @@ function bundle(name: string): { dir: string; patches: ReturnType<typeof loadOve
 }
 
 const lightweight = [
-  '@deepseek-ai/dsh-experimental-session-search',
   '@deepseek-ai/dsh-experimental-ralph-bundle',
   '@deepseek-ai/dsh-experimental-terminal-bundle',
   '@deepseek-ai/dsh-experimental-badge-skill-bundle',
@@ -177,12 +176,13 @@ describe('optional bundles', () => {
     expect(composed.find(row => row.id === 'forge-panel')?.disabled).toBe(true)
   })
 
-  it('ships all five lightweight bundles without selecting them in a default template', () => {
+  it('ships all four lightweight bundles without selecting them in a default template', () => {
     const defaults = Object.values(PROFILE_TEMPLATES).flatMap(template => template.bundles)
     for (const name of lightweight) {
       expect(OPTIONAL_BUNDLES).toContain(name)
       expect(defaults).not.toContain(name)
     }
+    expect(RETIRED_BUNDLES).toContain('@deepseek-ai/dsh-experimental-session-search')
   })
 
   it('composes every lightweight selection as Host rows without changing any preset', () => {
@@ -205,18 +205,11 @@ describe('optional bundles', () => {
     const composed = composeEntries([...shipped, ...lightweight.map(name => bundle(name).patches)])
     const names = flattenRows(composed).map(row => row.name)
     for (const name of [
-      '@deepseek-ai/dsh-tool-session-query',
       '@deepseek-ai/dsh-tool-ralph', '@deepseek-ai/dsh-tool-terminal',
     ]) expect(names).toContain(name)
     expect(composed.find(row => row.id === 'optional-ralph')?.isolate).toEqual({ workflowEngine: true })
     expect(composed.find(row => row.id === 'optional-persistent-terminals')?.isolate).toEqual({ terminals: true })
-    const search = composed.find(row => row.id === 'optional-session-search')
-    expect(search?.isolate).toEqual({ sessionQuery: true })
-    expect(search?.config).toEqual([
-      { id: 'optional-session-query-sqlite', name: '@deepseek-ai/dsh-session-query-sqlite', config: { path: ':memory:', openAt: 'first-search' } },
-      { id: 'optional-tool-session-query', name: '@deepseek-ai/dsh-tool-session-query' },
-    ])
-    expect(composed.find(row => row.id === 'session-query-sqlite')?.config).toEqual({ path: ':memory:', openAt: 'never' })
+    expect(composed.find(row => row.id === 'session-query-sqlite')?.config).toMatchObject({ openAt: 'first-search' })
     expect(composed.find(row => row.id === 'session-title-llm')?.disabled).toBe(true)
     expect(composed.find(row => row.id === 'optional-session-title-all-prompts')?.name)
       .toBe('@deepseek-ai/dsh-session-title-all-prompts-llm')
@@ -258,6 +251,7 @@ describe('optional bundles', () => {
       for (const plugin of [
         { id: 'time-context', name: '@deepseek-ai/dsh-time-context' },
         { id: 'tool-schedule', name: '@deepseek-ai/dsh-tool-schedule' },
+        { id: 'tool-session-query', name: '@deepseek-ai/dsh-tool-session-query' },
       ]) {
         const matches = plugins.filter(row => row.id === plugin.id && row.name === plugin.name)
         expect(matches).toHaveLength(1)
@@ -269,9 +263,10 @@ describe('optional bundles', () => {
         expect(presetPlugins(id).find(plugin => plugin.id === rowId)?.config).not.toHaveProperty('toolFilter')
       }
     }
-    // `minimal` declares neither, so it composes no clock reading and no reminder tool.
+    // `minimal` declares none of them, so it composes no clock reading, reminder tool, or session recall tool.
     expect(presetPlugins('preset-minimal').some(row => row.name === '@deepseek-ai/dsh-time-context'
-      || row.name === '@deepseek-ai/dsh-tool-schedule')).toBe(false)
+      || row.name === '@deepseek-ai/dsh-tool-schedule'
+      || row.name === '@deepseek-ai/dsh-tool-session-query')).toBe(false)
   })
 
   it.each(OPTIONAL_BUNDLES)('%s resolves a title, description, and icon in both shipped languages', (name) => {
