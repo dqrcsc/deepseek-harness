@@ -5,6 +5,8 @@
   - button "插件"
   - button "自动化任务"
   - button "从侧边栏取消固定自动化任务"
+  - button "记忆"
+  - button "从侧边栏取消固定记忆"
   - button "更多"
 - text: 工作区
 - button "搜索会话"

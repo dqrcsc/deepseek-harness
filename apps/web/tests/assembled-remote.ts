@@ -229,6 +229,16 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
   // The shipped composition mounts the `ui-schedule` row, so the Schedule
   // client reads the catalog over this mock.
   mock.unary('schedule/catalog', () => ok([]))
+  // The shipped composition mounts `ui-memory`, so open Session headers read
+  // per-Session incognito state and catalog subscribers read the Memory catalog.
+  mock.unary('memory/catalog', () => ok({
+    items: [],
+    preferences: { autoExtractEnabled: true, autoInjectEnabled: true, incognitoIsolatesRead: false },
+  }))
+  mock.unary('memory/getSessionPolicy', (request: unknown) => {
+    const sessionId = recordString(recordValue(request, 'request'), 'sessionId')
+    return ok({ sessionId, incognito: false, updatedAt: '' })
+  })
   mock.unary('session/projections', (request: unknown) => {
     const sessionId = recordString(recordValue(request, 'request'), 'sessionId')
     const summary = sessions.find(candidate => candidate.sessionId === sessionId)
