@@ -174,6 +174,10 @@ export function apply(ctx: ClientContext): void {
         return () => { query?.removeEventListener('change', listener) }
       },
     }
+    const brandTitle: HostObservable<string> = {
+      getSnapshot: () => ctx.theme.getTheme().brand.title,
+      subscribe: listener => ctx.on('theme/change', () => { listener() }),
+    }
     const handle = createLayoutStore()
     const instance = handle.create()
     const store: typeof handle = { ...handle, create: () => instance }
@@ -201,7 +205,7 @@ export function apply(ctx: ClientContext): void {
         'shell.leading': { kind: 'single', scope: 'root' },
       },
       store,
-      inject: (): AppFrameInjected => ({ hooks: { foldedLandscape } }),
+      inject: (): AppFrameInjected => ({ hooks: { foldedLandscape, brandTitle } }),
     }, AppFrame)
     const disposeShortcut = ctx.shortcuts.register({
       id: 'sidebar.left.toggle' as ShortcutCommandId, label: () => t('toggle'), aliases: ['sidebar', 'toggle left sidebar'],

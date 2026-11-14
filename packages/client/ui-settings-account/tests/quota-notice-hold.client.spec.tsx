@@ -48,12 +48,15 @@ const quotaEntry = (seq: number, code: string): SessionLiveEventEntry => ({
   },
 })
 
+import { DEFAULT_BRAND_SNAPSHOT } from '@deepseek-ai/dsh-client-ui-theme/src/theme-settings.ts'
+
 const storedView: AccountView = {
   status: 'credential-stored', attempt: null,
   links: { usageUrl: 'http://localhost:8081/usage', topUpUrl: 'http://localhost:8081/top_up' },
 }
 const theme: ThemeSnapshot = {
-  preference: 'light', style: 'craft', fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' }, active: { id: 'light', colorScheme: 'light', tokens: {} }, themes: [], revision: 0,
+  preference: 'light', style: 'craft', brand: DEFAULT_BRAND_SNAPSHOT,
+  fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' }, active: { id: 'light', colorScheme: 'light', tokens: {} }, themes: [], revision: 0,
 }
 
 /** The account settings commands, trimmed to what this composition renders. */

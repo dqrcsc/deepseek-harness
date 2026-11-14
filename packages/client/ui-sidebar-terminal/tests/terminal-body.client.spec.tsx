@@ -73,7 +73,8 @@ function mount(initial: TerminalViewState | undefined = idle, dictionary = en) {
   let state: TerminalViewState | undefined = initial
   let visible = true
   let theme: ThemeSnapshot = {
-    preference: 'light', style: 'craft', fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' },
+    preference: 'light', style: 'craft', brand: { preset: 'reins', labelMode: 'bilingual', customName: '', greetingMode: 'brand', customGreeting: '', title: '执辔 Reins' },
+    fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' },
     active: { id: 'light', colorScheme: 'light', tokens: {} }, themes: [], revision: 0,
   }
   const detach = vi.fn()

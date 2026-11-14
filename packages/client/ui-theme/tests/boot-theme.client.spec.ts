@@ -3,7 +3,7 @@
 import { runInNewContext } from 'node:vm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bootThemeInjections } from '../src/boot-theme.ts'
-import type { FontSizes, ThemePreference, ThemeStyle } from '../src/theme-settings.ts'
+import { createBrandSnapshot, type BrandSnapshot, type FontSizes, type ThemePreference, type ThemeStyle } from '../src/theme-settings.ts'
 
 const DARK_ATTRIBUTE = 'data-ds-dark-theme'
 
@@ -11,8 +11,8 @@ function mockSystemDark(matches: boolean): void {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches }) as MediaQueryList))
 }
 
-function executeBootstrap(preference?: ThemePreference, fontSizes?: FontSizes, style?: ThemeStyle): void {
-  for (const row of bootThemeInjections(preference, fontSizes, undefined, style)) {
+function executeBootstrap(preference?: ThemePreference, fontSizes?: FontSizes, style?: ThemeStyle, brand?: BrandSnapshot): void {
+  for (const row of bootThemeInjections(preference, fontSizes, undefined, style, brand)) {
     if (row.kind === 'script') runInNewContext(row.text, { document, matchMedia: globalThis.matchMedia })
   }
 }
@@ -22,6 +22,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
   delete document.documentElement.dataset.dsThemeSource
   delete document.body.dataset.dsThemeStyle
+  delete document.body.dataset.dsBrandPreset
+  delete document.body.dataset.dsBrandLabelMode
+  delete document.body.dataset.dsBrandGreetingMode
+  delete document.body.dataset.dsBrandCustomName
+  delete document.body.dataset.dsBrandCustomGreeting
   document.body.removeAttribute(DARK_ATTRIBUTE)
   for (const name of ['--dsh-content-font-size', '--dsh-code-font-size', '--dsh-terminal-font-size']) document.body.style.removeProperty(name)
   for (const kind of ['text', 'code', 'terminal']) document.body.style.removeProperty(`--dsh-font-family-${kind}`)
@@ -119,5 +124,29 @@ describe('theme bootstrap row', () => {
     expect(document.body.style.getPropertyValue('--dsh-font-family-text')).toBe('"Inter"')
     expect(document.body.style.getPropertyValue('--dsh-font-family-code')).toBe('')
     expect(document.body.style.getPropertyValue('--dsh-font-family-terminal')).toBe('"MesloLGS NF/script", monospace')
+  })
+
+  it('embeds default and custom brand dataset attributes safely', () => {
+    mockSystemDark(false)
+    executeBootstrap('light')
+    expect(document.body.dataset.dsBrandPreset).toBe('reins')
+    expect(document.body.dataset.dsBrandLabelMode).toBe('bilingual')
+    expect(document.body.dataset.dsBrandGreetingMode).toBe('brand')
+    expect(document.body.dataset.dsBrandCustomName).toBeUndefined()
+    expect(document.body.dataset.dsBrandCustomGreeting).toBeUndefined()
+
+    const customBrand = createBrandSnapshot({
+      preset: 'loom',
+      labelMode: 'custom',
+      customName: '  灵枢 Studio  ',
+      greetingMode: 'custom',
+      customGreeting: '  经纬万象  ',
+    })
+    executeBootstrap('light', undefined, 'antigravity', customBrand)
+    expect(document.body.dataset.dsBrandPreset).toBe('loom')
+    expect(document.body.dataset.dsBrandLabelMode).toBe('custom')
+    expect(document.body.dataset.dsBrandGreetingMode).toBe('custom')
+    expect(document.body.dataset.dsBrandCustomName).toBe('灵枢 Studio')
+    expect(document.body.dataset.dsBrandCustomGreeting).toBe('经纬万象')
   })
 })

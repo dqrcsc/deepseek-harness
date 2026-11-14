@@ -390,19 +390,20 @@ describe('SettingsPanel navigation', () => {
         { id: 'agent-presets', order: 20, label: 'Agent presets' },
         { id: 'plugins', order: 30, label: 'Plugins' },
         { id: 'archived-sessions', order: 40, label: 'Archived sessions' },
+        { id: 'about', order: 45, label: 'About & brand' },
         { id: 'contributed', order: 50, label: 'Contributed' },
       ],
     })
     openPanel()
     // Each product glyph names its sprite symbol id in data-icon.
-    const glyphs = ['General', 'Models', 'Agent presets', 'Plugins', 'Archived sessions', 'Contributed']
+    const glyphs = ['General', 'Models', 'Agent presets', 'Plugins', 'Archived sessions', 'About & brand', 'Contributed']
       .map(name => screen.getByRole('button', { name }).querySelector('svg')?.getAttribute('data-icon'))
 
     expect(glyphs.every(glyph => glyph !== undefined && glyph !== '')).toBe(true)
-    // The four ids the shell names get their own glyph; every other section —
+    // The ids the shell names get their own glyph; every other section —
     // including one this package never heard of — shares the gear.
-    expect(new Set(glyphs.slice(0, 5)).size).toBe(5)
-    expect(glyphs[5]).toBe(glyphs[0])
+    expect(new Set(glyphs.slice(0, 6)).size).toBe(6)
+    expect(glyphs[6]).toBe(glyphs[0])
   })
 
   it('switches the rendered section on nav click', () => {

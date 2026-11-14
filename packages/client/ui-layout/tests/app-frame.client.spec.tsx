@@ -36,6 +36,7 @@ let animationFrames: Map<number, FrameRequestCallback>
 let nextFrame: number
 let originalTitle: string
 let foldedLandscape: SnapshotStore<boolean>
+let brandTitle: SnapshotStore<string>
 const restoreProperties: (() => void)[] = []
 
 function replaceProperty<T extends object, K extends keyof T>(target: T, key: K, value: T[K]): void {
@@ -99,6 +100,7 @@ function mountFrame(windowWidth = frameWidth, content?: AppFrameProps['renderSlo
       useSessions={useSessions}
       usePanelInfo={usePanelInfo}
       useFoldedLandscape={bindSnapshotSelector(foldedLandscape)}
+      useBrandTitle={bindSnapshotSelector(brandTitle)}
       useSessionStatus={useSessionStatus}
       useSessionRetainInfo={() => undefined}
       useContextMenu={contextMenuHook()} useResource={useResource}
@@ -157,6 +159,7 @@ beforeEach(() => {
   vi.stubEnv('DSH_CLIENT_TITLE', undefined)
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
   foldedLandscape = createSnapshotStore(false)
+  brandTitle = createSnapshotStore('')
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     const id = nextFrame++
@@ -193,6 +196,14 @@ describe('AppFrame', () => {
   it('localizes the product title without a configured build title', () => {
     mountFrame()
     expect(document.title).toBe('DSH Local Build')
+  })
+
+  it('uses the active brand title when no build title override is configured', () => {
+    brandTitle.set('执辔 Reins')
+    mountFrame()
+    expect(document.title).toBe('执辔 Reins')
+    act(() => { brandTitle.set('灵枢 Loom') })
+    expect(document.title).toBe('灵枢 Loom')
   })
 
   it('follows the selected durable Session title', () => {

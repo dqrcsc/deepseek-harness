@@ -1,12 +1,25 @@
 /** Theme preferences stored in the Host user-settings document. */
 
 import z from '@deepseek-ai/schemastery'
+import { BRAND_PRESET_NAMES } from './locales/brand-names.ts'
 
 /** Built-in preferences accepted at the registry and settings boundaries. */
 export const THEME_PREFERENCES = ['light', 'dark', 'system'] as const
 
 /** Built-in visual styles orthogonal to the light/dark color scheme. */
 export const THEME_STYLES = ['antigravity', 'codex', 'warm', 'linear', 'craft', 'aurora', 'nord', 'classic'] as const
+
+/** Built-in brand identity presets selectable in Settings. */
+export const BRAND_PRESETS = ['reins', 'loom', 'lumen', 'deepseek'] as const
+
+/** Built-in wordmark display formats for brand presets. */
+export const BRAND_WORDMARK_MODES = ['bilingual', 'zh', 'en', 'custom'] as const
+
+/** Built-in Hero welcome headline modes. */
+export const BRAND_GREETING_MODES = ['brand', 'time', 'custom'] as const
+
+/** Custom edition release version shown in the About & Brand attribution card. */
+export const CUSTOM_EDITION_VERSION = 'v1.0.0'
 
 /** Settings namespace owned by the theme plugin. */
 export const THEME_SETTINGS_NAMESPACE = 'ui-theme'
@@ -17,6 +30,21 @@ export const THEME_PREFERENCE_FIELD = 'preference'
 /** Field carrying the selected visual theme style. */
 export const THEME_STYLE_FIELD = 'style'
 
+/** Field carrying the selected brand preset. */
+export const BRAND_PRESET_FIELD = 'brandPreset'
+
+/** Field carrying the selected wordmark display format. */
+export const BRAND_WORDMARK_MODE_FIELD = 'brandLabelMode'
+
+/** Field carrying the user-defined custom brand wordmark. */
+export const CUSTOM_BRAND_NAME_FIELD = 'customBrandName'
+
+/** Field carrying the selected Hero welcome headline mode. */
+export const BRAND_GREETING_MODE_FIELD = 'brandGreetingMode'
+
+/** Field carrying the user-defined custom Hero welcome headline. */
+export const CUSTOM_BRAND_GREETING_FIELD = 'customBrandGreeting'
+
 /** Field carrying the conversation content font size. */
 export const FONT_SIZE_FIELD = 'fontSize'
 
@@ -26,11 +54,35 @@ export type ThemePreference = typeof THEME_PREFERENCES[number]
 /** Visual theme style persisted by the product Appearance row. */
 export type ThemeStyle = typeof THEME_STYLES[number]
 
+/** Brand preset persisted by the About & Brand section. */
+export type BrandPreset = typeof BRAND_PRESETS[number]
+
+/** Wordmark display mode persisted by the About & Brand section. */
+export type BrandLabelMode = typeof BRAND_WORDMARK_MODES[number]
+
+/** Hero welcome headline mode persisted by the About & Brand section. */
+export type BrandGreetingMode = typeof BRAND_GREETING_MODES[number]
+
 /** Default preference when the user-settings document has no override. */
 export const DEFAULT_PREFERENCE: ThemePreference = 'system'
 
 /** Default visual theme style when the user-settings document has no override. */
 export const DEFAULT_THEME_STYLE: ThemeStyle = 'antigravity'
+
+/** Default out-of-the-box brand preset (`执辔 Reins`). */
+export const DEFAULT_BRAND_PRESET: BrandPreset = 'reins'
+
+/** Default wordmark display mode (`中英并列`). */
+export const DEFAULT_BRAND_WORDMARK_MODE: BrandLabelMode = 'bilingual'
+
+/** Default Hero headline mode (poetic brand motto). */
+export const DEFAULT_BRAND_GREETING_MODE: BrandGreetingMode = 'brand'
+
+/** Maximum normalized length for custom brand wordmarks. */
+export const BRAND_NAME_MAX_LENGTH = 40
+
+/** Maximum normalized length for custom Hero welcome headlines. */
+export const BRAND_GREETING_MAX_LENGTH = 80
 
 /** Smallest accepted content font size (px). */
 export const FONT_SIZE_MIN = 10
@@ -100,12 +152,94 @@ export function fontFamilyVariable(kind: FontRole): string {
 /** Normalized CSS font-family lists by role; `''` selects the built-in stack. */
 export type FontFamilies = Readonly<Record<FontRole, string>>
 
+/** Durable brand configuration inputs shared across Host and browser. */
+export interface BrandPreferences {
+  /** Selected brand emblem and identity preset. */
+  readonly preset: BrandPreset
+  /** Selected wordmark format (`bilingual`, `zh`, `en`, or `custom`). */
+  readonly labelMode: BrandLabelMode
+  /** Normalized custom wordmark text when `labelMode` is `custom`. */
+  readonly customName: string
+  /** Selected Hero headline mode (`brand`, `time`, or `custom`). */
+  readonly greetingMode: BrandGreetingMode
+  /** Normalized custom Hero headline text when `greetingMode` is `custom`. */
+  readonly customGreeting: string
+}
+
+/** Immutable brand state published on {@link ThemeSnapshot}, including the resolved display title. */
+export interface BrandSnapshot extends BrandPreferences {
+  /** Resolved product title for the sidebar wordmark and document title. */
+  readonly title: string
+}
+
+/**
+ * Normalize single-line user brand text by stripping control characters, collapsing
+ * whitespace, trimming edges, and capping length.
+ * @param value - raw user-entered or stored text.
+ * @param maxLength - maximum character count to retain.
+ * @returns normalized single-line text.
+ */
+export function normalizeBrandText(value: string, maxLength: number): string {
+  return value.replace(/[\u0000-\u001f\u007f]/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, maxLength)
+}
+
+/**
+ * Resolve the visible product wordmark/title for a brand preference set.
+ * @param brand - brand preset, wordmark mode, and custom wordmark text.
+ * @returns resolved non-empty product title.
+ */
+export function resolveBrandTitle(brand: Pick<BrandPreferences, 'preset' | 'labelMode' | 'customName'>): string {
+  if (brand.labelMode === 'custom') {
+    const custom = normalizeBrandText(brand.customName, BRAND_NAME_MAX_LENGTH)
+    if (custom !== '') return custom
+    return BRAND_PRESET_NAMES[brand.preset].bilingual
+  }
+  return BRAND_PRESET_NAMES[brand.preset][brand.labelMode]
+}
+
+/**
+ * Build a frozen {@link BrandSnapshot} with normalized text fields and resolved title.
+ * @param brand - candidate brand preference fields.
+ * @returns immutable brand snapshot.
+ */
+export function createBrandSnapshot(brand: BrandPreferences): BrandSnapshot {
+  const customName = normalizeBrandText(brand.customName, BRAND_NAME_MAX_LENGTH)
+  const customGreeting = normalizeBrandText(brand.customGreeting, BRAND_GREETING_MAX_LENGTH)
+  const normalized: BrandPreferences = {
+    preset: brand.preset,
+    labelMode: brand.labelMode,
+    customName,
+    greetingMode: brand.greetingMode,
+    customGreeting,
+  }
+  return Object.freeze({ ...normalized, title: resolveBrandTitle(normalized) })
+}
+
+/** Default immutable brand snapshot (`执辔 Reins`). */
+export const DEFAULT_BRAND_SNAPSHOT: BrandSnapshot = createBrandSnapshot({
+  preset: DEFAULT_BRAND_PRESET,
+  labelMode: DEFAULT_BRAND_WORDMARK_MODE,
+  customName: '',
+  greetingMode: DEFAULT_BRAND_GREETING_MODE,
+  customGreeting: '',
+})
+
 /** Durable theme section shared by the Host schema and the browser scope. */
 export interface ThemeSettings {
   /** Selected built-in preference. */
   preference: ThemePreference
   /** Selected visual theme style across light and dark palettes. */
   style: ThemeStyle
+  /** Selected brand identity preset. */
+  brandPreset: BrandPreset
+  /** Selected brand wordmark display format. */
+  brandLabelMode: BrandLabelMode
+  /** Custom brand wordmark text; `''` falls back to the preset's bilingual title. */
+  customBrandName: string
+  /** Selected Hero welcome headline mode. */
+  brandGreetingMode: BrandGreetingMode
+  /** Custom Hero welcome headline text; `''` falls back to the preset motto. */
+  customBrandGreeting: string
   /** Conversation content font size in px (integer within {@link FONT_SIZE_MIN}..{@link FONT_SIZE_MAX}). */
   fontSize: number
   /** Code-block font size in px (integer within the {@link FONT_SIZE_SPECS} `code` range). */
@@ -153,6 +287,11 @@ export function isFontSize(role: FontRole, px: number): boolean {
 export const ThemeSettingsSchema: z<ThemeSettings> = z.object({
   [THEME_PREFERENCE_FIELD]: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE),
   [THEME_STYLE_FIELD]: z.union([...THEME_STYLES]).default(DEFAULT_THEME_STYLE),
+  [BRAND_PRESET_FIELD]: z.union([...BRAND_PRESETS]).default(DEFAULT_BRAND_PRESET),
+  [BRAND_WORDMARK_MODE_FIELD]: z.union([...BRAND_WORDMARK_MODES]).default(DEFAULT_BRAND_WORDMARK_MODE),
+  [CUSTOM_BRAND_NAME_FIELD]: z.string().default(''),
+  [BRAND_GREETING_MODE_FIELD]: z.union([...BRAND_GREETING_MODES]).default(DEFAULT_BRAND_GREETING_MODE),
+  [CUSTOM_BRAND_GREETING_FIELD]: z.string().default(''),
   [FONT_SIZE_FIELD]: fontSizeSchema(FONT_SIZE_SPECS.text),
   [FONT_SIZE_SPECS.code.field]: fontSizeSchema(FONT_SIZE_SPECS.code),
   [FONT_SIZE_SPECS.terminal.field]: fontSizeSchema(FONT_SIZE_SPECS.terminal),
@@ -199,4 +338,31 @@ export function isThemePreference(value: unknown): value is ThemePreference {
  */
 export function isThemeStyle(value: unknown): value is ThemeStyle {
   return THEME_STYLES.some(style => style === value)
+}
+
+/**
+ * Narrow one wire or boot value to a supported brand preset.
+ * @param value - value crossing the settings or boot boundary.
+ * @returns whether the value is a built-in brand preset.
+ */
+export function isBrandPreset(value: unknown): value is BrandPreset {
+  return BRAND_PRESETS.some(preset => preset === value)
+}
+
+/**
+ * Narrow one wire or boot value to a supported brand wordmark display mode.
+ * @param value - value crossing the settings or boot boundary.
+ * @returns whether the value is a built-in brand label mode.
+ */
+export function isBrandLabelMode(value: unknown): value is BrandLabelMode {
+  return BRAND_WORDMARK_MODES.some(mode => mode === value)
+}
+
+/**
+ * Narrow one wire or boot value to a supported Hero welcome headline mode.
+ * @param value - value crossing the settings or boot boundary.
+ * @returns whether the value is a built-in brand greeting mode.
+ */
+export function isBrandGreetingMode(value: unknown): value is BrandGreetingMode {
+  return BRAND_GREETING_MODES.some(mode => mode === value)
 }

@@ -1,7 +1,9 @@
 /** Sidebar account launcher and locally authoritative sign-out action. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Toast, Menu, IconEllipsisOutlineMedium, IconPaperPlaneOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
+  Toast, Menu, Tooltip,
+  IconDarkOutlineRegular, IconEllipsisOutlineMedium, IconLightOutlineRegular,
+  IconPaperPlaneOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AccountSectionInjected } from './AccountSection.tsx'
@@ -22,7 +24,7 @@ export type AccountMenuProps = PropsRuntime<'settings.launcher'> & PropsRenderSl
 export function AccountMenu({
   subscribeSessionExpired, subscribeModelSignInRequired, wide, settingsShortcut, openSettings, openOnboarding, settingsOpen,
   useAccount, useTheme, signOut, hasRunningAccountTasks, refreshAccount, renderSlot,
-  contactUs, showLogin, start, cancel, avatarFailed, t,
+  contactUs, showLogin, toggleTheme, start, cancel, avatarFailed, t,
 }: AccountMenuProps) {
   // The launcher outlives the panel, so a false-to-true edge is one Settings entry:
   // re-renders, section switches and tab switches inside one open must not read again.
@@ -60,30 +62,71 @@ export function AccountMenu({
     <div className={css.notifications} hidden={!wide}>{renderSlot('settings.launcher.notifications', {
       active: signedIn && !account.desktopOnboardingVisible && !account.onboarding, openAccount,
     })}</div>
-    <Menu open={open} side="top" portal autoFocus className={css.anchor} listClassName={signedIn ? undefined : css.signedOutMenu}
-      anchor={<button ref={trigger} type="button" className={css.trigger} data-collapsed={!wide} data-signed-out={!signedIn} aria-label={t('menu')}
-        aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>
-        {signedIn
-          ? <span className={css.avatar} data-avatar-status={account.avatar?.status}>
-            <AccountAvatar avatar={account.avatar} avatarFailed={avatarFailed} />
-          </span>
-          : <IconEllipsisOutlineMedium size={14} />}
-        {wide && <span className={css.label}>{signedIn ? label : t('more')}</span>}
-      </button>}
-      items={[
-        { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
-          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
-        { id: 'contact', label: t('contactUs'), icon: <IconPaperPlaneOutlineMedium size={16} /> },
-        ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
-          : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
-      ]}
-      onClose={() => { setOpen(false) }}
-      onSelect={(id) => {
-        if (id === 'settings') { setOpen(false); trigger.current?.focus(); openSettings() }
-        else if (id === 'contact') { setOpen(false); contactUs() }
-        else if (id === 'signin') beginSignIn()
-        else void requestSignOut()
-      }} />
+    <div className={css.dock} data-wide={wide} data-signed-out={!signedIn}>
+      {wide && !signedIn && (
+        <Tooltip disabled={open || settingsOpen} label={t('settings')} shortcutKeys={settingsShortcut?.keys} delayMs={500}>
+          <button
+            type="button"
+            className={css.quickSettings}
+            aria-keyshortcuts={settingsShortcut?.aria}
+            onClick={() => { openSettings() }}
+          >
+            <IconSettingsOutlineMedium size={15} />
+            <span className={css.label}>{t('settings')}</span>
+          </button>
+        </Tooltip>
+      )}
+      <Menu open={open} side="top" portal autoFocus className={wide && !signedIn ? `${css.anchor} ${css.compactAnchor}` : css.anchor} listClassName={signedIn ? undefined : css.signedOutMenu}
+        anchor={<button ref={trigger} type="button" className={css.trigger} data-collapsed={!wide} data-signed-out={!signedIn} aria-label={t('menu')}
+          title={wide && !signedIn ? t('menu') : undefined}
+          aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>
+          {signedIn
+            ? <span className={css.avatar} data-avatar-status={account.avatar?.status}>
+              <AccountAvatar avatar={account.avatar} avatarFailed={avatarFailed} />
+            </span>
+            : wide ? <IconUserOutlineMedium size={15} /> : <IconEllipsisOutlineMedium size={14} />}
+          {wide && signedIn && <span className={css.label}>{label}</span>}
+        </button>}
+        items={[
+          { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
+            ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
+          { id: 'contact', label: t('contactUs'), icon: <IconPaperPlaneOutlineMedium size={16} /> },
+          ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
+            : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
+        ]}
+        onClose={() => { setOpen(false) }}
+        onSelect={(id) => {
+          if (id === 'settings') { setOpen(false); trigger.current?.focus(); openSettings() }
+          else if (id === 'contact') { setOpen(false); contactUs() }
+          else if (id === 'signin') beginSignIn()
+          else void requestSignOut()
+        }} />
+      {wide && toggleTheme !== undefined && (
+        <Tooltip disabled={open || settingsOpen} label={t(colorScheme === 'dark' ? 'switchToLight' : 'switchToDark')} delayMs={500}>
+          <button
+            type="button"
+            className={css.iconAction}
+            aria-label={t(colorScheme === 'dark' ? 'switchToLight' : 'switchToDark')}
+            onClick={toggleTheme}
+          >
+            {colorScheme === 'dark' ? <IconLightOutlineRegular size={15} /> : <IconDarkOutlineRegular size={15} />}
+          </button>
+        </Tooltip>
+      )}
+      {wide && signedIn && (
+        <Tooltip disabled={open || settingsOpen} label={t('settings')} shortcutKeys={settingsShortcut?.keys} delayMs={500}>
+          <button
+            type="button"
+            className={css.iconAction}
+            aria-label={t('settings')}
+            aria-keyshortcuts={settingsShortcut?.aria}
+            onClick={() => { openSettings() }}
+          >
+            <IconSettingsOutlineMedium size={15} />
+          </button>
+        </Tooltip>
+      )}
+    </div>
     {account.loginVisible && !account.onboarding && <SignInDialog account={account} colorScheme={colorScheme}
       start={start} cancel={cancel} t={t}
       close={() => { showLogin(false) }} useApiKey={() => { showLogin(false); openOnboarding('deepseek-official') }} />}

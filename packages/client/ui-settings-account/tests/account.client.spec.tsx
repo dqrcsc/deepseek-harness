@@ -5,6 +5,7 @@ import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AccountDetails, AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { DEFAULT_BRAND_SNAPSHOT } from '@deepseek-ai/dsh-client-ui-theme/src/theme-settings.ts'
 import type { PlatformBridge } from '../src/client/PlatformOverlay.tsx'
 import { createPlatformPages, type PlatformPages } from '../src/client/platform-pages.ts'
 import { AccountPlatformHost } from '../src/client/AccountPlatformHost.tsx'
@@ -20,7 +21,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 /** One resolved theme snapshot per scheme; the slot's theme hook serves these in the application. */
 const themeOf = (colorScheme: 'light' | 'dark'): ThemeSnapshot => ({
-  preference: colorScheme, style: 'craft', fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' },
+  preference: colorScheme, style: 'craft', brand: DEFAULT_BRAND_SNAPSHOT,
+  fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' },
   active: { id: colorScheme, colorScheme, tokens: {} }, themes: [], revision: 0,
 })
 
@@ -134,11 +136,13 @@ it.each([en, zh].flatMap(copy => ([false, true, 'unknown'] as const).map(running
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
+  fireEvent.click(screen.getByRole('button', { name: copy.settings }))
+  expect(openSettings).toHaveBeenCalledOnce()
   fireEvent.click(screen.getByRole('button', { name: copy.menu }))
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.contactUs, copy.signOut])
   await expect(`${screen.getByRole('menu').textContent}\n`).toMatchFileSnapshot(`./expected/menu-${copy === en ? 'en' : 'zh'}.txt`)
   fireEvent.click(screen.getByRole('menuitem', { name: copy.settings }))
-  expect(openSettings).toHaveBeenCalledOnce()
+  expect(openSettings).toHaveBeenCalledTimes(2)
   fireEvent.click(screen.getByRole('button', { name: copy.menu }))
   fireEvent.click(screen.getByRole('menuitem', { name: copy.contactUs }))
   expect(operations.contactUs).toHaveBeenCalledOnce()
@@ -181,22 +185,35 @@ it.each([en, zh])('updates the Settings menu keycaps and accessible combination 
   expect(props.openSettings).toHaveBeenCalledOnce()
 })
 
-it.each([en, zh])('offers settings, contact and sign-in from the signed-out account menu', async (copy) => {
+it.each([en, zh])('offers direct settings, theme toggle, contact, and sign-in from the signed-out footer dock', async (copy) => {
   const openSettings = vi.fn()
-  const operations = operationsOf({ status: 'signed-out', attempt: null })
+  const toggleTheme = vi.fn()
+  let scheme: 'light' | 'dark' = 'light'
+  const operations = { ...operationsOf({ status: 'signed-out', attempt: null }), toggleTheme }
   const { AccountMenu } = await import('../src/client/AccountMenu.tsx')
-  render(<AccountMenu renderSlot={() => null} {...({} as GlobalStandardProps)} {...operations} settingsOpen={false}
+  const view = render(<AccountMenu renderSlot={() => null} {...({} as GlobalStandardProps)} {...operations} settingsOpen={false}
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
-    useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
+    useTheme={selector => selector(themeOf(scheme))} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
+  fireEvent.click(screen.getByRole('button', { name: copy.settings }))
+  expect(openSettings).toHaveBeenCalledOnce()
+  fireEvent.click(screen.getByRole('button', { name: copy.switchToDark }))
+  expect(toggleTheme).toHaveBeenCalledOnce()
+  scheme = 'dark'
+  view.rerender(<AccountMenu renderSlot={() => null} {...({} as GlobalStandardProps)} {...operations} settingsOpen={false}
+    useAccount={selector => selector(operations.hooks.account.getSnapshot())}
+    useTheme={selector => selector(themeOf(scheme))} wide openOnboarding={() => {}} openSettings={openSettings}
+    t={key => key in copy ? copy[key as AccountKey] : key} />)
+  fireEvent.click(screen.getByRole('button', { name: copy.switchToLight }))
+  expect(toggleTheme).toHaveBeenCalledTimes(2)
   const trigger = screen.getByRole('button', { name: copy.menu })
-  expect(trigger.textContent).toBe(copy.more)
+  expect(trigger.textContent).toBe('')
   expect(trigger.querySelector('svg')).not.toBeNull()
   fireEvent.click(trigger)
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.contactUs, copy.signIn])
   await expect(`${screen.getByRole('menu').textContent}\n`).toMatchFileSnapshot(`./expected/menu-signed-out-${copy === en ? 'en' : 'zh'}.txt`)
   fireEvent.click(screen.getByRole('menuitem', { name: copy.settings }))
-  expect(openSettings).toHaveBeenCalledOnce()
+  expect(openSettings).toHaveBeenCalledTimes(2)
   fireEvent.click(screen.getByRole('button', { name: copy.menu }))
   fireEvent.click(screen.getByRole('menuitem', { name: copy.contactUs }))
   expect(operations.contactUs).toHaveBeenCalledOnce()

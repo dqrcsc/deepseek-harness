@@ -30,13 +30,28 @@ describe('ui-theme host', () => {
     const ctx = new Context()
     const configuration = await liveConfig(ctx, { Config, apply })
     const { fiber } = configuration
-    expect(plainConfig(configuration.fiber.effectiveConfig)).toEqual({ preference: DEFAULT_PREFERENCE, style: 'antigravity', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' })
-    await configuration.update({ preference: 'dark', style: 'warm', fontSize: 10, codeFontSize: 16, codeFontFamily: '"Iosevka"' })
-    expect(plainConfig(configuration.fiber.effectiveConfig)).toEqual({ preference: 'dark', style: 'warm', fontSize: 10, codeFontSize: 16, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '"Iosevka"', terminalFontFamily: '' })
+    expect(plainConfig(configuration.fiber.effectiveConfig)).toEqual({
+      preference: DEFAULT_PREFERENCE, style: 'antigravity',
+      brandPreset: 'reins', brandLabelMode: 'bilingual', customBrandName: '', brandGreetingMode: 'brand', customBrandGreeting: '',
+      fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '',
+    })
+    await configuration.update({
+      preference: 'dark', style: 'warm', brandPreset: 'loom', brandLabelMode: 'custom', customBrandName: '灵枢 Studio',
+      brandGreetingMode: 'time', customBrandGreeting: '欢迎回来',
+      fontSize: 10, codeFontSize: 16, codeFontFamily: '"Iosevka"',
+    })
+    expect(plainConfig(configuration.fiber.effectiveConfig)).toEqual({
+      preference: 'dark', style: 'warm',
+      brandPreset: 'loom', brandLabelMode: 'custom', customBrandName: '灵枢 Studio', brandGreetingMode: 'time', customBrandGreeting: '欢迎回来',
+      fontSize: 10, codeFontSize: 16, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '"Iosevka"', terminalFontFamily: '',
+    })
     await configuration.update({ fontSize: 22 })
     expect(plainConfig(configuration.fiber.effectiveConfig)).toMatchObject({ preference: 'dark', style: 'warm', fontSize: 22 })
     await expect(configuration.update({ preference: 'sepia' })).rejects.toThrow()
     await expect(configuration.update({ style: 'neon' })).rejects.toThrow()
+    await expect(configuration.update({ brandPreset: 'unknown' })).rejects.toThrow()
+    await expect(configuration.update({ brandLabelMode: 'unknown' })).rejects.toThrow()
+    await expect(configuration.update({ brandGreetingMode: 'unknown' })).rejects.toThrow()
     await expect(configuration.update({ fontSize: 9 })).rejects.toThrow()
     await expect(configuration.update({ fontSize: 23 })).rejects.toThrow()
     await expect(configuration.update({ codeFontSize: 17 })).rejects.toThrow()
@@ -59,11 +74,19 @@ describe('ui-theme host', () => {
     expect(rowText(rows[0])).toContain('@media(prefers-color-scheme:dark)')
     expect(rowText(rows[1])).toContain('const preference = "system"')
     expect(rowText(rows[1])).toContain('dsThemeStyle = "antigravity"')
+    expect(rowText(rows[1])).toContain('dsBrandPreset = "reins"')
     expect(rowText(rows[1])).toContain('"14px"')
     expect(rowText(rows[1])).not.toContain('--dsh-font-family')
-    await configuration.update({ preference: 'dark', style: 'aurora', fontSize: 22, terminalFontSize: 18, terminalFontFamily: 'MesloLGS NF' })
+    await configuration.update({
+      preference: 'dark', style: 'aurora', brandPreset: 'lumen', brandLabelMode: 'custom', customBrandName: '澄明 OS',
+      brandGreetingMode: 'custom', customBrandGreeting: '心境澄明',
+      fontSize: 22, terminalFontSize: 18, terminalFontFamily: 'MesloLGS NF',
+    })
     expect(rowText(collect(ctx)[1])).toContain('"--dsh-terminal-font-size", "18px"')
     expect(rowText(collect(ctx)[1])).toContain('"--dsh-font-family-terminal", "\\"MesloLGS NF\\""')
+    expect(rowText(collect(ctx)[1])).toContain('dsBrandPreset = "lumen"')
+    expect(rowText(collect(ctx)[1])).toContain('dsBrandCustomName = "澄明 OS"')
+    expect(rowText(collect(ctx)[1])).toContain('dsBrandCustomGreeting = "心境澄明"')
     expect(rowText(collect(ctx)[0])).toContain('color-scheme:dark')
     expect(rowText(collect(ctx)[0])).toContain('#11111c')
     expect(rowText(collect(ctx)[1])).toContain('const preference = "dark"')

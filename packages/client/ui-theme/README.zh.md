@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-client-ui-theme` 让 Web GUI 用户在设置中选择 `light`、`dark` 或 `system`，从八种内置视觉风格中选择其一（默认为 `antigravity`），并分别设置正文、代码与终端的字体和字号。已认证浏览器将这些值存入 `ui-theme` 设置命名空间（本地默认持久化到 `$DSH_HOME/cordis.patch.yml`）。插件通过 `prefers-color-scheme` 解析 `system` 并发布由 ui-layout 应用的不可变 `ThemeSnapshot`。本包还提供 `--dsw-*` token 样式表与同步引导，使所选调色板、风格、字号与字体在外壳加载前生效。第三方主题可通过 `ctx.theme` 注册别名 token 覆盖。
+`dsh-client-ui-theme` 让 Web GUI 用户在设置中选择 `light`、`dark` 或 `system`，从八种内置视觉风格中选择其一（默认为 `antigravity`），配置品牌预设（默认为 `reins`）、字标格式与首页标题模式，并分别设置正文、代码与终端的字体和字号。已认证浏览器将这些值存入 `ui-theme`（本地持久化到 `$DSH_HOME/cordis.patch.yml`）。插件通过 `prefers-color-scheme` 解析 `system` 并发布由 ui-layout 应用的不可变 `ThemeSnapshot`。本包还提供 `--dsw-*` token 样式表与在外壳加载前生效的同步引导，并支持通过 `ctx.theme` 注册别名 token 覆盖。
 
 ## 目录
 

@@ -22,6 +22,10 @@ body {
   --dsw-specific-composer-focus-stroke: rgba(57, 100, 254, 0.36);
   --dsw-specific-composer-halo: 0 8px 30px -6px rgba(57, 100, 254, 0.14), 0 2px 10px -2px rgba(15, 23, 42, 0.04);
   --dsw-specific-send-shadow: none;
+  --dsw-specific-brand-stop-light: #60a5fa;
+  --dsw-specific-brand-stop-mid: #3964fe;
+  --dsw-specific-brand-stop-deep: #1d4ed8;
+  --dsw-specific-brand-stop-spark: #38bdf8;
 
   /* Gallery preview swatches (Light mode) */
   --dsw-specific-preview-antigravity-canvas: #f6f8fe;
@@ -112,6 +116,10 @@ body[data-ds-dark-theme] {
   --dsw-specific-composer-resting-shadow: inset 0 0.5px 0 0 rgba(255, 255, 255, 0.06), 0 12px 32px -10px rgba(0, 0, 0, 0.42);
   --dsw-specific-composer-focus-stroke: rgba(122, 170, 255, 0.42);
   --dsw-specific-composer-halo: 0 10px 32px -6px rgba(57, 100, 254, 0.24), 0 2px 12px -2px rgba(0, 0, 0, 0.36);
+  --dsw-specific-brand-stop-light: #93c5fd;
+  --dsw-specific-brand-stop-mid: #679efe;
+  --dsw-specific-brand-stop-deep: #3b82f6;
+  --dsw-specific-brand-stop-spark: #7dd3fc;
 
   /* Gallery preview swatches (Dark mode) */
   --dsw-specific-preview-antigravity-canvas: #0d1017;
@@ -981,6 +989,105 @@ body[data-ds-theme-style='nord'][data-ds-dark-theme] {
   --dsw-specific-composer-focus-stroke: rgba(136, 192, 208, 0.52);
   --dsw-specific-composer-halo: 0 12px 34px -8px rgba(129, 161, 193, 0.28), 0 2px 10px -2px rgba(18, 22, 28, 0.36);
   --dsw-linear-gradient-think: linear-gradient(180deg, #2e3440 20.19%, rgba(46, 52, 64, 0) 100%);
+}
+
+/* Sculptural brand emblem multi-plane gradient stops harmonized per theme style. */
+body[data-ds-theme-style='antigravity'] {
+  --dsw-specific-brand-stop-light: #60a5fa;
+  --dsw-specific-brand-stop-mid: #2b63ff;
+  --dsw-specific-brand-stop-deep: #6d28d9;
+  --dsw-specific-brand-stop-spark: #38bdf8;
+}
+
+body[data-ds-theme-style='antigravity'][data-ds-dark-theme] {
+  --dsw-specific-brand-stop-light: #93c5fd;
+  --dsw-specific-brand-stop-mid: #528bff;
+  --dsw-specific-brand-stop-deep: #8b5cf6;
+  --dsw-specific-brand-stop-spark: #67e8f9;
+}
+
+body[data-ds-theme-style='codex'] {
+  --dsw-specific-brand-stop-light: #34d399;
+  --dsw-specific-brand-stop-mid: #10a37f;
+  --dsw-specific-brand-stop-deep: #065f46;
+  --dsw-specific-brand-stop-spark: #6ee7b7;
+}
+
+body[data-ds-theme-style='codex'][data-ds-dark-theme] {
+  --dsw-specific-brand-stop-light: #6ee7b7;
+  --dsw-specific-brand-stop-mid: #19c37d;
+  --dsw-specific-brand-stop-deep: #0d9488;
+  --dsw-specific-brand-stop-spark: #a7f3d0;
+}
+
+body[data-ds-theme-style='warm'] {
+  --dsw-specific-brand-stop-light: #f59e0b;
+  --dsw-specific-brand-stop-mid: #c96442;
+  --dsw-specific-brand-stop-deep: #7c2d12;
+  --dsw-specific-brand-stop-spark: #fb923c;
+}
+
+body[data-ds-theme-style='warm'][data-ds-dark-theme] {
+  --dsw-specific-brand-stop-light: #fbbf24;
+  --dsw-specific-brand-stop-mid: #e07f5b;
+  --dsw-specific-brand-stop-deep: #b45309;
+  --dsw-specific-brand-stop-spark: #fdba74;
+}
+
+body[data-ds-theme-style='linear'] {
+  --dsw-specific-brand-stop-light: #818cf8;
+  --dsw-specific-brand-stop-mid: #5e6ad2;
+  --dsw-specific-brand-stop-deep: #3730a3;
+  --dsw-specific-brand-stop-spark: #a5b4fc;
+}
+
+body[data-ds-theme-style='linear'][data-ds-dark-theme] {
+  --dsw-specific-brand-stop-light: #a5b4fc;
+  --dsw-specific-brand-stop-mid: #7480f2;
+  --dsw-specific-brand-stop-deep: #4f46e5;
+  --dsw-specific-brand-stop-spark: #c7d2fe;
+}
+
+body[data-ds-theme-style='craft'] {
+  --dsw-specific-brand-stop-light: #60a5fa;
+  --dsw-specific-brand-stop-mid: #2563eb;
+  --dsw-specific-brand-stop-deep: #1e40af;
+  --dsw-specific-brand-stop-spark: #38bdf8;
+}
+
+body[data-ds-theme-style='craft'][data-ds-dark-theme] {
+  --dsw-specific-brand-stop-light: #93c5fd;
+  --dsw-specific-brand-stop-mid: #4d8ef7;
+  --dsw-specific-brand-stop-deep: #2563eb;
+  --dsw-specific-brand-stop-spark: #7dd3fc;
+}
+
+body[data-ds-theme-style='aurora'] {
+  --dsw-specific-brand-stop-light: #c084fc;
+  --dsw-specific-brand-stop-mid: #7c3aed;
+  --dsw-specific-brand-stop-deep: #1d4ed8;
+  --dsw-specific-brand-stop-spark: #38bdf8;
+}
+
+body[data-ds-theme-style='aurora'][data-ds-dark-theme] {
+  --dsw-specific-brand-stop-light: #d8b4fe;
+  --dsw-specific-brand-stop-mid: #9b87ff;
+  --dsw-specific-brand-stop-deep: #6366f1;
+  --dsw-specific-brand-stop-spark: #67e8f9;
+}
+
+body[data-ds-theme-style='nord'] {
+  --dsw-specific-brand-stop-light: #88c0d0;
+  --dsw-specific-brand-stop-mid: #5e81ac;
+  --dsw-specific-brand-stop-deep: #434c5e;
+  --dsw-specific-brand-stop-spark: #8fbcbb;
+}
+
+body[data-ds-theme-style='nord'][data-ds-dark-theme] {
+  --dsw-specific-brand-stop-light: #8fbcbb;
+  --dsw-specific-brand-stop-mid: #88c0d0;
+  --dsw-specific-brand-stop-deep: #5e81ac;
+  --dsw-specific-brand-stop-spark: #eceff4;
 }
 
 /* macOS vibrancy washes tuned to each signature theme palette. */

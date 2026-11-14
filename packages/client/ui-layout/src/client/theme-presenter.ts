@@ -19,6 +19,9 @@ export const DARK_ATTRIBUTE = 'data-ds-dark-theme'
 /** Body attribute selecting the visual theme style across light and dark palettes. */
 export const THEME_STYLE_ATTRIBUTE = 'data-ds-theme-style'
 
+/** Body attribute selecting the active brand identity preset. */
+export const BRAND_PRESET_ATTRIBUTE = 'data-ds-brand-preset'
+
 /**
  * Root attribute publishing the theme source (`light`, `dark`, or `system`)
  * for host shells that mirror it into the native theme (the Electron preload
@@ -78,6 +81,7 @@ export class ThemePresenter {
     if (scheme === 'dark') body.setAttribute(DARK_ATTRIBUTE, '')
     else body.removeAttribute(DARK_ATTRIBUTE)
     body.setAttribute(THEME_STYLE_ATTRIBUTE, snapshot.style)
+    body.setAttribute(BRAND_PRESET_ATTRIBUTE, snapshot.brand.preset)
     for (const [role, name] of Object.entries(FONT_SIZE_VARIABLES)) {
       body.style.setProperty(name, `${snapshot.fontSizes[role as FontRole]}px`)
     }
@@ -106,6 +110,7 @@ export class ThemePresenter {
     const body = document.body
     body.removeAttribute(DARK_ATTRIBUTE)
     body.removeAttribute(THEME_STYLE_ATTRIBUTE)
+    body.removeAttribute(BRAND_PRESET_ATTRIBUTE)
     for (const name of Object.values(FONT_SIZE_VARIABLES)) body.style.removeProperty(name)
     for (const name of Object.values(FONT_FAMILY_VARIABLES)) body.style.removeProperty(name)
     for (const name of this.appliedTokens) body.style.removeProperty(name)

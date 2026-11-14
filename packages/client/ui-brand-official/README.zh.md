@@ -1,5 +1,5 @@
 ---
-description: "官方侧栏品牌与默认首页点击浮出的像素鲸鱼。"
+description: "可定制侧栏与首页 Hero 品牌雕塑徽标、点击浮出的像素鲸鱼以及设置中的「关于与品牌」引擎归属页。"
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-本包在空白首页提供点击浮出的像素鲸鱼，并让以 `official` profile 构建的客户端显示 DeepSeek Harness 侧栏品牌图形。随产品提供的 Web 与 Desktop 组合默认加载本包。其他构建 profile 保留原有品牌。首屏标志仍使用动画鱼回退。背景只持有临时 Canvas 资源，不增加模型请求。
+本包内置四套品牌预设（默认为 `reins`／`执辔 Reins`，并包含 `loom`／`灵枢 Loom`、`lumen`／`澄明 Lumen` 与 `deepseek`），在各构建模式下统一接管侧栏与空白会话 Hero 品牌槽位（隐藏本地构建版本号胶囊），在设置中注册展示定制版版本号与上游 DSH 内核归属的「关于与品牌」分区，并在空白首页提供点击浮出的像素鲸鱼。随产品提供的 Web 与 Desktop 组合默认加载本包。背景只持有临时 Canvas 资源，不增加模型请求。
 
 ## 目录
 
@@ -25,11 +25,11 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-随产品提供的 Web 与 Desktop 组合已挂载本插件。首页反馈不需要额外安装或启用；`official` 客户端构建还会注册 DeepSeek 侧栏图形。
+随产品提供的 Web 与 Desktop 组合已挂载本插件。它在所有构建 profile 下统一占据 `sidebar.brand.mark`、`sidebar.brand.name`、`conversation.hero.brand.mark`、`conversation.hero.brand.headline` 与 `settings.section`（`id: 'about'`），并提供 `conversation.hero.frame` 背景。
 
 ### 选择 profile
 
-`DSH_CLIENT_BUILD_PROFILE` 决定渲染哪个品牌。`official` 构建显示官方侧栏标志和名称；任何其他取值都让外壳回退——鱼形标志与本地构建标签——保持原样。会话首屏无论 profile 如何都显示来自 `dsh-client-ui-conversation` 的动画首屏鱼，因为这个回退本身就是官方标志。两种情况下插件都会照常加载并通过校验；只有侧栏图形注册受 profile 门控；各构建 profile 共用首页背景。
+用户可在设置（「关于与品牌」分区）中切换四套内置品牌预设（默认为 `reins`／`执辔 Reins`，可选 `loom`／`灵枢 Loom`、`lumen`／`澄明 Lumen` 与 `deepseek`）、四种字标格式（`bilingual`、`zh`、`en` 与 `custom`）以及三种首页欢迎词模式（`brand` 注解、`time` 时段问候与 `custom`），由 `dsh-client-ui-theme` 持久化配置承接。当 `preset` 为 `deepseek`、`labelMode` 非 `custom` 且 `DSH_CLIENT_BUILD_PROFILE` 为 `official` 时，侧栏名称使用官方矢量字标；其余场景渲染无本地构建版本号胶囊的品牌字标。上游 DSH 内核版本与提交号归属统一收纳于「关于与品牌」分区，配以 DeepSeek 鲸鱼徽标与一键复制版本信息按钮。
 
 ### 首页反馈
 
@@ -41,7 +41,7 @@ kind: "package-reference"
 
 ### 替换品牌
 
-自有身份的部署不组合本包，而是组合另一个占据侧栏 slot 和 `conversation.hero.frame` 层——以及本包留给回退的首屏标志 slot——的包。占据 slot 是唯一的组合路径；品牌图形身份不可配置。
+内置品牌预设、自定义字标与自定义首页欢迎词可直接通过 `ui-theme` 设置项配置，无需替换本包。若部署需要四套内置雕塑之外的专属 SVG 组件，可移除本包并组合另一个占据侧栏、Hero 与设置 slot 的包。
 
 -----
 
@@ -51,7 +51,7 @@ kind: "package-reference"
 <details>
 <summary>实现细节——点击展开</summary>
 
-两个填充作为一组声明感知的注册安装：嵌套的 `ctx.slots.inject()` 调用等待侧栏声明，因此无论本行在声明者之前还是之后激活，这组注册都能工作；声明消失时两个填充一并撤回，HMR 期间也不会留下残缺的品牌混合。独立的 `conversation.hero.frame` 层持有 Canvas 绘制器，通过 `ctx.slots.inject()` 等待声明；`hero` 为 true 时它以负 `z-index` 绘制 Canvas，按 frame 层约定画在 Conversation 背景之上、所有 Conversation 内容之下。它在点击落到自身外框、且不在控件和输入卡片上时播放；portal 浮层的点击以及结束外框内文字选择的点击会被忽略。它不更改输入框或会话状态。浏览器半部是 [`src/client/index.ts`](src/client/index.ts)；node 半部是空的 Loader 席位。[帧图](src/client/assets/breach-atlas.webp) 来自用户提供的[展示视频](https://yinghuo-hg.deepseek.com/wuyexinrui/dev-cpu/web-showcase/orca.mp4)：截取 1.5–7.2 秒，以每秒 24 帧采样为 192 × 108 个单元，以无损 WebP 存储。红色与绿色通道以 32 级分别编码圆点半径和不透明度；绘制器在首次符合条件的点击后读取一次。浏览器标题是构建环境的事（`DSH_CLIENT_TITLE`），不在 slot 系统之内。
+侧栏两个填充作为一组声明感知的注册安装：嵌套的 `ctx.slots.inject()` 调用等待侧栏声明，因此无论本行在声明者之前还是之后激活，这组注册都能工作；声明消失时两个填充一并撤回，HMR 期间也不会留下残缺的品牌混合。独立的 `ctx.slots.inject()` 调用分别注册 `HeroBrandMark`、`HeroBrandHeadline` 与 `AboutBrandSection`，均通过 `ctx.theme` 订阅响应式的 `ThemeSnapshot.brand` 状态。独立的 `conversation.hero.frame` 层持有 Canvas 绘制器，通过 `ctx.slots.inject()` 等待声明；`hero` 为 true 时它以负 `z-index` 绘制 Canvas，按 frame 层约定画在 Conversation 背景之上、所有 Conversation 内容之下。它在点击落到自身外框、且不在控件和输入卡片上时播放；portal 浮层的点击以及结束外框内文字选择的点击会被忽略。它不更改输入框或会话状态。浏览器半部是 [`src/client/index.ts`](src/client/index.ts)；node 半部是空的 Loader 席位。[帧图](src/client/assets/breach-atlas.webp) 来自用户提供的[展示视频](https://yinghuo-hg.deepseek.com/wuyexinrui/dev-cpu/web-showcase/orca.mp4)：截取 1.5–7.2 秒，以每秒 24 帧采样为 192 × 108 个单元，以无损 WebP 存储。红色与绿色通道以 32 级分别编码圆点半径和不透明度；绘制器在首次符合条件的点击后读取一次。除非构建时显式注入 `DSH_CLIENT_TITLE`，否则 `ui-layout` 会将文档标题同步为 `ThemeSnapshot.brand.title`。
 
 </details>
 
@@ -84,9 +84,9 @@ kind: "package-reference"
 
 这些限制界定了品牌呈现的供给方式。它们是当前包约束，不是品牌设计对比或任务积压。
 
-- **只有一组填充**——替代呈现属于占据相同 slot 的另一个 Cordis 包。
+- **只有一组填充**——四套内置预设之外的自定义 SVG 徽标属于占据相同 slot 的另一个 Cordis 包。
 - **装饰绘制需要 Canvas 2D**——上下文不可用或偏好减少动态效果时，首页保持留白。
-- **浏览器标题独立**——`DSH_CLIENT_TITLE` 在构建时选择标题文本，而非通过 UI slot。
+- **构建标题覆盖优先**——构建时若设置了 `DSH_CLIENT_TITLE`，其在 `document.title` 上优先于动态品牌标题。
 
 <a id="dev-note"></a>
 ### 开发备注

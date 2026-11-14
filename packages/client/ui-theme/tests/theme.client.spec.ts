@@ -11,6 +11,14 @@ import type {
 } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 
+const defaultBrandFields = {
+  brandPreset: 'reins' as const,
+  brandLabelMode: 'bilingual' as const,
+  customBrandName: '',
+  brandGreetingMode: 'brand' as const,
+  customBrandGreeting: '',
+}
+
 const make = (host = stubConfigForm<ThemeSettings>()): {
   ctx: Context
   theme: ThemeRuntime
@@ -29,6 +37,14 @@ describe('ThemeRuntime', () => {
     const snapshot = theme.getTheme()
     expect(snapshot.preference).toBe('system')
     expect(snapshot.style).toBe('antigravity')
+    expect(snapshot.brand).toEqual({
+      preset: 'reins',
+      labelMode: 'bilingual',
+      customName: '',
+      greetingMode: 'brand',
+      customGreeting: '',
+      title: '执辔 Reins',
+    })
     expect(snapshot.fontSizes.text).toBe(14)
     // jsdom matchMedia is absent; system resolves to light.
     expect(snapshot.active.id).toBe('light')
@@ -47,7 +63,7 @@ describe('ThemeRuntime', () => {
       expect({ preference: theme.getTheme().preference, palette: theme.getTheme().active.colorScheme }).toMatchSnapshot()
       expect(events).toEqual([])
       host.publish({ status: 'ready', value: {
-        preference: 'light', style: 'craft', fontSize: 14, codeFontSize: 13, terminalFontSize: 13,
+        preference: 'light', style: 'craft', ...defaultBrandFields, fontSize: 14, codeFontSize: 13, terminalFontSize: 13,
         textFontFamily: '', codeFontFamily: '', terminalFontFamily: '',
       }, revision: 1, writable: true })
       expect(theme.getTheme().preference).toBe('light')
@@ -56,21 +72,42 @@ describe('ThemeRuntime', () => {
     } finally {
       delete document.documentElement.dataset.dsThemeSource
       delete document.body.dataset.dsThemeStyle
+      delete document.body.dataset.dsBrandPreset
+      delete document.body.dataset.dsBrandLabelMode
+      delete document.body.dataset.dsBrandGreetingMode
       document.body.removeAttribute('data-ds-dark-theme')
       document.body.removeAttribute('style')
     }
   })
 
-  it('uses the default when the boot preference or style is invalid', () => {
+  it('uses the default when the boot preference, style, or brand attributes are invalid', () => {
     document.documentElement.dataset.dsThemeSource = 'invalid'
     document.body.dataset.dsThemeStyle = 'neon'
+    document.body.dataset.dsBrandPreset = 'invalid'
+    document.body.dataset.dsBrandLabelMode = 'invalid'
+    document.body.dataset.dsBrandGreetingMode = 'invalid'
+    document.body.dataset.dsBrandCustomName = '  执辔\nPro  '
+    document.body.dataset.dsBrandCustomGreeting = '  破浪前行  '
     try {
       const snapshot = make().theme.getTheme()
       expect(snapshot.preference).toBe('system')
       expect(snapshot.style).toBe('antigravity')
+      expect(snapshot.brand).toEqual({
+        preset: 'reins',
+        labelMode: 'bilingual',
+        customName: '执辔 Pro',
+        greetingMode: 'brand',
+        customGreeting: '破浪前行',
+        title: '执辔 Reins',
+      })
     } finally {
       delete document.documentElement.dataset.dsThemeSource
       delete document.body.dataset.dsThemeStyle
+      delete document.body.dataset.dsBrandPreset
+      delete document.body.dataset.dsBrandLabelMode
+      delete document.body.dataset.dsBrandGreetingMode
+      delete document.body.dataset.dsBrandCustomName
+      delete document.body.dataset.dsBrandCustomGreeting
     }
   })
 
@@ -131,7 +168,7 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host font size without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', style: 'craft', fontSize: 12, codeFontSize: 15, terminalFontSize: 18, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', style: 'craft', ...defaultBrandFields, fontSize: 12, codeFontSize: 15, terminalFontSize: 18, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().fontSizes).toEqual({ text: 12, code: 15, terminal: 18 })
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
@@ -161,10 +198,10 @@ describe('ThemeRuntime', () => {
 
   it('adopts published Host font lists, normalizing hand-edited values, without writing them back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', style: 'craft', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: 'Inter', codeFontFamily: '"Fira Code"', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', style: 'craft', ...defaultBrandFields, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: 'Inter', codeFontFamily: '"Fira Code"', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().fontFamilies).toEqual({ text: '"Inter"', code: '"Fira Code"', terminal: '' })
     expect(events).toHaveLength(1)
-    host.publish({ value: { preference: 'system', style: 'craft', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '"Inter"', codeFontFamily: 'Fira Code', terminalFontFamily: '' }, revision: 2 })
+    host.publish({ value: { preference: 'system', style: 'craft', ...defaultBrandFields, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '"Inter"', codeFontFamily: 'Fira Code', terminalFontFamily: '' }, revision: 2 })
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
   })
@@ -200,21 +237,94 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host section without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'dark', style: 'warm', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', style: 'warm', ...defaultBrandFields, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().preference).toBe('dark')
     expect(theme.getTheme().style).toBe('warm')
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
-    host.publish({ value: { preference: 'dark', style: 'warm', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 2 })
+    host.publish({ value: { preference: 'dark', style: 'warm', ...defaultBrandFields, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 2 })
     expect(events).toHaveLength(1)
-    host.publish({ value: { preference: 'dark', style: 'classic', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 3 })
+    host.publish({ value: { preference: 'dark', style: 'classic', ...defaultBrandFields, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 3 })
     expect(theme.getTheme().style).toBe('classic')
     expect(events).toHaveLength(2)
   })
 
+  it('switches, normalizes, and adopts brand presets, wordmark formats, and greetings', async () => {
+    const { theme, events, host } = make()
+    theme.setBrandPreset('loom')
+    expect(theme.getTheme().brand.preset).toBe('loom')
+    expect(theme.getTheme().brand.title).toBe('灵枢 Loom')
+    expect(host.set).toHaveBeenCalledWith('brandPreset', 'loom')
+    theme.setBrandPreset('loom')
+    expect(events).toHaveLength(1)
+    expect(() => { theme.setBrandPreset('invalid' as never) }).toThrow('not supported')
+
+    theme.setBrandLabelMode('zh')
+    expect(theme.getTheme().brand.title).toBe('灵枢')
+    expect(host.set).toHaveBeenCalledWith('brandLabelMode', 'zh')
+    theme.setBrandLabelMode('zh')
+    expect(events).toHaveLength(2)
+    theme.setBrandLabelMode('custom')
+    expect(theme.getTheme().brand.title).toBe('灵枢 Loom')
+    expect(() => { theme.setBrandLabelMode('invalid' as never) }).toThrow('not supported')
+
+    theme.setCustomBrandName('  灵枢\tStudio  ')
+    expect(theme.getTheme().brand.customName).toBe('灵枢 Studio')
+    expect(theme.getTheme().brand.title).toBe('灵枢 Studio')
+    expect(host.set).toHaveBeenCalledWith('customBrandName', '灵枢 Studio')
+    theme.setCustomBrandName('灵枢 Studio')
+    expect(events).toHaveLength(4)
+
+    theme.setBrandGreetingMode('time')
+    expect(theme.getTheme().brand.greetingMode).toBe('time')
+    expect(host.set).toHaveBeenCalledWith('brandGreetingMode', 'time')
+    theme.setBrandGreetingMode('time')
+    expect(events).toHaveLength(5)
+    expect(() => { theme.setBrandGreetingMode('invalid' as never) }).toThrow('not supported')
+
+    theme.setCustomBrandGreeting('  经纬既定\n万象皆可编织  ')
+    expect(theme.getTheme().brand.customGreeting).toBe('经纬既定 万象皆可编织')
+    expect(host.set).toHaveBeenCalledWith('customBrandGreeting', '经纬既定 万象皆可编织')
+    theme.setCustomBrandGreeting('经纬既定 万象皆可编织')
+    expect(events).toHaveLength(6)
+    await Promise.resolve()
+
+    const baseSection: ThemeSettings = {
+      preference: 'system', style: 'antigravity',
+      brandPreset: 'loom', brandLabelMode: 'custom', customBrandName: '灵枢 Studio',
+      brandGreetingMode: 'time', customBrandGreeting: '经纬既定 万象皆可编织',
+      fontSize: 14, codeFontSize: 11, terminalFontSize: 13,
+      textFontFamily: '', codeFontFamily: '', terminalFontFamily: '',
+    }
+    host.publish({ status: 'ready', value: baseSection, revision: 1, writable: true })
+    expect(events).toHaveLength(6)
+    host.publish({ value: { ...baseSection, brandPreset: 'lumen' }, revision: 2 })
+    expect(theme.getTheme().brand.preset).toBe('lumen')
+    host.publish({ value: { ...baseSection, brandPreset: 'lumen', brandLabelMode: 'en' }, revision: 3 })
+    expect(theme.getTheme().brand.title).toBe('Lumen')
+    host.publish({ value: { ...baseSection, brandPreset: 'lumen', brandLabelMode: 'en', customBrandName: 'New' }, revision: 4 })
+    expect(theme.getTheme().brand.customName).toBe('New')
+    host.publish({ value: { ...baseSection, brandPreset: 'lumen', brandLabelMode: 'en', customBrandName: 'New', brandGreetingMode: 'custom' }, revision: 5 })
+    expect(theme.getTheme().brand.greetingMode).toBe('custom')
+    host.publish({ value: { ...baseSection, brandPreset: 'lumen', brandLabelMode: 'en', customBrandName: 'New', brandGreetingMode: 'custom', customBrandGreeting: '澄明' }, revision: 6 })
+    expect(theme.getTheme().brand.customGreeting).toBe('澄明')
+    expect(events).toHaveLength(11)
+  })
+
+  it('toggleColorScheme switches between light and dark when matchMedia is absent', () => {
+    const { theme, host } = make()
+    expect(theme.getTheme().active.colorScheme).toBe('light')
+    theme.toggleColorScheme()
+    expect(theme.getTheme().preference).toBe('dark')
+    expect(host.set).toHaveBeenLastCalledWith('preference', 'dark')
+    theme.toggleColorScheme()
+    expect(theme.getTheme().preference).toBe('light')
+    expect(host.set).toHaveBeenLastCalledWith('preference', 'light')
+  })
+
   it('holds its own changes while writes are pending, then converges on the durable section', async () => {
     const { theme, host } = make()
-    const section = { preference: 'system' as const, style: 'craft' as const, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
+    const section = { preference: 'system' as const, style: 'craft' as const, ...defaultBrandFields, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
     host.publish({ status: 'ready', value: section, revision: 1, writable: true })
     const write = Promise.withResolvers<boolean>()
     host.set.mockReturnValue(write.promise)
@@ -229,7 +339,7 @@ describe('ThemeRuntime', () => {
 
   it('adopts a section already standing at construction', () => {
     const host = stubConfigForm<ThemeSettings>()
-    host.publish({ status: 'ready', value: { preference: 'dark', style: 'aurora', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', style: 'aurora', ...defaultBrandFields, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     const { theme } = make(host)
     expect(theme.getTheme().preference).toBe('dark')
     expect(theme.getTheme().style).toBe('aurora')
@@ -415,6 +525,26 @@ describe('ThemeRuntime', () => {
       expect(media.listenerCount()).toBe(1)
       await ctx.fiber.dispose()
       expect(media.listenerCount()).toBe(0)
+    })
+
+    it('toggleColorScheme pins the opposite scheme and reverts to system when matching OS preference', () => {
+      stubMedia(true)
+      const darkOs = make()
+      expect(darkOs.theme.getTheme().active.colorScheme).toBe('dark')
+      darkOs.theme.toggleColorScheme()
+      expect(darkOs.theme.getTheme().preference).toBe('light')
+      darkOs.theme.toggleColorScheme()
+      expect(darkOs.theme.getTheme().preference).toBe('system')
+      expect(darkOs.theme.getTheme().active.colorScheme).toBe('dark')
+
+      stubMedia(false)
+      const lightOs = make()
+      expect(lightOs.theme.getTheme().active.colorScheme).toBe('light')
+      lightOs.theme.toggleColorScheme()
+      expect(lightOs.theme.getTheme().preference).toBe('dark')
+      lightOs.theme.toggleColorScheme()
+      expect(lightOs.theme.getTheme().preference).toBe('system')
+      expect(lightOs.theme.getTheme().active.colorScheme).toBe('light')
     })
   })
 })

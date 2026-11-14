@@ -67,6 +67,8 @@ export interface AccountSectionInjected {
   contactUs: () => void
   /** Open or dismiss the login dialog. */
   showLogin: (visible: boolean) => void
+  /** Toggle between the active light and dark color schemes. */
+  toggleTheme?: () => void
   /** Claim dialog ownership for the onboarding step. */
   setOnboarding: (active: boolean) => void
   /** @returns after the login attempt is created. */

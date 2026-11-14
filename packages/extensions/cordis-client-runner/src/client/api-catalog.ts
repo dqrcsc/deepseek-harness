@@ -500,6 +500,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type BoundActions<H> = H extends StoreHandle<infer T, infer A> ? BakedActions<T, A> : never;',
   },
   {
+    name: 'BrandGreetingMode',
+    declaration: 'export type BrandGreetingMode = typeof BRAND_GREETING_MODES[number];',
+  },
+  {
+    name: 'BrandLabelMode',
+    declaration: 'export type BrandLabelMode = typeof BRAND_WORDMARK_MODES[number];',
+  },
+  {
+    name: 'BrandPreferences',
+    declaration: 'export interface BrandPreferences {\n    readonly preset: BrandPreset;\n    readonly labelMode: BrandLabelMode;\n    readonly customName: string;\n    readonly greetingMode: BrandGreetingMode;\n    readonly customGreeting: string;\n}',
+  },
+  {
+    name: 'BrandPreset',
+    declaration: 'export type BrandPreset = typeof BRAND_PRESETS[number];',
+  },
+  {
+    name: 'BrandSnapshot',
+    declaration: 'export interface BrandSnapshot extends BrandPreferences {\n    readonly title: string;\n}',
+  },
+  {
     name: 'BuiltInLocaleId',
     declaration: 'export type BuiltInLocaleId = typeof LOCALE_IDS[number];',
   },
@@ -1077,7 +1097,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ThemeSnapshot',
-    declaration: 'export interface ThemeSnapshot {\n    preference: ThemePreference;\n    style: ThemeStyle;\n    fontSizes: FontSizes;\n    fontFamilies: FontFamilies;\n    active: ThemeDefinition;\n    themes: readonly ThemeDefinition[];\n    revision: number;\n}',
+    declaration: 'export interface ThemeSnapshot {\n    preference: ThemePreference;\n    style: ThemeStyle;\n    brand: BrandSnapshot;\n    fontSizes: FontSizes;\n    fontFamilies: FontFamilies;\n    active: ThemeDefinition;\n    themes: readonly ThemeDefinition[];\n    revision: number;\n}',
   },
   {
     name: 'ThemeStyle',

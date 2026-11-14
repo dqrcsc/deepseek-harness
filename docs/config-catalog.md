@@ -732,7 +732,7 @@ export interface Config {
 ## `@deepseek-ai/dsh-client-ui-theme`
 
 - `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/client/ui-theme/src/index.ts:22`](../packages/client/ui-theme/src/index.ts)
+- `source`: [`packages/client/ui-theme/src/index.ts:27`](../packages/client/ui-theme/src/index.ts)
 
 ```ts config-catalog
 /** Runtime preferences projected to the browser. */
@@ -741,6 +741,16 @@ export interface Config {
   preference: Volatile<ThemePreference>
   /** Visual theme style across light and dark palettes. */
   style: Volatile<ThemeStyle>
+  /** Selected brand identity preset. */
+  brandPreset: Volatile<BrandPreset>
+  /** Selected brand wordmark display format. */
+  brandLabelMode: Volatile<BrandLabelMode>
+  /** Custom brand wordmark text; `''` uses the preset bilingual title. */
+  customBrandName: Volatile<string>
+  /** Selected Hero welcome headline mode. */
+  brandGreetingMode: Volatile<BrandGreetingMode>
+  /** Custom Hero welcome headline text; `''` uses the preset motto. */
+  customBrandGreeting: Volatile<string>
   /** Browser font size in pixels. */
   fontSize: Volatile<number>
   /** Code-block font size in pixels. */
@@ -760,6 +770,15 @@ export type ThemePreference = typeof THEME_PREFERENCES[number]
 
 /** Visual theme style persisted by the product Appearance row. */
 export type ThemeStyle = typeof THEME_STYLES[number]
+
+/** Brand preset persisted by the About & Brand section. */
+export type BrandPreset = typeof BRAND_PRESETS[number]
+
+/** Wordmark display mode persisted by the About & Brand section. */
+export type BrandLabelMode = typeof BRAND_WORDMARK_MODES[number]
+
+/** Hero welcome headline mode persisted by the About & Brand section. */
+export type BrandGreetingMode = typeof BRAND_GREETING_MODES[number]
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-theme -->
 
