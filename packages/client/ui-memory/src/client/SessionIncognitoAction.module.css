@@ -1,0 +1,77 @@
+/* Incognito status chip matches the compact composer mode controls (Permission, Plan). */
+
+.wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  min-width: 34px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-state-business-tertiary);
+  color: var(--dsw-alias-state-business-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .chip:hover:not(:disabled) {
+    background: color-mix(
+      in srgb,
+      var(--dsw-alias-state-business-tertiary),
+      var(--dsw-alias-state-business-primary) 6%
+    );
+  }
+}
+
+.chip:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+.chip:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: currentColor;
+}
+
+.hoverGlyph,
+.chip:focus-visible .restGlyph {
+  display: none;
+}
+
+@media (hover: hover) {
+  .chip:hover:not(:disabled) .restGlyph {
+    display: none;
+  }
+}
+
+.chip:focus-visible .hoverGlyph {
+  display: block;
+}
+
+@media (hover: hover) {
+  .chip:hover:not(:disabled) .hoverGlyph {
+    display: block;
+  }
+}
+
+.badgeText {
+  white-space: nowrap;
+}

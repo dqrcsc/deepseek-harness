@@ -4218,13 +4218,13 @@ Sources: [`packages/llm/llm-retry/src/types.ts:43`](../packages/llm/llm-retry/sr
 
 <a id="persistence-type-memorycategory"></a>
 
-<a id="persistence-type-packagesmemorymemorysrctypestsmemorycategory"></a>
+<a id="persistence-type-packagesmemorymemorylibtypestypesdtsmemorycategory"></a>
 
 ### `MemoryCategory`
 
 SHA-256: `a76f82e4121a532e951056f3991e02bb22884298576ce6c6e954df305273447e`
 
-Sources: [`packages/memory/memory/src/types.ts:15`](../packages/memory/memory/src/types.ts)
+Sources: [`packages/memory/memory/lib/types/types.d.ts:11`](../packages/memory/memory/lib/types/types.d.ts)
 
 One of:
 
@@ -4238,13 +4238,13 @@ One of:
 
 <a id="persistence-type-memorycitationitem"></a>
 
-<a id="persistence-type-packagesmemorymemorysrctypestsmemorycitationitem"></a>
+<a id="persistence-type-packagesmemorymemorylibtypestypesdtsmemorycitationitem"></a>
 
 ### `MemoryCitationItem`
 
 SHA-256: `e19d45933c6864e2e4de3c8a805ab95c5f2e1bffc72d83a7a5439a68881e8189`
 
-Sources: [`packages/memory/memory/src/types.ts:222`](../packages/memory/memory/src/types.ts)
+Sources: [`packages/memory/memory/lib/types/types.d.ts:199`](../packages/memory/memory/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -4268,13 +4268,13 @@ Array of [`MemoryCitationItem`](#persistence-type-sha256-e19d45933c6864e2e4de3c8
 
 <a id="persistence-type-memorycontextsource"></a>
 
-<a id="persistence-type-packagesmemorymemorysrctypestsmemorycontextsource"></a>
+<a id="persistence-type-packagesmemorymemorylibtypestypesdtsmemorycontextsource"></a>
 
 ### `MemoryContextSource`
 
 SHA-256: `ac77e65b74a7a53d1b9abf016727572e15c0605eb18c32de8270e7c32deec386`
 
-Sources: [`packages/memory/memory/src/types.ts:262`](../packages/memory/memory/src/types.ts)
+Sources: [`packages/memory/memory/lib/types/types.d.ts:236`](../packages/memory/memory/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -4289,13 +4289,13 @@ Sources: [`packages/memory/memory/src/types.ts:262`](../packages/memory/memory/s
 
 <a id="persistence-type-memoryscope"></a>
 
-<a id="persistence-type-packagesmemorymemorysrctypestsmemoryscope"></a>
+<a id="persistence-type-packagesmemorymemorylibtypestypesdtsmemoryscope"></a>
 
 ### `MemoryScope`
 
 SHA-256: `f215363ec810a77361ac9d7c9acb3cdc41faa3e40b35f1aa47ec0b27afaa031e`
 
-Sources: [`packages/memory/memory/src/types.ts:18`](../packages/memory/memory/src/types.ts)
+Sources: [`packages/memory/memory/lib/types/types.d.ts:13`](../packages/memory/memory/lib/types/types.d.ts)
 
 | kind | Form property | Other required fields | Full definition |
 |---|---|---|---|
@@ -5774,7 +5774,7 @@ Array of `number`.
 
 <a id="persistence-type-packagesllmllmsrcbrandtstoolcallid"></a>
 
-<a id="persistence-type-packagesmemorymemorysrctypestsmemoryid"></a>
+<a id="persistence-type-packagesmemorymemorylibtypestypesdtsmemoryid"></a>
 
 <a id="persistence-type-packagesscheduleschedulesrctypestsscheduleid"></a>
 
@@ -5824,7 +5824,7 @@ Array of `number`.
 
 SHA-256: `4cd48f3e5108bd6ebedf7301c3638839b8b2b9db8dbd493974177fbdeb91a01b`
 
-Sources: [`packages/api/session-controller/src/types.ts:391`](../packages/api/session-controller/src/types.ts) · [`packages/attachment/attachment/src/brand.ts:6`](../packages/attachment/attachment/src/brand.ts) · [`packages/compaction/compaction/src/brand.ts:4`](../packages/compaction/compaction/src/brand.ts) · [`packages/core/session/src/types.ts:21`](../packages/core/session/src/types.ts) · [`packages/experimental/webhook/src/brand.ts:12`](../packages/experimental/webhook/src/brand.ts) · [`packages/experimental/webhook/src/brand.ts:6`](../packages/experimental/webhook/src/brand.ts) · [`packages/experimental/webhook/src/brand.ts:9`](../packages/experimental/webhook/src/brand.ts) · [`packages/feedback/message-feedback/src/types.ts:14`](../packages/feedback/message-feedback/src/types.ts) · [`packages/goal/goal/src/types.ts:17`](../packages/goal/goal/src/types.ts) · [`packages/interaction/commands/src/brand.ts:31`](../packages/interaction/commands/src/brand.ts) · [`packages/interaction/user-approval/src/types.ts:17`](../packages/interaction/user-approval/src/types.ts) · [`packages/jobs/jobs/src/brand.ts:19`](../packages/jobs/jobs/src/brand.ts) · [`packages/llm/llm-retry/src/brand.ts:4`](../packages/llm/llm-retry/src/brand.ts) · [`packages/llm/llm/src/brand.ts:16`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:31`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:43`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:67`](../packages/llm/llm/src/brand.ts) · [`packages/memory/memory/src/types.ts:12`](../packages/memory/memory/src/types.ts) · [`packages/schedule/schedule/src/types.ts:14`](../packages/schedule/schedule/src/types.ts) · [`packages/session/session-title/src/index.ts:42`](../packages/session/session-title/src/index.ts) · [`packages/session/session-title/src/types.ts:17`](../packages/session/session-title/src/types.ts) · [`packages/team/agent-team/src/types.ts:20`](../packages/team/agent-team/src/types.ts) · [`packages/team/agent-team/src/types.ts:32`](../packages/team/agent-team/src/types.ts) · [`packages/team/agent-team/src/types.ts:8`](../packages/team/agent-team/src/types.ts) · [`packages/workflow/workflow/src/types.ts:13`](../packages/workflow/workflow/src/types.ts)
+Sources: [`packages/api/session-controller/src/types.ts:391`](../packages/api/session-controller/src/types.ts) · [`packages/attachment/attachment/src/brand.ts:6`](../packages/attachment/attachment/src/brand.ts) · [`packages/compaction/compaction/src/brand.ts:4`](../packages/compaction/compaction/src/brand.ts) · [`packages/core/session/src/types.ts:21`](../packages/core/session/src/types.ts) · [`packages/experimental/webhook/src/brand.ts:12`](../packages/experimental/webhook/src/brand.ts) · [`packages/experimental/webhook/src/brand.ts:6`](../packages/experimental/webhook/src/brand.ts) · [`packages/experimental/webhook/src/brand.ts:9`](../packages/experimental/webhook/src/brand.ts) · [`packages/feedback/message-feedback/src/types.ts:14`](../packages/feedback/message-feedback/src/types.ts) · [`packages/goal/goal/src/types.ts:17`](../packages/goal/goal/src/types.ts) · [`packages/interaction/commands/src/brand.ts:31`](../packages/interaction/commands/src/brand.ts) · [`packages/interaction/user-approval/src/types.ts:17`](../packages/interaction/user-approval/src/types.ts) · [`packages/jobs/jobs/src/brand.ts:19`](../packages/jobs/jobs/src/brand.ts) · [`packages/llm/llm-retry/src/brand.ts:4`](../packages/llm/llm-retry/src/brand.ts) · [`packages/llm/llm/src/brand.ts:16`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:31`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:43`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:67`](../packages/llm/llm/src/brand.ts) · [`packages/memory/memory/lib/types/types.d.ts:9`](../packages/memory/memory/lib/types/types.d.ts) · [`packages/schedule/schedule/src/types.ts:14`](../packages/schedule/schedule/src/types.ts) · [`packages/session/session-title/src/index.ts:42`](../packages/session/session-title/src/index.ts) · [`packages/session/session-title/src/types.ts:17`](../packages/session/session-title/src/types.ts) · [`packages/team/agent-team/src/types.ts:20`](../packages/team/agent-team/src/types.ts) · [`packages/team/agent-team/src/types.ts:32`](../packages/team/agent-team/src/types.ts) · [`packages/team/agent-team/src/types.ts:8`](../packages/team/agent-team/src/types.ts) · [`packages/workflow/workflow/src/types.ts:13`](../packages/workflow/workflow/src/types.ts)
 
 `string`
 
@@ -6993,7 +6993,7 @@ Sources: [`packages/core/session/src/types.ts:234`](../packages/core/session/src
 
 SHA-256: `2a0bdffaf8dbc06c80bd32e5ee36a8624c997bddf40a8e86f5e10ac1ec63d4e4`
 
-Sources: [`packages/memory/memory/src/types.ts:19`](../packages/memory/memory/src/types.ts)
+Sources: [`packages/memory/memory/lib/types/types.d.ts:13`](../packages/memory/memory/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -8150,7 +8150,7 @@ Sources: [`packages/session/working-directory/src/index.ts:48`](../packages/sess
 
 SHA-256: `f4dfa9de8ff065c0fad78f1f621041447476b71d0abab789dc0fe6c178ba4faf`
 
-Sources: [`packages/memory/memory/src/types.ts:20`](../packages/memory/memory/src/types.ts)
+Sources: [`packages/memory/memory/lib/types/types.d.ts:15`](../packages/memory/memory/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|

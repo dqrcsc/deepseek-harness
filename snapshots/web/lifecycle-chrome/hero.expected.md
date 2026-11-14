@@ -5,6 +5,8 @@
   - button "Plugins"
   - button "Automation tasks"
   - button "Unpin Automation tasks from sidebar"
+  - button "Memories"
+  - button "Unpin Memories from sidebar"
   - button "More"
 - text: Workspaces
 - button "Search sessions"
