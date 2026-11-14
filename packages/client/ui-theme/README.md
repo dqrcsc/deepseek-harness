@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-client-ui-theme` lets Web GUI users choose `light`, `dark`, or `system`, pick one of eight visual styles (defaulting to `antigravity`), and set separate fonts and sizes for text, code, and the terminal in Settings. Authenticated browsers store these values in the `ui-theme` settings namespace (`$DSH_HOME/cordis.patch.yml` locally). The plugin resolves `system` through `prefers-color-scheme` and publishes immutable `ThemeSnapshot`s applied by ui-layout. It also ships `--dsw-*` token stylesheets and a synchronous bootstrap so the selected palette, style, sizes, and fonts apply before shell load. Third-party themes can register alias-token overrides through `ctx.theme`.
+`dsh-client-ui-theme` lets Web GUI users choose `light`, `dark`, or `system`, pick one of eight visual styles (`antigravity` by default), configure brand presets (`reins` by default), wordmark format, and Hero headline mode, and set separate fonts and sizes for text, code, and the terminal in Settings. Authenticated browsers store these values in `ui-theme` (`$DSH_HOME/cordis.patch.yml` locally). The plugin resolves `system` through `prefers-color-scheme` and publishes immutable `ThemeSnapshot`s applied by ui-layout. It also ships `--dsw-*` token stylesheets and a synchronous bootstrap applied before shell load, and supports alias-token overrides via `ctx.theme`.
 
 ## Table of Contents
 

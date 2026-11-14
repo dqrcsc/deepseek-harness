@@ -26,7 +26,10 @@ import css from './AppFrame.module.css'
 
 /** Browser posture supplied by the root registration. */
 export interface AppFrameInjected {
-  hooks: { foldedLandscape: HostObservable<boolean> }
+  hooks: {
+    foldedLandscape: HostObservable<boolean>
+    brandTitle: HostObservable<string>
+  }
 }
 
 /** Full composed props: runtime, child slots, store, locale, and injected posture. */
@@ -131,6 +134,7 @@ export function AppFrame({
   useSessions,
   usePanelInfo,
   useFoldedLandscape,
+  useBrandTitle,
   actions,
   renderSlot,
   t,
@@ -139,6 +143,7 @@ export function AppFrame({
   const frameRef = useRef<HTMLDivElement | null>(null)
   const viewport = layoutInfo.viewportWidth
   const foldedLandscape = useFoldedLandscape(matches => matches)
+  const brandTitle = useBrandTitle(title => title)
 
   // Track the frame's own box (not the window): rAF-throttled ResizeObserver.
   useLayoutEffect(() => {
@@ -258,7 +263,7 @@ export function AppFrame({
   const onRightbarDrag = useCallback((dx: number) => {
     actions.setRightbar(rightbarBase.current - dx)
   }, [actions])
-  const productTitle = process.env.DSH_CLIENT_TITLE ?? t('brand.localBuild')
+  const productTitle = process.env.DSH_CLIENT_TITLE ?? (brandTitle !== '' ? brandTitle : t('brand.localBuild'))
   // The rendered template lets the grid solve the squeeze natively: the centre
   // declares its protected minimum and the right column bids up to the clamped
   // preference, so a window resize lands in the same layout pass as the frame

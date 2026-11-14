@@ -8,9 +8,9 @@
 
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import {
-  DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, DEFAULT_THEME_STYLE, FONT_ROLES, FONT_SIZE_SPECS,
+  DEFAULT_BRAND_SNAPSHOT, DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, DEFAULT_THEME_STYLE, FONT_ROLES, FONT_SIZE_SPECS,
   fontFamilyVariable, normalizeFontFamily,
-  type FontFamilies, type FontSizes, type ThemePreference, type ThemeStyle,
+  type BrandSnapshot, type FontFamilies, type FontSizes, type ThemePreference, type ThemeStyle,
 } from './theme-settings.ts'
 
 const BOOT_BACKGROUNDS: Readonly<Record<ThemeStyle, { readonly light: string; readonly dark: string }>> = {
@@ -34,12 +34,13 @@ function bootThemeStyle(preference: ThemePreference, style: ThemeStyle): string 
   return `${light}@media(prefers-color-scheme:dark){${dark}}`
 }
 
-/** Build the body script that installs the palette selector, visual style, and font variables. */
+/** Build the body script that installs the palette selector, visual style, brand identity, and font variables. */
 function bootThemeBodyScript(
   preference: ThemePreference,
   fontSizes: FontSizes,
   fontFamilies: FontFamilies,
   style: ThemeStyle,
+  brand: BrandSnapshot,
 ): string {
   const sizes = FONT_ROLES.map(role =>
     `\n  document.body.style.setProperty(${JSON.stringify(FONT_SIZE_SPECS[role].variable)}, ${JSON.stringify(`${fontSizes[role]}px`)})`).join('')
@@ -47,6 +48,10 @@ function bootThemeBodyScript(
     const list = normalizeFontFamily(fontFamilies[kind])
     return list === '' ? [] : [`\n  document.body.style.setProperty(${JSON.stringify(fontFamilyVariable(kind))}, ${JSON.stringify(list)})`]
   }).join('')
+  const brandCustom = [
+    brand.customName === '' ? '' : `\n  document.body.dataset.dsBrandCustomName = ${JSON.stringify(brand.customName)}`,
+    brand.customGreeting === '' ? '' : `\n  document.body.dataset.dsBrandCustomGreeting = ${JSON.stringify(brand.customGreeting)}`,
+  ].join('')
   return `(() => {
   const preference = ${JSON.stringify(preference)}
   const systemDark = preference === 'system'
@@ -55,18 +60,22 @@ function bootThemeBodyScript(
   const dark = preference === 'dark' || systemDark
   document.documentElement.dataset.dsThemeSource = preference
   document.body.toggleAttribute('data-ds-dark-theme', dark)
-  document.body.dataset.dsThemeStyle = ${JSON.stringify(style)}${sizes}${families}
+  document.body.dataset.dsThemeStyle = ${JSON.stringify(style)}
+  document.body.dataset.dsBrandPreset = ${JSON.stringify(brand.preset)}
+  document.body.dataset.dsBrandLabelMode = ${JSON.stringify(brand.labelMode)}
+  document.body.dataset.dsBrandGreetingMode = ${JSON.stringify(brand.greetingMode)}${brandCustom}${sizes}${families}
 })()`
 }
 
 /**
  * Theme bootstrap rows: head CSS colors the document canvas before
  * first paint, then the body script installs the palette selector, visual
- * style, font size, and font families before the shell mount and module script.
+ * style, brand identity, font size, and font families before the shell mount and module script.
  * @param preference - Current Host-backed built-in preference.
  * @param fontSizes - Current Host-backed font sizes in px by role.
  * @param fontFamilies - Current Host-backed font lists; each is normalized before embedding.
  * @param style - Current Host-backed visual theme style.
+ * @param brand - Current Host-backed brand identity snapshot.
  * @returns head and body script rows in execution order.
  */
 export function bootThemeInjections(
@@ -74,9 +83,10 @@ export function bootThemeInjections(
   fontSizes: FontSizes = DEFAULT_FONT_SIZES,
   fontFamilies: FontFamilies = { text: '', code: '', terminal: '' },
   style: ThemeStyle = DEFAULT_THEME_STYLE,
+  brand: BrandSnapshot = DEFAULT_BRAND_SNAPSHOT,
 ): IndexInjection[] {
   return [
     { kind: 'style', text: bootThemeStyle(preference, style) },
-    { kind: 'script', placement: 'body', text: bootThemeBodyScript(preference, fontSizes, fontFamilies, style) },
+    { kind: 'script', placement: 'body', text: bootThemeBodyScript(preference, fontSizes, fontFamilies, style, brand) },
   ]
 }

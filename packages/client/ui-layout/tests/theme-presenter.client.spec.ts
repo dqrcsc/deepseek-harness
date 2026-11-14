@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { FontFamilies, ThemePreference, ThemeSnapshot, ThemeStyle } from '@deepseek-ai/dsh-client-ui-theme/client'
-import { fontFamilyVariable } from '@deepseek-ai/dsh-client-ui-theme/src/theme-settings.ts'
-import { DARK_ATTRIBUTE, THEME_SOURCE_ATTRIBUTE, THEME_STYLE_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
+import type { BrandPreset, FontFamilies, ThemePreference, ThemeSnapshot, ThemeStyle } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { createBrandSnapshot, DEFAULT_BRAND_SNAPSHOT, fontFamilyVariable } from '@deepseek-ai/dsh-client-ui-theme/src/theme-settings.ts'
+import { BRAND_PRESET_ATTRIBUTE, DARK_ATTRIBUTE, THEME_SOURCE_ATTRIBUTE, THEME_STYLE_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
 
 const LIGHT_THEME_COLOR = 'rgb(255, 255, 255)'
 const DARK_THEME_COLOR = 'rgb(21, 21, 23)'
@@ -15,10 +15,15 @@ function snapshot(
   preference: ThemePreference = colorScheme,
   fontFamilies: FontFamilies = { text: '', code: '', terminal: '' },
   style: ThemeStyle = 'craft',
+  preset: BrandPreset = 'reins',
 ): ThemeSnapshot {
   // The presenter must key off colorScheme, not the id — keep them distinct.
   const active = { id: `${colorScheme}-test`, colorScheme, tokens }
-  return { preference, style, fontSizes: { text: fontSize, code: 11, terminal: 13 }, fontFamilies, active, themes: [active], revision: 1 }
+  const brand = preset === 'reins'
+    ? DEFAULT_BRAND_SNAPSHOT
+    : createBrandSnapshot({ preset, labelMode: 'bilingual', customName: '', greetingMode: 'brand', customGreeting: '' })
+  const fontSizes = { text: fontSize, code: 11, terminal: 13 }
+  return { preference, style, brand, fontSizes, fontFamilies, active, themes: [active], revision: 1 }
 }
 
 function clearThemePresentation(): void {
@@ -35,6 +40,7 @@ beforeEach(() => {
   document.documentElement.removeAttribute(THEME_SOURCE_ATTRIBUTE)
   document.body.removeAttribute(DARK_ATTRIBUTE)
   document.body.removeAttribute(THEME_STYLE_ATTRIBUTE)
+  document.body.removeAttribute(BRAND_PRESET_ATTRIBUTE)
   document.body.removeAttribute('style')
   const style = document.createElement('style')
   style.dataset.themePresenterTest = ''
@@ -54,9 +60,11 @@ describe('ThemePresenter', () => {
     expect(document.documentElement.style.colorScheme).toBe('light')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
     expect(document.body.getAttribute(THEME_STYLE_ATTRIBUTE)).toBe('craft')
+    expect(document.body.getAttribute(BRAND_PRESET_ATTRIBUTE)).toBe('reins')
     expect(themeColorMeta()?.content).toBe(LIGHT_THEME_COLOR)
-    presenter.apply(snapshot('light', {}, 14, 'light', { text: '', code: '', terminal: '' }, 'warm'))
+    presenter.apply(snapshot('light', {}, 14, 'light', { text: '', code: '', terminal: '' }, 'warm', 'loom'))
     expect(document.body.getAttribute(THEME_STYLE_ATTRIBUTE)).toBe('warm')
+    expect(document.body.getAttribute(BRAND_PRESET_ATTRIBUTE)).toBe('loom')
   })
 
   it('dark scheme sets root color-scheme, the attribute, and metadata; switching to light updates one node', () => {
@@ -133,6 +141,7 @@ describe('ThemePresenter', () => {
     expect(document.documentElement.style.colorScheme).toBe('')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
     expect(document.body.hasAttribute(THEME_STYLE_ATTRIBUTE)).toBe(false)
+    expect(document.body.hasAttribute(BRAND_PRESET_ATTRIBUTE)).toBe(false)
     expect(document.body.style.getPropertyValue('--dsw-alias-bg')).toBe('')
     expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('')
     expect(document.body.style.getPropertyValue('--dsh-code-font-size')).toBe('')

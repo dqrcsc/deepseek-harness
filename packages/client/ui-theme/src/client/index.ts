@@ -29,9 +29,14 @@ import { installIconSprite, type IconReplacements } from './icon-sprite.ts'
 import { installThemeStyles } from './styles.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type ThemeKey } from './locales.ts'
 import {
+  BRAND_GREETING_MAX_LENGTH, BRAND_GREETING_MODE_FIELD, BRAND_NAME_MAX_LENGTH,
+  BRAND_PRESET_FIELD, BRAND_WORDMARK_MODE_FIELD, createBrandSnapshot, CUSTOM_BRAND_GREETING_FIELD, CUSTOM_BRAND_NAME_FIELD,
+  DEFAULT_BRAND_GREETING_MODE, DEFAULT_BRAND_PRESET, DEFAULT_BRAND_SNAPSHOT, DEFAULT_BRAND_WORDMARK_MODE,
   DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, DEFAULT_THEME_STYLE, FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_SPECS,
-  fontFamilyVariable, isFontSize, isThemePreference, isThemeStyle, normalizeFontFamily, sectionFontSizes,
+  fontFamilyVariable, isBrandGreetingMode, isBrandLabelMode, isBrandPreset, isFontSize, isThemePreference,
+  isThemeStyle, normalizeBrandText, normalizeFontFamily, sectionFontSizes,
   THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE, THEME_STYLE_FIELD,
+  type BrandGreetingMode, type BrandLabelMode, type BrandPreset, type BrandSnapshot,
   type FontFamilies, type FontRole, type FontSizes, type ThemePreference, type ThemeSettings, type ThemeStyle,
 } from '../theme-settings.ts'
 
@@ -39,7 +44,10 @@ export type { AppearanceRowComponentProps, AppearanceRowInjected } from './Appea
 export type { FontSettingsGroupProps, FontSettingsInjected } from './FontSettingsGroup.tsx'
 export type { AppearanceRowState, FontRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
-export type { FontFamilies, FontRole, FontSizes, ThemePreference, ThemeSettings, ThemeStyle } from '../theme-settings.ts'
+export type {
+  BrandGreetingMode, BrandLabelMode, BrandPreferences, BrandPreset, BrandSnapshot,
+  FontFamilies, FontRole, FontSizes, ThemePreference, ThemeSettings, ThemeStyle,
+} from '../theme-settings.ts'
 
 /** Namespace owning this feature's settings-row copy. */
 export const SETTINGS_NS = 'settings.theme'
@@ -102,6 +110,8 @@ export interface ThemeSnapshot {
   preference: ThemePreference
   /** The persisted visual theme style across light and dark palettes. */
   style: ThemeStyle
+  /** The persisted brand identity configuration and resolved display title. */
+  brand: BrandSnapshot
   /** Integer px font sizes by role, each within its `FONT_SIZE_SPECS` range (`text` is the conversation content size). */
   fontSizes: FontSizes
   /** Normalized user font lists by role; `''` selects the role's built-in stack. */
@@ -186,6 +196,7 @@ export class ThemeRuntime {
   private themes: ThemeDefinition[] = [...BUILTIN_THEMES]
   private preference: ThemePreference
   private style: ThemeStyle = bootstrapStyle()
+  private brand: BrandSnapshot = bootstrapBrand()
   private fontSizes: FontSizes = bootstrapFontSizes()
   private fontFamilies: FontFamilies = bootstrapFontFamilies()
   private revision = 0
@@ -265,6 +276,81 @@ export class ThemeRuntime {
     if (this.preference === id) return
     this.preference = id as ThemePreference
     if (isThemePreference(id)) this.write(() => this.host.set(THEME_PREFERENCE_FIELD, id))
+    this.publish()
+  }
+
+  /**
+   * Toggle between light and dark color schemes for compact 2-state chrome
+   * buttons: targets the opposite of the currently rendered scheme, reverting
+   * to `system` when that target matches the OS `prefers-color-scheme` so
+   * future OS schedule shifts remain active.
+   */
+  toggleColorScheme(): void {
+    const targetScheme = this.snapshot.active.colorScheme === 'dark' ? 'light' : 'dark'
+    if (this.media !== undefined && targetScheme === (this.media.matches ? 'dark' : 'light')) {
+      this.setTheme('system')
+      return
+    }
+    this.setTheme(targetScheme)
+  }
+
+  /**
+   * Switch the active brand preset (`reins`, `loom`, `lumen`, or `deepseek`).
+   * @param preset - supported built-in brand preset; unknown values throw.
+   */
+  setBrandPreset(preset: BrandPreset): void {
+    if (!isBrandPreset(preset)) throw new Error(`brand preset "${String(preset)}" is not supported`)
+    if (this.brand.preset === preset) return
+    this.brand = createBrandSnapshot({ ...this.brand, preset })
+    this.write(() => this.host.set(BRAND_PRESET_FIELD, preset))
+    this.publish()
+  }
+
+  /**
+   * Switch the brand wordmark display format (`bilingual`, `zh`, `en`, or `custom`).
+   * @param mode - supported built-in label mode; unknown values throw.
+   */
+  setBrandLabelMode(mode: BrandLabelMode): void {
+    if (!isBrandLabelMode(mode)) throw new Error(`brand label mode "${String(mode)}" is not supported`)
+    if (this.brand.labelMode === mode) return
+    this.brand = createBrandSnapshot({ ...this.brand, labelMode: mode })
+    this.write(() => this.host.set(BRAND_WORDMARK_MODE_FIELD, mode))
+    this.publish()
+  }
+
+  /**
+   * Set the custom brand wordmark text (normalized and capped at 40 characters).
+   * @param name - user-entered custom brand wordmark.
+   */
+  setCustomBrandName(name: string): void {
+    const normalized = normalizeBrandText(name, BRAND_NAME_MAX_LENGTH)
+    if (this.brand.customName === normalized) return
+    this.brand = createBrandSnapshot({ ...this.brand, customName: normalized })
+    this.write(() => this.host.set(CUSTOM_BRAND_NAME_FIELD, normalized))
+    this.publish()
+  }
+
+  /**
+   * Switch the Hero welcome headline mode (`brand`, `time`, or `custom`).
+   * @param mode - supported built-in greeting mode; unknown values throw.
+   */
+  setBrandGreetingMode(mode: BrandGreetingMode): void {
+    if (!isBrandGreetingMode(mode)) throw new Error(`brand greeting mode "${String(mode)}" is not supported`)
+    if (this.brand.greetingMode === mode) return
+    this.brand = createBrandSnapshot({ ...this.brand, greetingMode: mode })
+    this.write(() => this.host.set(BRAND_GREETING_MODE_FIELD, mode))
+    this.publish()
+  }
+
+  /**
+   * Set the custom Hero welcome headline text (normalized and capped at 80 characters).
+   * @param greeting - user-entered custom Hero headline.
+   */
+  setCustomBrandGreeting(greeting: string): void {
+    const normalized = normalizeBrandText(greeting, BRAND_GREETING_MAX_LENGTH)
+    if (this.brand.customGreeting === normalized) return
+    this.brand = createBrandSnapshot({ ...this.brand, customGreeting: normalized })
+    this.write(() => this.host.set(CUSTOM_BRAND_GREETING_FIELD, normalized))
     this.publish()
   }
 
@@ -349,11 +435,14 @@ export class ThemeRuntime {
     if (section === undefined) return
     const fontFamilies = durableFontFamilies(section)
     const fontSizes = sectionFontSizes(section)
+    const brand = durableBrand(section)
     if (this.preference === section.preference
       && this.style === section.style
+      && sameBrand(this.brand, brand)
       && FONT_ROLES.every(role => this.fontSizes[role] === fontSizes[role] && this.fontFamilies[role] === fontFamilies[role])) return
     this.preference = section.preference
     this.style = section.style
+    this.brand = brand
     this.fontSizes = fontSizes
     this.fontFamilies = fontFamilies
     this.publish()
@@ -426,6 +515,7 @@ export class ThemeRuntime {
     return Object.freeze({
       preference: this.preference,
       style: this.style,
+      brand: this.brand,
       fontSizes: this.fontSizes,
       fontFamilies: this.fontFamilies,
       active: this.composeActive(active),
@@ -472,6 +562,40 @@ function bootstrapStyle(): ThemeStyle {
   if (typeof document === 'undefined') return DEFAULT_THEME_STYLE
   const style = document.body.dataset.dsThemeStyle
   return isThemeStyle(style) ? style : DEFAULT_THEME_STYLE
+}
+
+/** Preserve the Host boot brand identity while the settings scope is loading. */
+function bootstrapBrand(): BrandSnapshot {
+  /* v8 ignore next -- documentless client compositions have no boot injection */
+  if (typeof document === 'undefined') return DEFAULT_BRAND_SNAPSHOT
+  const dataset = document.body.dataset
+  return createBrandSnapshot({
+    preset: isBrandPreset(dataset.dsBrandPreset) ? dataset.dsBrandPreset : DEFAULT_BRAND_PRESET,
+    labelMode: isBrandLabelMode(dataset.dsBrandLabelMode) ? dataset.dsBrandLabelMode : DEFAULT_BRAND_WORDMARK_MODE,
+    customName: dataset.dsBrandCustomName ?? '',
+    greetingMode: isBrandGreetingMode(dataset.dsBrandGreetingMode) ? dataset.dsBrandGreetingMode : DEFAULT_BRAND_GREETING_MODE,
+    customGreeting: dataset.dsBrandCustomGreeting ?? '',
+  })
+}
+
+/** Normalized brand snapshot from an accepted settings section. */
+function durableBrand(section: ThemeSettings): BrandSnapshot {
+  return createBrandSnapshot({
+    preset: section.brandPreset,
+    labelMode: section.brandLabelMode,
+    customName: section.customBrandName,
+    greetingMode: section.brandGreetingMode,
+    customGreeting: section.customBrandGreeting,
+  })
+}
+
+/** Value equality across normalized brand fields. */
+function sameBrand(left: BrandSnapshot, right: BrandSnapshot): boolean {
+  return left.preset === right.preset
+    && left.labelMode === right.labelMode
+    && left.customName === right.customName
+    && left.greetingMode === right.greetingMode
+    && left.customGreeting === right.customGreeting
 }
 
 /**

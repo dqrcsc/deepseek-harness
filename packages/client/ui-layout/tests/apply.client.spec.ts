@@ -182,11 +182,18 @@ describe('ui-layout client apply', () => {
     await fiber.await()
     const entry = slots.entries('root')[0]
     if (entry?.inject === undefined) throw new Error('the root entry must inject its media source')
-    const first = entry.inject() as { hooks: { foldedLandscape: HostObservable<boolean> } }
+    const first = entry.inject() as { hooks: { foldedLandscape: HostObservable<boolean>; brandTitle: HostObservable<string> } }
     const second = entry.inject() as typeof first
     const source = first.hooks.foldedLandscape
     expect(second.hooks.foldedLandscape).toBe(source)
     expect(source.getSnapshot()).toBe(true)
+    expect(first.hooks.brandTitle.getSnapshot()).toBe('执辔 Reins')
+    const onBrand = vi.fn()
+    const offBrand = first.hooks.brandTitle.subscribe(onBrand)
+    ;(ctx.get('theme') as ThemeRuntime).setBrandPreset('loom')
+    expect(onBrand).toHaveBeenCalledOnce()
+    expect(first.hooks.brandTitle.getSnapshot()).toBe('灵枢 Loom')
+    offBrand()
     const listener = vi.fn()
     const unsubscribe = source.subscribe(listener)
     try {

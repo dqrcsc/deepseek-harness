@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { DEFAULT_BRAND_SNAPSHOT } from '@deepseek-ai/dsh-client-ui-theme/src/theme-settings.ts'
 import { AccountOnboarding } from '../src/client/AccountOnboarding.tsx'
 import type { AccountSnapshot } from '../src/client/AccountSection.tsx'
 import { allowAllAccess, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -13,7 +14,8 @@ import { en } from '../src/client/locales.ts'
 afterEach(cleanup)
 
 const theme: ThemeSnapshot = {
-  preference: 'light', style: 'craft', fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' },
+  preference: 'light', style: 'craft', brand: DEFAULT_BRAND_SNAPSHOT,
+  fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' },
   active: { id: 'light', colorScheme: 'light', tokens: {} }, themes: [], revision: 0,
 }
 

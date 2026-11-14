@@ -2,19 +2,24 @@
 import type {} from '@deepseek-ai/dsh-settings'
 
 import type { Volatile } from '@deepseek-ai/cordis'
-import type { ThemePreference, ThemeStyle } from './theme-settings.ts'
+import type { BrandGreetingMode, BrandLabelMode, BrandPreset, ThemePreference, ThemeStyle } from './theme-settings.ts'
 import z from '@deepseek-ai/schemastery'
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { bootThemeInjections } from './boot-theme.ts'
 import {
+  BRAND_GREETING_MODES, BRAND_PRESETS, BRAND_WORDMARK_MODES, createBrandSnapshot,
+  DEFAULT_BRAND_GREETING_MODE, DEFAULT_BRAND_PRESET, DEFAULT_BRAND_WORDMARK_MODE,
   DEFAULT_PREFERENCE, DEFAULT_THEME_STYLE, FONT_SIZE_SPECS, fontSizeSchema, THEME_PREFERENCES, THEME_STYLES,
 } from './theme-settings.ts'
 
 export {
+  BRAND_GREETING_MODES, BRAND_PRESETS, BRAND_WORDMARK_MODES, CUSTOM_EDITION_VERSION,
+  DEFAULT_BRAND_GREETING_MODE, DEFAULT_BRAND_PRESET, DEFAULT_BRAND_SNAPSHOT, DEFAULT_BRAND_WORDMARK_MODE,
   DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD, FONT_SIZE_MAX, FONT_SIZE_MIN,
   THEME_PREFERENCE_FIELD, THEME_PREFERENCES, THEME_SETTINGS_NAMESPACE,
+  type BrandGreetingMode, type BrandLabelMode, type BrandPreferences, type BrandPreset, type BrandSnapshot,
   type ThemePreference, type ThemeSettings, type ThemeStyle,
 } from './theme-settings.ts'
 
@@ -24,6 +29,16 @@ export interface Config {
   preference: Volatile<ThemePreference>
   /** Visual theme style across light and dark palettes. */
   style: Volatile<ThemeStyle>
+  /** Selected brand identity preset. */
+  brandPreset: Volatile<BrandPreset>
+  /** Selected brand wordmark display format. */
+  brandLabelMode: Volatile<BrandLabelMode>
+  /** Custom brand wordmark text; `''` uses the preset bilingual title. */
+  customBrandName: Volatile<string>
+  /** Selected Hero welcome headline mode. */
+  brandGreetingMode: Volatile<BrandGreetingMode>
+  /** Custom Hero welcome headline text; `''` uses the preset motto. */
+  customBrandGreeting: Volatile<string>
   /** Browser font size in pixels. */
   fontSize: Volatile<number>
   /** Code-block font size in pixels. */
@@ -42,6 +57,11 @@ export interface Config {
 export const Config = z.object({
   preference: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE).volatile(),
   style: z.union([...THEME_STYLES]).default(DEFAULT_THEME_STYLE).volatile(),
+  brandPreset: z.union([...BRAND_PRESETS]).default(DEFAULT_BRAND_PRESET).volatile(),
+  brandLabelMode: z.union([...BRAND_WORDMARK_MODES]).default(DEFAULT_BRAND_WORDMARK_MODE).volatile(),
+  customBrandName: z.string().default('').volatile(),
+  brandGreetingMode: z.union([...BRAND_GREETING_MODES]).default(DEFAULT_BRAND_GREETING_MODE).volatile(),
+  customBrandGreeting: z.string().default('').volatile(),
   fontSize: fontSizeSchema(FONT_SIZE_SPECS.text).volatile(),
   codeFontSize: fontSizeSchema(FONT_SIZE_SPECS.code).volatile(),
   terminalFontSize: fontSizeSchema(FONT_SIZE_SPECS.terminal).volatile(),
@@ -65,6 +85,12 @@ export function apply(ctx: Context, config: Config): void {
       text: config.textFontFamily.get(),
       code: config.codeFontFamily.get(),
       terminal: config.terminalFontFamily.get(),
-    }, config.style.get()))
+    }, config.style.get(), createBrandSnapshot({
+      preset: config.brandPreset.get(),
+      labelMode: config.brandLabelMode.get(),
+      customName: config.customBrandName.get(),
+      greetingMode: config.brandGreetingMode.get(),
+      customGreeting: config.customBrandGreeting.get(),
+    })))
   }, { prepend: true })
 }

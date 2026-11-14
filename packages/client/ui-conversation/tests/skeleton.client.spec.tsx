@@ -336,6 +336,9 @@ function mount(
         />
       )
     }
+    if (key === 'conversation.hero.brand.mark' || key === 'conversation.hero.brand.headline') {
+      return opts?.fallback ?? null
+    }
     return <div data-testid={`view-${opts?.only ?? key}`} />
   }) as ConversationContentProps['renderSlot']
   const renderSlotChain = ((_key, _owner, opts) => (
@@ -422,20 +425,35 @@ function mount(
 }
 
 describe('Hero chrome', () => {
-  it('renders the English preview badge through the hero locale seat', () => {
-    const renderSlot = vi.fn<(key: string, owner: object, opts?: { fallback?: ReactNode }) => ReactNode>(() => null)
-    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as never} />)
-    expect(view.getByText('Into the Unknown')).toBeTruthy()
-    expect(view.getByText('Preview')).toBeTruthy()
-    expect(renderSlot).toHaveBeenCalledOnce()
-    expect(renderSlot.mock.calls[0]?.[0]).toBe('conversation.hero.brand.mark')
-    const brandMarkOwner = renderSlot.mock.calls[0]?.[1]
-    if (brandMarkOwner === undefined || !('size' in brandMarkOwner) || !('className' in brandMarkOwner)) {
-      throw new Error('hero brand-mark owner must provide size and className')
+  it('renders the Hero brand mark and headline slots without a preview badge and forwards hover state', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }))
+    try {
+      const renderSlot = vi.fn<(key: string, owner: object, opts?: { fallback?: ReactNode }) => ReactNode>(
+        (_key, _owner, opts) => opts?.fallback ?? null,
+      )
+      const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as never} />)
+      expect(view.getByText('Into the Unknown')).toBeTruthy()
+      expect(view.queryByText('Preview')).toBeNull()
+      expect(renderSlot).toHaveBeenCalledTimes(2)
+      expect(renderSlot.mock.calls[0]?.[0]).toBe('conversation.hero.brand.mark')
+      expect(renderSlot.mock.calls[1]?.[0]).toBe('conversation.hero.brand.headline')
+      const brandMarkOwner = renderSlot.mock.calls[0]?.[1]
+      if (brandMarkOwner === undefined || !('size' in brandMarkOwner) || !('className' in brandMarkOwner) || !('hovering' in brandMarkOwner)) {
+        throw new Error('hero brand-mark owner must provide size, className, and hovering')
+      }
+      expect(brandMarkOwner.size).toBe(34)
+      expect(brandMarkOwner.className).toBeTypeOf('string')
+      expect(brandMarkOwner.hovering).toBe(false)
+      expect(renderSlot.mock.calls[0]?.[2]?.fallback).toBeTruthy()
+
+      const hitbox = view.container.querySelector('svg')!.parentElement!
+      fireEvent.pointerEnter(hitbox)
+      expect((renderSlot.mock.calls.at(-2)?.[1] as { hovering?: boolean }).hovering).toBe(true)
+      fireEvent.pointerLeave(hitbox)
+      expect((renderSlot.mock.calls.at(-2)?.[1] as { hovering?: boolean }).hovering).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
     }
-    expect(brandMarkOwner.size).toBe(34)
-    expect(brandMarkOwner.className).toBeTypeOf('string')
-    expect(renderSlot.mock.calls[0]?.[2]?.fallback).toBeTruthy()
   })
 })
 
@@ -596,7 +614,7 @@ describe('ConversationRoot resident composer', () => {
     expect(b.headerFactory).not.toHaveBeenCalled()
     expect(b.slotCalls).not.toContain('conversation.session.header.actions')
     expect(b.view.getByText('探索未至之境')).toBeTruthy()
-    expect(b.view.getByText('预览版')).toBeTruthy()
+    expect(b.view.queryByText('预览版')).toBeNull()
     expect(b.view.queryByTestId('view-chat')).toBeNull()
     // The same machine-backed textarea is live in the hero, and the
     // persistence mirror stays bound (ConversationSession mounts chrome-hidden

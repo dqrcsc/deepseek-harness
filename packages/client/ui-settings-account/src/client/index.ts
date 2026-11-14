@@ -213,6 +213,7 @@ export function apply(ctx: Context): void {
       })()
     },
     showLogin(visible) { publish({ ...snapshot, loginVisible: visible }) },
+    toggleTheme() { ctx.theme.toggleColorScheme() },
     setOnboarding(active) { publish({ ...snapshot, onboarding: active }) },
     hooks: {
       account: {

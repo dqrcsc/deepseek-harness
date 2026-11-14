@@ -294,6 +294,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.hero.frame': { kind: 'hoc'; scope: 'root'; owner: HeroFrameOwnerProps }
     /** Brand mark shown before the blank-session headline. */
     'conversation.hero.brand.mark': { kind: 'single'; scope: 'root'; owner: HeroBrandMarkOwnerProps }
+    /** Welcome headline shown beside the blank-session brand mark. */
+    'conversation.hero.brand.headline': { kind: 'single'; scope: 'root'; owner: HeroBrandHeadlineOwnerProps }
     /** Agent-preset control staged for a New Session. */
     'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe'; owner: HeroAgentPresetOwnerProps }
     /** Compact options right-aligned in the New Session row after the workspace and preset controls; rendered only with a Session. */
@@ -374,6 +376,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
         'conversation.input.dock': { kind: 'list'; scope: 'session' }
         'conversation.hero.frame': { kind: 'hoc'; scope: 'root' }
         'conversation.hero.brand.mark': { kind: 'single'; scope: 'root' }
+        'conversation.hero.brand.headline': { kind: 'single'; scope: 'root' }
         'conversation.hero.workspace': { kind: 'single'; scope: 'root' }
         'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe' }
         'conversation.hero.options': { kind: 'list'; scope: 'session' }
@@ -670,6 +673,14 @@ export interface HeroBrandMarkOwnerProps {
   size: number
   /** Host class preserving the surrounding mark geometry. */
   className?: string | undefined
+  /** Pointer-hover motion flag computed under `(hover: hover)` and reduced-motion checks. */
+  hovering?: boolean | undefined
+}
+
+/** Headline presentation selected by the blank home. */
+export interface HeroBrandHeadlineOwnerProps {
+  /** Marker field: the occupant derives its text from localized brand preferences. */
+  children?: never
 }
 
 /** Full props of the resident optional-Session Conversation shell. */
