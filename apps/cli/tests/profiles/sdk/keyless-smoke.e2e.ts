@@ -196,6 +196,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(modelRequests[0]?.max_tokens).toBe(1234)
       const expectedTools = ['read', 'write', 'edit', 'web_fetch', 'web_search', 'subagent', 'subagent_fork',
         'present', 'ask_user_question', 'schedule_create', 'schedule_edit', 'schedule_list', 'schedule_view',
+        'memory_delete', 'memory_list', 'memory_save',
         'session_event_read', 'session_event_search', 'session_event_trace', 'session_search', 'session_trace', 'plugin_manager']
       const requestText = JSON.stringify(modelRequests[0])
       if (ptc) {

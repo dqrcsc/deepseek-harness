@@ -88,6 +88,7 @@ flowchart LR
   pkg_embedding["embedding"]
   svc_embedding["ctx.embedding<br/>Dense text embedding seam"]
   pkg_session_query_sqlite["session-query-sqlite"]
+  pkg_memory["memory"]
   pkg_session_log_deepseek["session-log-deepseek"]
   svc_sessionLogDeepSeek["ctx.sessionLogDeepSeek<br/>Session-log upload policy"]
   pkg_deepseek_llm_api_extensions["deepseek-llm-api-extensions"]
@@ -162,13 +163,17 @@ flowchart LR
   pkg_storage_domain["storage-domain"]
   svc_storageDomain["ctx.storageDomain<br/>Domain data facility"]
   pkg_workspace["workspace"]
+  svc_memory["ctx.memory<br/>Cross-project persistent user and workspace memory"]
+  pkg_memory_context["memory-context"]
+  pkg_memory_extractor["memory-extractor"]
+  pkg_tool_memory["tool-memory"]
+  pkg_tool_session_query["tool-session-query"]
   svc_messageFeedback["ctx.messageFeedback<br/>Lifecycle-bound message feedback"]
   pkg_command_feedback["command-feedback"]
   svc_sessionFeedback["ctx.sessionFeedback<br/>Session-level feedback recorder"]
   svc_workspaceRegistry["ctx.workspaceRegistry<br/>Workspace entity registry"]
   svc_sessionQuery["ctx.sessionQuery<br/>Session reads, traces, filters, and search"]
   pkg_session_reference["session-reference"]
-  pkg_tool_session_query["tool-session-query"]
   pkg_file_reference["file-reference"]
   svc_fileReferences["ctx.fileReferences<br/>File reference discovery"]
   pkg_file_reference_local["file-reference-local"]
@@ -406,6 +411,7 @@ flowchart LR
   pkg_mcp_client --> svc_mcpResources
   pkg_mcp_manager --> svc_mcpManager
   pkg_mcp_resources --> svc_mcpResources
+  pkg_memory --> svc_memory
   pkg_message_feedback --> svc_messageFeedback
   pkg_office_kit --> svc_officeKit
   pkg_otel --> svc_otel
@@ -522,6 +528,7 @@ flowchart LR
   svc_deepseekLlmApiExtensions --> pkg_llm_deepseek
   svc_directoryPicker --> pkg_api_workspace_controller
   svc_dynamicCordisRunner --> pkg_tool_cordis
+  svc_embedding --> pkg_memory
   svc_embedding --> pkg_session_query_sqlite
   svc_fileReferences --> pkg_api_session_controller
   svc_fileUploads --> pkg_api_session_controller
@@ -540,6 +547,10 @@ flowchart LR
   svc_llm --> pkg_compaction_basic
   svc_lsp --> pkg_tool_lsp
   svc_mcpResources --> pkg_mcp_resources
+  svc_memory --> pkg_memory_context
+  svc_memory --> pkg_memory_extractor
+  svc_memory --> pkg_tool_memory
+  svc_memory --> pkg_tool_session_query
   svc_officeKit --> pkg_client_ui_sidebar_documentpreview
   svc_officeKit --> pkg_tool_office
   svc_otel --> pkg_host_product_telemetry_otel
@@ -599,6 +610,7 @@ flowchart LR
   svc_ssh --> pkg_sandbox_ssh
   svc_ssh --> pkg_subprocess_ssh
   svc_storage --> pkg_storage_domain
+  svc_storageDomain --> pkg_memory
   svc_storageDomain --> pkg_workspace
   svc_subagentModelSelection --> pkg_tool_subagent
   svc_subagents --> pkg_tool_ralph
@@ -679,7 +691,7 @@ flowchart LR
 | `ctx.attachments` | `seam` | [`attachment`](../packages/attachment/attachment) | [`attachment-local`](../packages/attachment/attachment-local) | [`api-session-controller`](../packages/api/session-controller), [`tool-fs`](../packages/fs/tool-fs), [`llm-pi-ai`](../packages/llm/llm-pi-ai), [`llm-deepseek`](../packages/llm/llm-deepseek) | - | The host commits accepted images before session events; provider adapters resolve authorized durable references into provider-native content. |
 | `ctx.fileUploads` | `core` | [`client-file-upload`](../packages/client/file-upload) | - | [`api-session-controller`](../packages/api/session-controller) | - | Owns streaming intake, durable storage, and staged receipt lifetime; the Session controller binds receipts to accepted submissions. |
 | `ctx.llm` | `seam` | [`llm`](../packages/llm/llm) | [`llm-deepseek`](../packages/llm/llm-deepseek), [`llm-pi-ai`](../packages/llm/llm-pi-ai), [`llm-replay`](../packages/test-support/llm-replay) | [`agent-loop`](../packages/core/agent-loop), [`compaction-basic`](../packages/compaction/compaction-basic) | - | Adapters register provider implementations; the loop and compaction call the provider-neutral stream service. |
-| `ctx.embedding` | `seam` | [`embedding`](../packages/llm/embedding) | [`embedding`](../packages/llm/embedding) | [`session-query-sqlite`](../packages/session-query/session-query-sqlite) | - | Providers register dense vector models or use the optional OpenAI-compatible HTTP adapter; hybrid search falls back to lexical BM25 when unconfigured. |
+| `ctx.embedding` | `seam` | [`embedding`](../packages/llm/embedding) | [`embedding`](../packages/llm/embedding) | [`session-query-sqlite`](../packages/session-query/session-query-sqlite), [`memory`](../packages/memory/memory) | - | Providers register dense vector models or use the optional OpenAI-compatible HTTP adapter; hybrid search falls back to lexical BM25 when unconfigured. |
 | `ctx.sessionLogDeepSeek` | `core` | [`session-log-deepseek`](../packages/session/session-log-deepseek) | - | - | - | Plugins register caller-owned exclusions before the canonical Session-log request contribution is prepared; unmatched requests use normal upload eligibility. |
 | `ctx.deepseekLlmApiExtensions` | `seam` | [`deepseek-llm-api-extensions`](../packages/llm/deepseek-llm-api-extensions) | [`session-log-deepseek`](../packages/session/session-log-deepseek), [`plugin-package-inventory-deepseek`](../packages/llm/plugin-package-inventory-deepseek) | [`llm-deepseek`](../packages/llm/llm-deepseek) | - | Plugins prepare independent top-level fields; the official adapter merges them and commits their delivery state after HTTP acceptance. |
 | `ctx.tokenMeter` | `core` | [`token-meter`](../packages/llm/token-meter) | - | [`compaction-basic`](../packages/compaction/compaction-basic) | - | Owns isolated per-session replay folds; pressure consumers share immutable revisioned measurements. |
@@ -712,7 +724,8 @@ flowchart LR
 | `ctx.productTelemetry` | `service` | [`host-product-telemetry-otel`](../packages/host/product-telemetry-otel) | - | - | - | Exports explicitly submitted analytics events through OTLP/HTTP; mounting alone collects nothing. |
 | `ctx.sessionTelemetry` | `seam` | [`session-telemetry`](../packages/session/session-telemetry) | [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | - | - | The seam captures, redacts, and hands session records to one backend; nothing else consumes the service — its output leaves the process. |
 | `ctx.storage` | `seam` | [`storage`](../packages/storage/storage) | [`storage-json`](../packages/storage/storage-json), [`storage-sqlite`](../packages/storage/storage-sqlite) | [`storage-domain`](../packages/storage/storage-domain) | - | Backends register side by side under names; data forms (domain first) mount on the hub and translate typed operations into opaque KV-unit primitives. |
-| `ctx.storageDomain` | `core` | [`storage-domain`](../packages/storage/storage-domain) | - | [`workspace`](../packages/workspace/workspace) | - | Waits for every configured backend, then publishes the domain form as one lifecycle-bound service for typed durable state. |
+| `ctx.storageDomain` | `core` | [`storage-domain`](../packages/storage/storage-domain) | - | [`workspace`](../packages/workspace/workspace), [`memory`](../packages/memory/memory) | - | Waits for every configured backend, then publishes the domain form as one lifecycle-bound service for typed durable state. |
+| `ctx.memory` | `core` | [`memory`](../packages/memory/memory) | - | [`memory-context`](../packages/memory/memory-context), [`memory-extractor`](../packages/memory/memory-extractor), [`tool-memory`](../packages/memory/tool-memory), [`tool-session-query`](../packages/session-query/tool-session-query) | - | Persists atomic global and workspace memory entries plus session privacy policies over the memory storage domain, exposes Remote management operations, and ranks budget-bounded context snapshots. |
 | `ctx.messageFeedback` | `core` | [`message-feedback`](../packages/feedback/message-feedback) | - | - | - | Owns per-assistant-message feedback in the canonical Session log, target validation, per-item compare-and-set, and the Host unary Remote contract. Feedback stays outside model history; log export follows the consumer policy. |
 | `ctx.sessionFeedback` | `core` | [`command-feedback`](../packages/feedback/command-feedback) | - | - | - | Records one Session-level remark with its category as a log-only feedback/record event on a live Session through the Host unary Remote contract; the /feedback command shares the same producer. |
 | `ctx.workspaceRegistry` | `core` | [`workspace`](../packages/workspace/workspace) | - | [`api-workspace-controller`](../packages/api/workspace-controller), [`api-session-controller`](../packages/api/session-controller) | - | Owns WorkspaceId-branded records over the domain facility; stable sessionIds accounts drive Host RPC and GUI projections. |

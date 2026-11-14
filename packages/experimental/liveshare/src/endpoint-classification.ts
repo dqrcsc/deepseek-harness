@@ -222,6 +222,15 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'agentPresets/read': 'owner-only', // owner agent presets
   'agentPresets/select': 'owner-only', // owner agent presets
   'agentTeams/setEnabled': 'owner-only', // owner Team mode
+  'memory/catalog': 'owner-only', // owner persistent memory
+  'memory/clearScope': 'owner-only', // owner persistent memory
+  'memory/create': 'owner-only', // owner persistent memory
+  'memory/delete': 'owner-only', // owner persistent memory
+  'memory/getPreferences': 'owner-only', // owner persistent memory
+  'memory/getSessionPolicy': 'owner-only', // owner persistent memory
+  'memory/setPreferences': 'owner-only', // owner persistent memory
+  'memory/setSessionPolicy': 'owner-only', // owner persistent memory
+  'memory/update': 'owner-only', // owner persistent memory
   'schedule/catalog': 'owner-only', // owner schedules
   'schedule/create': 'owner-only', // owner schedules
   'schedule/deliveryLimits': 'owner-only', // owner schedules

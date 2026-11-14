@@ -123,6 +123,9 @@ importers:
       '@deepseek-ai/dsh-tool-executor-ptc':
         specifier: workspace:*
         version: link:packages/core/tool-executor-ptc
+      '@deepseek-ai/dsh-tool-memory':
+        specifier: workspace:*
+        version: link:packages/memory/tool-memory
       '@deepseek-ai/dsh-tool-ralph':
         specifier: workspace:*
         version: link:packages/experimental/tool-ralph
@@ -1518,6 +1521,9 @@ importers:
       '@deepseek-ai/dsh-mcp-manager':
         specifier: workspace:*
         version: link:../../mcp/mcp-manager
+      '@deepseek-ai/dsh-memory':
+        specifier: workspace:*
+        version: link:../../memory/memory
       '@deepseek-ai/dsh-message-feedback':
         specifier: workspace:*
         version: link:../../feedback/message-feedback
@@ -2484,6 +2490,12 @@ importers:
       '@deepseek-ai/dsh-mcp-resources':
         specifier: workspace:*
         version: link:../../mcp/mcp-resources
+      '@deepseek-ai/dsh-memory':
+        specifier: workspace:*
+        version: link:../../memory/memory
+      '@deepseek-ai/dsh-memory-extractor':
+        specifier: workspace:*
+        version: link:../../memory/memory-extractor
       '@deepseek-ai/dsh-otel':
         specifier: workspace:*
         version: link:../../telemetry/otel
@@ -2759,6 +2771,9 @@ importers:
       '@deepseek-ai/dsh-file-reference-local':
         specifier: workspace:*
         version: link:../../context/file-reference-local
+      '@deepseek-ai/dsh-memory-context':
+        specifier: workspace:*
+        version: link:../../memory/memory-context
       '@deepseek-ai/dsh-office-kit':
         specifier: workspace:*
         version: link:../../document/office-kit
@@ -2777,6 +2792,9 @@ importers:
       '@deepseek-ai/dsh-tool-ask-user':
         specifier: workspace:*
         version: link:../../interaction/tool-ask-user
+      '@deepseek-ai/dsh-tool-memory':
+        specifier: workspace:*
+        version: link:../../memory/tool-memory
       '@deepseek-ai/dsh-tool-office':
         specifier: workspace:*
         version: link:../../document/tool-office
@@ -3223,6 +3241,9 @@ importers:
       '@deepseek-ai/dsh-mcp-manager':
         specifier: workspace:*
         version: link:../../mcp/mcp-manager
+      '@deepseek-ai/dsh-memory-context':
+        specifier: workspace:*
+        version: link:../../memory/memory-context
       '@deepseek-ai/dsh-message-feedback':
         specifier: workspace:*
         version: link:../../feedback/message-feedback
@@ -3304,6 +3325,9 @@ importers:
       '@deepseek-ai/dsh-tool-jobs':
         specifier: workspace:*
         version: link:../../jobs/tool-jobs
+      '@deepseek-ai/dsh-tool-memory':
+        specifier: workspace:*
+        version: link:../../memory/tool-memory
       '@deepseek-ai/dsh-tool-office':
         specifier: workspace:*
         version: link:../../document/tool-office
@@ -14007,6 +14031,156 @@ importers:
         specifier: workspace:*
         version: link:../../core/tools
 
+  packages/memory/memory:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-embedding':
+        specifier: workspace:*
+        version: link:../../llm/embedding
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:*
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:*
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-storage-sqlite':
+        specifier: workspace:*
+        version: link:../../storage/storage-sqlite
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+
+  packages/memory/memory-context:
+    dependencies:
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-memory':
+        specifier: workspace:*
+        version: link:../memory
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@deepseek-ai/dsh-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:*
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:*
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-storage-sqlite':
+        specifier: workspace:*
+        version: link:../../storage/storage-sqlite
+
+  packages/memory/memory-extractor:
+    dependencies:
+      '@deepseek-ai/dsh-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+      '@deepseek-ai/dsh-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-memory':
+        specifier: workspace:*
+        version: link:../memory
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:*
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:*
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-storage-sqlite':
+        specifier: workspace:*
+        version: link:../../storage/storage-sqlite
+
+  packages/memory/tool-memory:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-memory':
+        specifier: workspace:*
+        version: link:../memory
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@deepseek-ai/dsh-storage':
+        specifier: workspace:*
+        version: link:../../storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: workspace:*
+        version: link:../../storage/storage-domain
+      '@deepseek-ai/dsh-storage-sqlite':
+        specifier: workspace:*
+        version: link:../../storage/storage-sqlite
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@deepseek-ai/dsh-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+
   packages/plan/plan-mode:
     dependencies:
       '@deepseek-ai/dsh-brand':
@@ -18703,6 +18877,15 @@ importers:
       '@deepseek-ai/dsh-mcp-client':
         specifier: workspace:*
         version: link:../../packages/mcp/mcp-client
+      '@deepseek-ai/dsh-memory':
+        specifier: workspace:*
+        version: link:../../packages/memory/memory
+      '@deepseek-ai/dsh-memory-context':
+        specifier: workspace:*
+        version: link:../../packages/memory/memory-context
+      '@deepseek-ai/dsh-memory-extractor':
+        specifier: workspace:*
+        version: link:../../packages/memory/memory-extractor
       '@deepseek-ai/dsh-message-feedback':
         specifier: workspace:*
         version: link:../../packages/feedback/message-feedback
@@ -18901,6 +19084,9 @@ importers:
       '@deepseek-ai/dsh-tool-jobs':
         specifier: workspace:*
         version: link:../../packages/jobs/tool-jobs
+      '@deepseek-ai/dsh-tool-memory':
+        specifier: workspace:*
+        version: link:../../packages/memory/tool-memory
       '@deepseek-ai/dsh-tool-office':
         specifier: workspace:*
         version: link:../../packages/document/tool-office

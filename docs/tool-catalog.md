@@ -38,6 +38,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-goal` | `create_goal`, `get_goal`, `update_goal` | `ctx.tools`, `ctx.agents`, `ctx.goals`, `ctx.systemPrompt`, `a calling Agent in an authorized open turn` | `tool/call`, `goal/change for mutations`, `tool/result` | - | create, edit, pause, and resume require direct-human root authority; complete and blocked also accept the exact current goal round. The default blocked lower bound is three admitted rounds. |
 | `@deepseek-ai/dsh-tool-schedule` | `schedule_create`, `schedule_edit`, `schedule_list`, `schedule_view` | `ctx.tools`, `ctx.schedule`, `ctx.systemPrompt` | `tool/call`, `Schedule storage domain create, update, or delete`, `tool/result` | - | A preset or Agent scope mounts this package and decides which agents receive its tools. Management reads and writes Host tasks by id across Sessions. Tasks store an RFC 5545 recurrence and an existing, first-created-and-reused, or per-run-new Session target. Delegated subagents cannot call these tools. |
 | `@deepseek-ai/dsh-tool-lsp` | `lsp` | `ctx.workingDirectory`, `ctx.tools`, `ctx.lsp`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | The lsp tool keeps provider selection and language-server subprocesses behind ctx.lsp, so its model-visible schema stays stable across providers. Requires a registered provider (e.g. `@deepseek-ai/dsh-lsp-stdio`) at runtime; without one, a query returns the structured `LSP_UNAVAILABLE` error rather than changing the schema. |
+| `@deepseek-ai/dsh-tool-memory` | `memory_delete`, `memory_list`, `memory_save` | `ctx.tools`, `ctx.systemPrompt`, `ctx.memory`, `a calling root Agent` | `tool/call`, `tool/result`, `Host memory domain entries` | - | Exposes `memory_save`, `memory_delete`, and `memory_list` when `ctx.memory` is active. Delegated subagents and incognito sessions cannot write or delete persistent memories; shipped Web presets and SDK app mount this package. |
 | `@deepseek-ai/dsh-tool-ralph` | `ralph` | `ctx.tools`, `ctx.workflowEngine`, `ctx.subagents`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents every fresh round)` | `tool/call`, `tool/result`, `workflow and child session events during execution` | - | A fixed foreground workflow starts one fresh structured child per round; the model selects only the immutable objective and an optional round cap. |
 | `@deepseek-ai/dsh-tool-skill` | `skill` | `ctx.workingDirectory`, `ctx.tools`, `ctx.agents`, `ctx.skills` | `tool/call`, `tool/result`, `user/message replacement catalogs via agent.inject()` | - | - |
 | `@deepseek-ai/dsh-tool-session-query` | `session_event_read`, `session_event_search`, `session_event_trace`, `session_search`, `session_trace` | `ctx.tools`, `ctx.systemPrompt`, `ctx.sessionQuery`, `ctx.agents`, `a calling Agent for session authority` | `tool/call`, `tool/result` | - | The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session (cross-workspace by default, excluding incognito sessions). Shipped Web presets mount this package; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies. |
@@ -1859,6 +1860,121 @@ Query a language server for precise code navigation. operation is one of goToDef
 Source: [`packages/lsp/tool-lsp/src/index.ts`](../packages/lsp/tool-lsp/src/index.ts)
 
 The lsp tool keeps provider selection and language-server subprocesses behind ctx.lsp, so its model-visible schema stays stable across providers. Requires a registered provider (e.g. `@deepseek-ai/dsh-lsp-stdio`) at runtime; without one, a query returns the structured `LSP_UNAVAILABLE` error rather than changing the schema.
+
+<a id="deepseek-aidsh-tool-memory"></a>
+
+## `@deepseek-ai/dsh-tool-memory`
+
+### `memory_delete`
+
+Permanently delete one stored persistent memory by its id.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Identifier of the memory item (mem-...) to permanently remove."
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+Source: [`packages/memory/tool-memory/src/index.ts`](../packages/memory/tool-memory/src/index.ts)
+
+### `memory_list`
+
+List stored persistent memories filtered by scope, category, or search terms.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "scope": {
+      "type": "string",
+      "description": "Scope filter: \"applicable\" (default, global plus current workspace), \"global\", \"workspace\", or \"all\".",
+      "enum": [
+        "applicable",
+        "global",
+        "workspace",
+        "all"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "description": "Optional category filter.",
+      "enum": [
+        "profile",
+        "preference",
+        "workflow",
+        "fact",
+        "constraint"
+      ]
+    },
+    "query": {
+      "type": "string",
+      "description": "Optional search terms matched against memory content."
+    }
+  }
+}
+```
+
+Source: [`packages/memory/tool-memory/src/index.ts`](../packages/memory/tool-memory/src/index.ts)
+
+### `memory_save`
+
+Save or update one atomic persistent user or workspace memory across sessions.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string",
+      "description": "Single concise, self-contained statement to persist across sessions (never include secrets or credentials)."
+    },
+    "category": {
+      "type": "string",
+      "description": "Semantic category: profile, preference, workflow, fact, or constraint.",
+      "enum": [
+        "profile",
+        "preference",
+        "workflow",
+        "fact",
+        "constraint"
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "description": "Visibility scope: \"global\" (default, shared across projects) or \"workspace\" (restricted to the current workspace directory).",
+      "enum": [
+        "global",
+        "workspace"
+      ]
+    },
+    "supersedes_id": {
+      "type": "string",
+      "description": "Optional existing memory id (mem-...) to mark superseded when replacing an outdated preference or fact."
+    },
+    "pinned": {
+      "type": "boolean",
+      "description": "Optional flag to pin core rules for priority context injection."
+    }
+  },
+  "required": [
+    "content",
+    "category"
+  ]
+}
+```
+
+Source: [`packages/memory/tool-memory/src/index.ts`](../packages/memory/tool-memory/src/index.ts)
+
+Exposes `memory_save`, `memory_delete`, and `memory_list` when `ctx.memory` is active. Delegated subagents and incognito sessions cannot write or delete persistent memories; shipped Web presets and SDK app mount this package.
 
 <a id="deepseek-aidsh-tool-ralph"></a>
 

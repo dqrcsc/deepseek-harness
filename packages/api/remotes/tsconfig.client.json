@@ -47,6 +47,9 @@
       "path": "../../schedule/schedule"
     },
     {
+      "path": "../../memory/memory"
+    },
+    {
       "path": "../../feedback/message-feedback"
     },
     {

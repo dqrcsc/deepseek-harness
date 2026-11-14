@@ -80,6 +80,10 @@ flowchart LR
   cfg --> plugin_dsh_base_storage_json
   plugin_dsh_base_storage_domain["storage-domain<br/>@deepseek-ai/dsh-storage-domain"]
   cfg --> plugin_dsh_base_storage_domain
+  plugin_dsh_base_memory["memory<br/>@deepseek-ai/dsh-memory"]
+  cfg --> plugin_dsh_base_memory
+  plugin_dsh_base_memory_extractor["memory-extractor<br/>@deepseek-ai/dsh-memory-extractor"]
+  cfg --> plugin_dsh_base_memory_extractor
   plugin_dsh_base_session_projection_cache["session-projection-cache<br/>@deepseek-ai/dsh-session-projection-cache"]
   cfg --> plugin_dsh_base_session_projection_cache
   plugin_dsh_base_otel["otel<br/>@deepseek-ai/dsh-otel"]
@@ -248,6 +252,8 @@ flowchart LR
 | `storage` | `@deepseek-ai/dsh-storage` |
 | `storage-json` | `@deepseek-ai/dsh-storage-json` |
 | `storage-domain` | `@deepseek-ai/dsh-storage-domain` |
+| `memory` | `@deepseek-ai/dsh-memory` |
+| `memory-extractor` | `@deepseek-ai/dsh-memory-extractor` |
 | `session-projection-cache` | `@deepseek-ai/dsh-session-projection-cache` |
 | `otel` | `@deepseek-ai/dsh-otel` |
 | `session-telemetry-otel` | `@deepseek-ai/dsh-session-telemetry-otel` |

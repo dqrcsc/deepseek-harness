@@ -44,3 +44,6 @@
 
 - id: deepseek-account
   disabled: true
+
+- id: memory-extractor
+  disabled: true

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Outils de mémoire",
+    "description": "Fournit des outils pour enregistrer, lister et supprimer explicitement les mémoires persistantes."
+  }
+}

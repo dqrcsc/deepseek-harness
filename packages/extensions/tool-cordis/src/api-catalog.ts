@@ -2302,6 +2302,115 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'memory',
+    summary: 'Host-wide persistent memory service backed by `ctx.storageDomain` (`memory` domain).',
+    description: 'Host-wide persistent memory service backed by `ctx.storageDomain` (`memory` domain).',
+    methods: [
+      {
+        signature: 'containsSensitiveContent(text: string): boolean',
+        description: 'Synchronously inspect whether candidate text matches secret-redaction patterns.',
+        parameters: [{ name: 'text', description: 'candidate string to inspect.' }],
+        returns: '`true` when `text` contains a high-confidence credential or secret pattern.',
+      },
+      {
+        signature: 'isSessionIncognito(sessionId: SessionId): boolean',
+        description: 'Synchronously report whether a session is currently marked incognito.',
+        parameters: [{ name: 'sessionId', description: 'target session identifier.' }],
+        returns: '`true` when the session suppresses automatic extraction and cross-session recall.',
+      },
+      {
+        signature: '@Remote(\'getPreferences\') getPreferences(): MemoryPreferences',
+        description: 'Read current Host-wide memory preferences synchronously from authoritative in-memory state.',
+        parameters: [],
+        returns: 'current {@link MemoryPreferences}.',
+      },
+      {
+        signature: '@Remote(\'getSessionPolicy\') getSessionPolicy(request: SessionMemoryPolicyRequest): SessionMemoryPolicy',
+        description: 'Read one session\'s memory privacy policy synchronously.',
+        parameters: [{ name: 'request', description: 'target session identifier.' }],
+        returns: 'stored policy, or `{ incognito: false, updatedAt: \'\' }` when unset.',
+      },
+      {
+        signature: '@Remote(\'setPreferences\') async setPreferences(patch: MemoryPreferencesPatch, signal?: AbortSignal): Promise<MemoryPreferences>',
+        description: 'Update Host-wide memory preferences durably.',
+        parameters: [{ name: 'patch', description: 'partial preference fields to update.' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'committed {@link MemoryPreferences}.',
+      },
+      {
+        signature: '@Remote(\'setSessionPolicy\') async setSessionPolicy( request: SetSessionMemoryPolicyRequest, signal?: AbortSignal, ): Promise<SessionMemoryPolicy>',
+        description: 'Set or clear incognito mode for one session durably.',
+        parameters: [{ name: 'request', description: 'session identifier and desired `incognito` flag.' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'committed {@link SessionMemoryPolicy}.',
+      },
+      {
+        signature: 'async catalog(request: MemoryCatalogRequest = {}): Promise<MemoryCatalogResult>',
+        description: 'Read filtered memory entries and current Host preferences.',
+        parameters: [{ name: 'request', description: 'optional scope, category, query, and superseded filters.' }],
+        returns: 'matching records sorted in catalog order alongside current preferences.',
+      },
+      {
+        signature: '@Remote(\'catalog\') async remoteCatalog(request: MemoryCatalogRequest): Promise<MemoryCatalogResult>',
+        description: 'Remote entry point for catalog, translating validation errors to `memory/input-invalid`.',
+        parameters: [{ name: 'request', description: 'scope, category, query, and superseded filters.' }],
+        returns: 'matching records alongside current preferences.',
+      },
+      {
+        signature: 'async create(request: MemoryCreateRequest, signal?: AbortSignal): Promise<MemoryRecord>',
+        description: 'Create a persistent memory item, deduplicating exact statements within the same scope.',
+        parameters: [{ name: 'request', description: 'statement content, category, scope, optional pin state, and source.' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'created or deduplicated {@link MemoryRecord}.',
+      },
+      {
+        signature: '@Remote(\'create\') async remoteCreate(request: MemoryCreateRequest, signal?: AbortSignal): Promise<MemoryRecord>',
+        description: 'Remote entry point for create attributing new memories to `{ kind: \'user\' }`.',
+        parameters: [{ name: 'request', description: 'statement content, category, scope, and optional pin state.' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'committed {@link MemoryRecord}.',
+      },
+      {
+        signature: 'async update(request: MemoryUpdateRequest, signal?: AbortSignal): Promise<MemoryUpdateResult>',
+        description: 'Update fields of one existing active or paused memory item.',
+        parameters: [{ name: 'request', description: 'target id, non-empty patch, and optional `expectedUpdatedAt` guard.' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'updated record, or a non-mutating miss/conflict outcome.',
+      },
+      {
+        signature: '@Remote(\'update\') async remoteUpdate(request: MemoryUpdateRequest, signal?: AbortSignal): Promise<MemoryUpdateResult>',
+        description: 'Remote entry point for update.',
+        parameters: [{ name: 'request', description: 'target id, non-empty patch, and optional `expectedUpdatedAt` guard.' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'updated record, or a non-mutating miss/conflict outcome.',
+      },
+      {
+        signature: 'async supersede(request: MemorySupersedeRequest, signal?: AbortSignal): Promise<MemoryRecord>',
+        description: 'Supersede an outdated memory entry with a newly evolved entry in one serialized operation. When `targetId` is missing or already superseded, creates the replacement entry directly.',
+        parameters: [{ name: 'request', description: 'target entry id and replacement attributes.' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'newly stored replacement {@link MemoryRecord}.',
+      },
+      {
+        signature: '@Remote(\'delete\') async delete(request: MemoryDeleteRequest, signal?: AbortSignal): Promise<MemoryDeleteResult>',
+        description: 'Permanently delete one memory entry by identifier.',
+        parameters: [{ name: 'request', description: 'target memory identifier.' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'deletion outcome indicating whether the entry existed.',
+      },
+      {
+        signature: 'async clearScope(request: MemoryClearScopeRequest, signal?: AbortSignal): Promise<MemoryClearScopeResult>',
+        description: 'Delete all memory entries matching one scope or across the entire store.',
+        parameters: [{ name: 'request', description: 'scope selector (`global`, `workspace`, or `all`).' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'count of deleted entries.',
+      },
+      {
+        signature: '@Remote(\'clearScope\') async remoteClearScope(request: MemoryClearScopeRequest, signal?: AbortSignal): Promise<MemoryClearScopeResult>',
+        description: 'Remote entry point for clearScope.',
+        parameters: [{ name: 'request', description: 'scope selector (`global`, `workspace`, or `all`).' }, { name: 'signal', description: 'optional cancellation checked before writing.' }],
+        returns: 'count of deleted entries.',
+      },
+      {
+        signature: 'async selectForContext(request: MemoryContextSelectRequest = {}): Promise<MemoryContextSelection>',
+        description: 'Select budget-bounded active memories for an upcoming agent model step.',
+        parameters: [{ name: 'request', description: 'optional session id, workspace path, latest user query text, and abort signal.' }],
+        returns: 'canonical SHA-256 digest, rendered `<user_memory>` snapshot, and citation items.',
+      },
+    ],
+  },
+  {
     key: 'messageFeedback',
     summary: 'Session-log service; cold operations never construct a Session or Agent.',
     description: 'Session-log service; cold operations never construct a Session or Agent.',
@@ -5410,6 +5519,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'name', description: 'the configured `servers` key or registered name.' }, { name: 'status', description: 'the status now current for that server.' }],
   },
   {
+    name: 'memory/changed',
+    mode: 'emit',
+    signature: '\'memory/changed\'(): void',
+    summary: 'Durable memory entries, preferences, or session privacy policies changed.',
+    description: 'Durable memory entries, preferences, or session privacy policies changed.',
+    parameters: [],
+  },
+  {
     name: 'permission-presets/catalog-changed',
     mode: 'emit',
     signature: '\'permission-presets/catalog-changed\'(): void',
@@ -7698,6 +7815,98 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type McpServerRegistration = Omit<EntryInput, \'enabled\'>;',
   },
   {
+    name: 'MemoryCatalogRequest',
+    declaration: 'export interface MemoryCatalogRequest {\n    readonly workspacePath?: string;\n    readonly scopeKind?: \'all\' | \'global\' | \'workspace\' | \'applicable\';\n    readonly category?: MemoryCategory;\n    readonly query?: string;\n    readonly includeSuperseded?: boolean;\n}',
+  },
+  {
+    name: 'MemoryCatalogResult',
+    declaration: 'export interface MemoryCatalogResult {\n    readonly items: readonly MemoryRecord[];\n    readonly preferences: MemoryPreferences;\n}',
+  },
+  {
+    name: 'MemoryCategory',
+    declaration: 'export type MemoryCategory = \'profile\' | \'preference\' | \'workflow\' | \'fact\' | \'constraint\';',
+  },
+  {
+    name: 'MemoryCitationItem',
+    declaration: 'export interface MemoryCitationItem {\n    readonly id: MemoryId;\n    readonly content: string;\n    readonly category: MemoryCategory;\n    readonly scope: MemoryScope;\n    readonly pinned: boolean;\n    readonly sourceKind: \'user\' | \'tool\' | \'auto\';\n    readonly sourceSessionId?: SessionId;\n}',
+  },
+  {
+    name: 'MemoryClearScopeRequest',
+    declaration: 'export interface MemoryClearScopeRequest {\n    readonly scope: MemoryScope | {\n        readonly kind: \'all\';\n    };\n}',
+  },
+  {
+    name: 'MemoryClearScopeResult',
+    declaration: 'export interface MemoryClearScopeResult {\n    readonly deleted: number;\n}',
+  },
+  {
+    name: 'MemoryContextSelection',
+    declaration: 'export interface MemoryContextSelection {\n    readonly digest: string;\n    readonly formattedText: string;\n    readonly items: readonly MemoryCitationItem[];\n}',
+  },
+  {
+    name: 'MemoryContextSelectRequest',
+    declaration: 'export interface MemoryContextSelectRequest {\n    readonly sessionId?: SessionId;\n    readonly workspacePath?: string;\n    readonly queryText?: string;\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'MemoryCreateRequest',
+    declaration: 'export interface MemoryCreateRequest {\n    readonly content: string;\n    readonly category: MemoryCategory;\n    readonly scope: MemoryScope;\n    readonly pinned?: boolean;\n    readonly source?: MemorySource;\n}',
+  },
+  {
+    name: 'MemoryDeleteRequest',
+    declaration: 'export interface MemoryDeleteRequest {\n    readonly id: MemoryId;\n}',
+  },
+  {
+    name: 'MemoryDeleteResult',
+    declaration: 'export interface MemoryDeleteResult {\n    readonly id: MemoryId;\n    readonly deleted: boolean;\n}',
+  },
+  {
+    name: 'MemoryId',
+    declaration: 'export type MemoryId = Branded<\'MemoryId\'>;',
+  },
+  {
+    name: 'MemoryPreferences',
+    declaration: 'export interface MemoryPreferences {\n    readonly autoExtractEnabled: boolean;\n    readonly autoInjectEnabled: boolean;\n    readonly incognitoIsolatesRead: boolean;\n}',
+  },
+  {
+    name: 'MemoryPreferencesPatch',
+    declaration: 'export interface MemoryPreferencesPatch {\n    readonly autoExtractEnabled?: boolean;\n    readonly autoInjectEnabled?: boolean;\n    readonly incognitoIsolatesRead?: boolean;\n}',
+  },
+  {
+    name: 'MemoryRecord',
+    declaration: 'export interface MemoryRecord {\n    readonly id: MemoryId;\n    readonly content: string;\n    readonly category: MemoryCategory;\n    readonly scope: MemoryScope;\n    readonly source: MemorySource;\n    readonly status: MemoryStatus;\n    readonly pinned: boolean;\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly supersededBy?: MemoryId;\n}',
+  },
+  {
+    name: 'MemoryScope',
+    declaration: 'export type MemoryScope = {\n    readonly kind: \'global\';\n} | {\n    readonly kind: \'workspace\';\n    readonly workspacePath: string;\n};',
+  },
+  {
+    name: 'MemorySource',
+    declaration: 'export type MemorySource = {\n    readonly kind: \'user\';\n} | {\n    readonly kind: \'tool\';\n    readonly sessionId?: SessionId;\n} | {\n    readonly kind: \'auto\';\n    readonly sessionId: SessionId;\n};',
+  },
+  {
+    name: 'MemoryStatus',
+    declaration: 'export type MemoryStatus = \'active\' | \'paused\' | \'superseded\';',
+  },
+  {
+    name: 'MemorySupersedeRequest',
+    declaration: 'export interface MemorySupersedeRequest {\n    readonly targetId: MemoryId;\n    readonly content: string;\n    readonly category: MemoryCategory;\n    readonly scope: MemoryScope;\n    readonly source: MemorySource;\n    readonly pinned?: boolean;\n}',
+  },
+  {
+    name: 'MemoryUpdateMiss',
+    declaration: 'export interface MemoryUpdateMiss {\n    readonly id: MemoryId;\n    readonly code: \'memory_not_found\' | \'memory_conflict\' | \'memory_superseded\';\n}',
+  },
+  {
+    name: 'MemoryUpdatePatch',
+    declaration: 'export interface MemoryUpdatePatch {\n    readonly content?: string;\n    readonly category?: MemoryCategory;\n    readonly scope?: MemoryScope;\n    readonly pinned?: boolean;\n    readonly status?: \'active\' | \'paused\';\n}',
+  },
+  {
+    name: 'MemoryUpdateRequest',
+    declaration: 'export interface MemoryUpdateRequest {\n    readonly id: MemoryId;\n    readonly patch: MemoryUpdatePatch;\n    readonly expectedUpdatedAt?: string;\n}',
+  },
+  {
+    name: 'MemoryUpdateResult',
+    declaration: 'export type MemoryUpdateResult = MemoryRecord | MemoryUpdateMiss;',
+  },
+  {
     name: 'Mergeability',
     declaration: 'export type Mergeability = \'mergeable\' | \'conflicting\' | \'unknown\';',
   },
@@ -9102,6 +9311,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionLogUploadRequest {\n    readonly sessionId: SessionId;\n    readonly purpose?: string;\n}',
   },
   {
+    name: 'SessionMemoryPolicy',
+    declaration: 'export interface SessionMemoryPolicy {\n    readonly sessionId: SessionId;\n    readonly incognito: boolean;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'SessionMemoryPolicyRequest',
+    declaration: 'export interface SessionMemoryPolicyRequest {\n    readonly sessionId: SessionId;\n}',
+  },
+  {
     name: 'SessionMessage',
     declaration: 'export interface SessionMessage {\n    role: \'user\' | \'assistant\';\n    text: string;\n    toolUses: ToolUseSummary[];\n}',
   },
@@ -9452,6 +9669,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SetRelayRequest',
     declaration: 'export interface SetRelayRequest {\n    readonly relayUrl: string | null;\n}',
+  },
+  {
+    name: 'SetSessionMemoryPolicyRequest',
+    declaration: 'export interface SetSessionMemoryPolicyRequest {\n    readonly sessionId: SessionId;\n    readonly incognito: boolean;\n}',
   },
   {
     name: 'SetShareCapabilitiesRequest',

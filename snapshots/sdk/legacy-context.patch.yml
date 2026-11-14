@@ -13,6 +13,12 @@
 - id: tool-session-query
   disabled: true
 
+- id: tool-memory
+  disabled: true
+
+- id: memory-context
+  disabled: true
+
 - id: file-reference-local
   disabled: true
 

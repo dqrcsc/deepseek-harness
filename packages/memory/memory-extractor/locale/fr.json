@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Extraction automatique de mémoire",
+    "description": "Extrait en arrière-plan les préférences, flux de travail et faits durables après les tours éligibles en filtrant les secrets."
+  }
+}

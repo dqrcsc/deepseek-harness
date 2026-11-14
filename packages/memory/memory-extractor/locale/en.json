@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Automatic memory extraction",
+    "description": "Silently distills durable preferences, workflows, and facts after eligible turns while filtering secrets and resolving conflicts."
+  }
+}

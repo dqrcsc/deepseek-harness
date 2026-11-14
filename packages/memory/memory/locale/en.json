@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Persistent memory",
+    "description": "Stores cross-project user and workspace memories, session incognito policies, and budget-bounded context selections."
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Memory context",
+    "description": "Injects relevant persistent user and workspace memories into eligible turns while preserving prompt-cache stability."
+  }
+}

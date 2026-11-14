@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Memória persistente",
+    "description": "Armazena memórias de usuário e de espaço de trabalho entre projetos, políticas de sessão anônima e seleção de contexto com orçamento."
+  }
+}

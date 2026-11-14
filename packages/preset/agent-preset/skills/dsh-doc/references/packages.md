@@ -340,6 +340,15 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@deepseek-ai/dsh-mcp-manager` | yes | MCP server manager: a settings-driven fleet of mcp-client instances with runtime status, restart, and probe |
 | `@deepseek-ai/dsh-mcp-resources` | no | Scoped MCP resource discovery and reading through shared model tools |
 
+## memory
+
+| Package | Config | Description |
+|---|---|---|
+| `@deepseek-ai/dsh-memory` | yes | Cross-project persistent memory store, session privacy policy, and hybrid context selection for the DeepSeek Harness |
+| `@deepseek-ai/dsh-memory-context` | no | KV-cache-stable logged memory context snapshot injector for the DeepSeek Harness |
+| `@deepseek-ai/dsh-memory-extractor` | yes | Silent post-turn durable memory extractor and conflict resolver for the DeepSeek Harness |
+| `@deepseek-ai/dsh-tool-memory` | no | Model-facing memory_save, memory_delete, and memory_list tools for the DeepSeek Harness |
+
 ## plan
 
 | Package | Config | Description |

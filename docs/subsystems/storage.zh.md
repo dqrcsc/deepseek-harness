@@ -177,6 +177,147 @@ type DomainChanged = DomainChangedPut | DomainChangedDeleted
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.zh.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxmemory--memoryservice"></a>
+
+### `ctx.memory` — `MemoryService`
+
+Host-wide persistent memory service backed by `ctx.storageDomain` (`memory` domain).
+
+```ts cordis-catalog
+/**
+ * Synchronously inspect whether candidate text matches secret-redaction patterns.
+ * @param text - candidate string to inspect.
+ * @returns `true` when `text` contains a high-confidence credential or secret pattern.
+ */
+containsSensitiveContent(text: string): boolean
+
+/**
+ * Synchronously report whether a session is currently marked incognito.
+ * @param sessionId - target session identifier.
+ * @returns `true` when the session suppresses automatic extraction and cross-session recall.
+ */
+isSessionIncognito(sessionId: SessionId): boolean
+
+/**
+ * Read current Host-wide memory preferences synchronously from authoritative in-memory state.
+ * @returns current {@link MemoryPreferences}.
+ */
+@Remote('getPreferences') getPreferences(): MemoryPreferences
+
+/**
+ * Read one session's memory privacy policy synchronously.
+ * @param request - target session identifier.
+ * @returns stored policy, or `{ incognito: false, updatedAt: '' }` when unset.
+ */
+@Remote('getSessionPolicy') getSessionPolicy(request: SessionMemoryPolicyRequest): SessionMemoryPolicy
+
+/**
+ * Update Host-wide memory preferences durably.
+ * @param patch - partial preference fields to update.
+ * @param signal - optional cancellation checked before writing.
+ * @returns committed {@link MemoryPreferences}.
+ */
+@Remote('setPreferences') async setPreferences(patch: MemoryPreferencesPatch, signal?: AbortSignal): Promise<MemoryPreferences>
+
+/**
+ * Set or clear incognito mode for one session durably.
+ * @param request - session identifier and desired `incognito` flag.
+ * @param signal - optional cancellation checked before writing.
+ * @returns committed {@link SessionMemoryPolicy}.
+ */
+@Remote('setSessionPolicy') async setSessionPolicy( request: SetSessionMemoryPolicyRequest, signal?: AbortSignal, ): Promise<SessionMemoryPolicy>
+
+/**
+ * Read filtered memory entries and current Host preferences.
+ * @param request - optional scope, category, query, and superseded filters.
+ * @returns matching records sorted in catalog order alongside current preferences.
+ */
+async catalog(request: MemoryCatalogRequest = {}): Promise<MemoryCatalogResult>
+
+/**
+ * Remote entry point for {@link catalog}, translating validation errors to `memory/input-invalid`.
+ * @param request - scope, category, query, and superseded filters.
+ * @returns matching records alongside current preferences.
+ */
+@Remote('catalog') async remoteCatalog(request: MemoryCatalogRequest): Promise<MemoryCatalogResult>
+
+/**
+ * Create a persistent memory item, deduplicating exact statements within the same scope.
+ * @param request - statement content, category, scope, optional pin state, and source.
+ * @param signal - optional cancellation checked before writing.
+ * @returns created or deduplicated {@link MemoryRecord}.
+ */
+async create(request: MemoryCreateRequest, signal?: AbortSignal): Promise<MemoryRecord>
+
+/**
+ * Remote entry point for {@link create} attributing new memories to `{ kind: 'user' }`.
+ * @param request - statement content, category, scope, and optional pin state.
+ * @param signal - optional cancellation checked before writing.
+ * @returns committed {@link MemoryRecord}.
+ */
+@Remote('create') async remoteCreate(request: MemoryCreateRequest, signal?: AbortSignal): Promise<MemoryRecord>
+
+/**
+ * Update fields of one existing active or paused memory item.
+ * @param request - target id, non-empty patch, and optional `expectedUpdatedAt` guard.
+ * @param signal - optional cancellation checked before writing.
+ * @returns updated record, or a non-mutating miss/conflict outcome.
+ */
+async update(request: MemoryUpdateRequest, signal?: AbortSignal): Promise<MemoryUpdateResult>
+
+/**
+ * Remote entry point for {@link update}.
+ * @param request - target id, non-empty patch, and optional `expectedUpdatedAt` guard.
+ * @param signal - optional cancellation checked before writing.
+ * @returns updated record, or a non-mutating miss/conflict outcome.
+ */
+@Remote('update') async remoteUpdate(request: MemoryUpdateRequest, signal?: AbortSignal): Promise<MemoryUpdateResult>
+
+/**
+ * Supersede an outdated memory entry with a newly evolved entry in one serialized operation.
+ * When `targetId` is missing or already superseded, creates the replacement entry directly.
+ * @param request - target entry id and replacement attributes.
+ * @param signal - optional cancellation checked before writing.
+ * @returns newly stored replacement {@link MemoryRecord}.
+ */
+async supersede(request: MemorySupersedeRequest, signal?: AbortSignal): Promise<MemoryRecord>
+
+/**
+ * Permanently delete one memory entry by identifier.
+ * @param request - target memory identifier.
+ * @param signal - optional cancellation checked before writing.
+ * @returns deletion outcome indicating whether the entry existed.
+ */
+@Remote('delete') async delete(request: MemoryDeleteRequest, signal?: AbortSignal): Promise<MemoryDeleteResult>
+
+/**
+ * Delete all memory entries matching one scope or across the entire store.
+ * @param request - scope selector (`global`, `workspace`, or `all`).
+ * @param signal - optional cancellation checked before writing.
+ * @returns count of deleted entries.
+ */
+async clearScope(request: MemoryClearScopeRequest, signal?: AbortSignal): Promise<MemoryClearScopeResult>
+
+/**
+ * Remote entry point for {@link clearScope}.
+ * @param request - scope selector (`global`, `workspace`, or `all`).
+ * @param signal - optional cancellation checked before writing.
+ * @returns count of deleted entries.
+ */
+@Remote('clearScope') async remoteClearScope(request: MemoryClearScopeRequest, signal?: AbortSignal): Promise<MemoryClearScopeResult>
+
+/**
+ * Select budget-bounded active memories for an upcoming agent model step.
+ * @param request - optional session id, workspace path, latest user query text, and abort signal.
+ * @returns canonical SHA-256 digest, rendered `<user_memory>` snapshot, and citation items.
+ */
+async selectForContext(request: MemoryContextSelectRequest = {}): Promise<MemoryContextSelection>
+```
+
+Types: [SessionId](core.zh.md)
+
+Source: [`packages/memory/memory/src/index.ts`](../../packages/memory/memory/src/index.ts)
+
 <a id="ctxstorage--storage"></a>
 
 ### `ctx.storage` — `Storage`
@@ -273,4 +414,24 @@ A domain record or the global singleton changed, emitted once per write strictly
 ```
 
 Source: [`packages/storage/storage-domain/src/events.ts`](../../packages/storage/storage-domain/src/events.ts)
+
+<a id="memory-events"></a>
+
+### `memory/*` events
+
+<a id="memorychanged--emit"></a>
+
+#### `memory/changed` — emit
+
+Durable memory entries, preferences, or session privacy policies changed.
+
+```ts cordis-catalog
+/**
+ * Durable memory entries, preferences, or session privacy policies changed.
+ * @mode emit
+ */
+'memory/changed'(): void
+```
+
+Source: [`packages/memory/memory/src/types.ts`](../../packages/memory/memory/src/types.ts)
 <!-- END GENERATED cordis-surface -->

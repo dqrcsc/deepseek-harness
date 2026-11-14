@@ -8,6 +8,9 @@
 - id: session-title-llm
   disabled: true
 
+- id: memory-extractor
+  disabled: true
+
 - insert:
     - id: acp-app-startup
       name: '@deepseek-ai/dsh-acp-app'

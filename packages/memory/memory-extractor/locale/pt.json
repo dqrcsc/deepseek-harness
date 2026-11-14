@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Extração automática de memória",
+    "description": "Extrai silenciosamente preferências, fluxos de trabalho e fatos duradouros após turnos elegíveis, filtrando segredos e conflitos."
+  }
+}

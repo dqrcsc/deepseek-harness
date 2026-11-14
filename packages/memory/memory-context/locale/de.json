@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Gedächtniskontext",
+    "description": "Fügt relevante persistente Erinnerungen bei Wahrung der Prompt-Cache-Stabilität in geeignete Runden ein."
+  }
+}

@@ -2634,6 +2634,58 @@ export interface McpManagedServerEntry {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-mcp-manager -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-memory -->
+<a id="deepseek-aidsh-memory"></a>
+
+## `@deepseek-ai/dsh-memory`
+
+- `inject`: `storageDomain`
+- `source`: [`packages/memory/memory/src/index.ts:66`](../packages/memory/memory/src/index.ts)
+
+```ts config-catalog
+/** Configuration bounds for Host-wide memory storage and context snapshot selection. */
+export interface Config {
+  /** Maximum active and paused memory entries retained; defaults to 500. */
+  maxEntries?: number
+  /** Maximum UTF-8 bytes allowed in a single memory entry's `content`; defaults to 1024. */
+  maxEntryBytes?: number
+  /** Maximum number of memory entries injected into one context snapshot; defaults to 25. */
+  maxInjectEntries?: number
+  /** Maximum UTF-8 bytes of the rendered `<user_memory>` context snapshot; defaults to 8192. */
+  maxInjectBytes?: number
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-memory -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-memory-extractor -->
+<a id="deepseek-aidsh-memory-extractor"></a>
+
+## `@deepseek-ai/dsh-memory-extractor`
+
+- `inject`: `llm` · `sessions`
+- `source`: [`packages/memory/memory-extractor/src/index.ts:55`](../packages/memory/memory-extractor/src/index.ts)
+
+```ts config-catalog
+/** Execution and debounce controls for background post-turn memory extraction. */
+export interface Config {
+  /** Per-session quiet window in milliseconds before running extraction; defaults to 1500. */
+  debounceMs?: number
+  /** Minimum trimmed user-prompt character length required to schedule extraction; defaults to 8. */
+  minUserChars?: number
+  /** Maximum UTF-8 bytes sent to the auxiliary extraction model; defaults to 8192. */
+  maxInputBytes?: number
+  /** Maximum output tokens allowed for the auxiliary extraction model; defaults to 1024. */
+  maxOutputTokens?: number
+  /** End-to-end deadline in milliseconds for one extraction model call; defaults to 30000. */
+  timeoutMs?: number
+  /** Optional explicit provider override; must be supplied together with `model`. */
+  provider?: string
+  /** Optional explicit model override; must be supplied together with `provider`. */
+  model?: string
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-memory-extractor -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-message-feedback -->
 <a id="deepseek-aidsh-message-feedback"></a>
 
@@ -3305,7 +3357,7 @@ export interface Config {
 
 - `inject`: `sessions`
 - `refs`: [`SessionQueryConfig`](../packages/session-query/session-query/src/index.ts)
-- `source`: [`packages/session-query/session-query-sqlite/src/index.ts:126`](../packages/session-query/session-query-sqlite/src/index.ts)
+- `source`: [`packages/session-query/session-query-sqlite/src/index.ts:108`](../packages/session-query/session-query-sqlite/src/index.ts)
 
 ```ts config-catalog
 /** Combined session-query configuration backed by SQLite full-text search. */
@@ -3992,7 +4044,7 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-system-prompt`
 
-- `source`: [`packages/core/system-prompt/src/index.ts:265`](../packages/core/system-prompt/src/index.ts)
+- `source`: [`packages/core/system-prompt/src/index.ts:266`](../packages/core/system-prompt/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config: the deployment-authored fragment of the system prompt (see {@link Config.personaPrefix} for its contract). */
@@ -4553,7 +4605,7 @@ export interface Config {
 
 - `inject`: `tools` · `systemPrompt` · `sessionQuery` · `agents`
 - `refs`: [`SessionSearchMode`](subsystems/session-query.md)
-- `source`: [`packages/session-query/tool-session-query/src/index.ts:38`](../packages/session-query/tool-session-query/src/index.ts)
+- `source`: [`packages/session-query/tool-session-query/src/index.ts:35`](../packages/session-query/tool-session-query/src/index.ts)
 
 ```ts config-catalog
 /** Deployment-owned search count, timeout, workspace scope, and search mode bounds. */
@@ -5218,6 +5270,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-llm` | — | [`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts) |
 | `@deepseek-ai/dsh-lsp` | — | [`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts) |
 | `@deepseek-ai/dsh-mcp-resources` | `tools` | [`packages/mcp/mcp-resources/src/index.ts`](../packages/mcp/mcp-resources/src/index.ts) |
+| `@deepseek-ai/dsh-memory-context` | `agents` · `sessionProjections` | [`packages/memory/memory-context/src/index.ts`](../packages/memory/memory-context/src/index.ts) |
 | `@deepseek-ai/dsh-message-quotes` | — | [`packages/session/message-quotes/src/index.ts`](../packages/session/message-quotes/src/index.ts) |
 | `@deepseek-ai/dsh-otel` | — | [`packages/telemetry/otel/src/index.ts`](../packages/telemetry/otel/src/index.ts) |
 | `@deepseek-ai/dsh-plugin-recommendations` | `pluginManager` · `agents` · `skills` · `actionCards` | [`packages/experimental/plugin-recommendations/src/index.ts`](../packages/experimental/plugin-recommendations/src/index.ts) |
@@ -5236,6 +5289,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-tool-call-timeout-policy` | `tools` | [`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts) |
 | `@deepseek-ai/dsh-tool-cordis` | `tools` · `cordisInspect` | [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts) |
 | `@deepseek-ai/dsh-tool-executor-native` | `tools` | [`packages/core/tool-executor-native/src/index.ts`](../packages/core/tool-executor-native/src/index.ts) |
+| `@deepseek-ai/dsh-tool-memory` | `tools` · `systemPrompt` | [`packages/memory/tool-memory/src/index.ts`](../packages/memory/tool-memory/src/index.ts) |
 | `@deepseek-ai/dsh-tool-schedule` | `tools` · `systemPrompt` | [`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts) |
 | `@deepseek-ai/dsh-tool-working-directory` | `tools` · `workingDirectory` | [`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts) |
 | `@deepseek-ai/dsh-tools` | `systemPrompt` | [`packages/core/tools/src/index.ts`](../packages/core/tools/src/index.ts) |
