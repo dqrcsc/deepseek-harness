@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Memory tools",
+    "description": "Gives the assistant tools to explicitly save, update, list, and forget persistent user and workspace memories."
+  }
+}

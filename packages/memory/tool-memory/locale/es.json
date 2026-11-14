@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Herramientas de memoria",
+    "description": "Proporciona herramientas para guardar, listar y eliminar explícitamente memorias persistentes de usuario y espacio de trabajo."
+  }
+}

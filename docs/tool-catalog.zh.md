@@ -42,6 +42,7 @@
 | `@deepseek-ai/dsh-tool-goal` | `create_goal`、`get_goal`、`update_goal` | `ctx.tools`、`ctx.agents`、`ctx.goals`、`ctx.systemPrompt`、`a calling Agent in an authorized open turn` | `tool/call`、`goal/change for mutations`、`tool/result` | - | create、edit、pause 和 resume 要求直接来自人类的根权限；complete 和 blocked 也接受确切的当前 Goal Round。blocked 的默认下限是 3 个获准的 Round。 |
 | `@deepseek-ai/dsh-tool-schedule` | `schedule_create`、`schedule_edit`、`schedule_list`、`schedule_view` | `ctx.tools`、`ctx.schedule`、`ctx.systemPrompt` | `tool/call`、Schedule storage domain 创建、更新或删除、`tool/result` | - | preset 或 Agent scope 挂载本包，并决定哪些 Agent 获得工具。管理工具按 id 跨会话读写 Host 的任务。任务保存 RFC 5545 重复规则，执行位置可选已有会话、首次创建后复用的会话或每次运行新建的会话。委派子 Agent 不能调用这些工具。 |
 | `@deepseek-ai/dsh-tool-lsp` | `lsp` | `ctx.workingDirectory`、`ctx.tools`、`ctx.lsp`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，因此其模型可见 schema 在更换提供方时保持稳定。运行时要求已注册提供方，例如 `@deepseek-ai/dsh-lsp-stdio`；如果没有提供方，查询会返回结构化 `LSP_UNAVAILABLE` 错误，而不会改变 schema。 |
+| `@deepseek-ai/dsh-tool-memory` | `memory_delete`、`memory_list`、`memory_save` | `ctx.tools`、`ctx.systemPrompt`、`ctx.memory`、`a calling root Agent` | `tool/call`、`tool/result`、`Host memory domain entries` | - | `ctx.memory` 激活时公开 `memory_save`、`memory_delete` 与 `memory_list`。委派子智能体和无痕会话不能写入或删除持久记忆；随产品发布的 Web preset 和 SDK 应用均挂载该包。 |
 | `@deepseek-ai/dsh-tool-ralph` | `ralph` | `ctx.tools`、`ctx.workflowEngine`、`ctx.subagents`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents every fresh round)` | `tool/call`、`tool/result`、`workflow and child session events during execution` | - | 固定的前台工作流会在每个 Round 启动一个全新的结构化子级；模型只能选择不可变目标和可选的 Round 上限。 |
 | `@deepseek-ai/dsh-tool-skill` | `skill` | `ctx.workingDirectory`、`ctx.tools`、`ctx.agents`、`ctx.skills` | `tool/call`、`tool/result`、`user/message replacement catalogs via agent.inject()` | - | - |
 | `@deepseek-ai/dsh-tool-session-query` | `session_event_read`、`session_event_search`、`session_event_trace`、`session_search`、`session_trace` | `ctx.tools`、`ctx.systemPrompt`、`ctx.sessionQuery`、`ctx.agents`、`a calling Agent for session authority` | `tool/call`、`tool/result` | - | 这 5 个只读工具会隐藏提供方游标，并根据不可变的调用 agent 会话为每个结果授权（默认跨工作区，排除无痕会话）。随产品发布的 Web preset 挂载该包；需要强制截止时间或限制行内输出的组合还会挂载通用超时或 spill 策略。 |
@@ -1865,6 +1866,121 @@ preset 或 Agent scope 挂载本包，并决定哪些 Agent 获得工具。管�
 来源：[`packages/lsp/tool-lsp/src/index.ts`](../packages/lsp/tool-lsp/src/index.ts)
 
 lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，因此其模型可见 schema 在更换提供方时保持稳定。运行时要求已注册提供方，例如 `@deepseek-ai/dsh-lsp-stdio`；如果没有提供方，查询会返回结构化 `LSP_UNAVAILABLE` 错误，而不会改变 schema。
+
+<a id="deepseek-aidsh-tool-memory"></a>
+
+## `@deepseek-ai/dsh-tool-memory`
+
+### `memory_delete`
+
+按 id 永久删除一条已存储的持久记忆。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Identifier of the memory item (mem-...) to permanently remove."
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+来源：[`packages/memory/tool-memory/src/index.ts`](../packages/memory/tool-memory/src/index.ts)
+
+### `memory_list`
+
+按作用域、分类或检索词列出已存储的持久记忆。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "scope": {
+      "type": "string",
+      "description": "Scope filter: \"applicable\" (default, global plus current workspace), \"global\", \"workspace\", or \"all\".",
+      "enum": [
+        "applicable",
+        "global",
+        "workspace",
+        "all"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "description": "Optional category filter.",
+      "enum": [
+        "profile",
+        "preference",
+        "workflow",
+        "fact",
+        "constraint"
+      ]
+    },
+    "query": {
+      "type": "string",
+      "description": "Optional search terms matched against memory content."
+    }
+  }
+}
+```
+
+来源：[`packages/memory/tool-memory/src/index.ts`](../packages/memory/tool-memory/src/index.ts)
+
+### `memory_save`
+
+跨会话保存或更新一条原子级持久用户或工作区记忆。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string",
+      "description": "Single concise, self-contained statement to persist across sessions (never include secrets or credentials)."
+    },
+    "category": {
+      "type": "string",
+      "description": "Semantic category: profile, preference, workflow, fact, or constraint.",
+      "enum": [
+        "profile",
+        "preference",
+        "workflow",
+        "fact",
+        "constraint"
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "description": "Visibility scope: \"global\" (default, shared across projects) or \"workspace\" (restricted to the current workspace directory).",
+      "enum": [
+        "global",
+        "workspace"
+      ]
+    },
+    "supersedes_id": {
+      "type": "string",
+      "description": "Optional existing memory id (mem-...) to mark superseded when replacing an outdated preference or fact."
+    },
+    "pinned": {
+      "type": "boolean",
+      "description": "Optional flag to pin core rules for priority context injection."
+    }
+  },
+  "required": [
+    "content",
+    "category"
+  ]
+}
+```
+
+来源：[`packages/memory/tool-memory/src/index.ts`](../packages/memory/tool-memory/src/index.ts)
+
+`ctx.memory` 激活时公开 `memory_save`、`memory_delete` 与 `memory_list`。委派子智能体和无痕会话不能写入或删除持久记忆；随产品发布的 Web preset 和 SDK 应用均挂载该包。
 
 <a id="deepseek-aidsh-experimental-tool-ralph"></a>
 

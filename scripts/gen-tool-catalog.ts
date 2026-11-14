@@ -70,6 +70,7 @@ import ScheduleService from '@deepseek-ai/dsh-schedule'
 import Lsp from '@deepseek-ai/dsh-lsp'
 import * as ToolLsp from '@deepseek-ai/dsh-tool-lsp'
 import * as ToolSkill from '@deepseek-ai/dsh-tool-skill'
+import * as ToolMemory from '@deepseek-ai/dsh-tool-memory'
 import * as ToolSessionQuery from '@deepseek-ai/dsh-tool-session-query'
 import * as ToolJobs from '@deepseek-ai/dsh-tool-jobs'
 import BrowserUseRegistry from '@deepseek-ai/dsh-browser-use'
@@ -538,6 +539,19 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'The lsp tool keeps provider selection and language-server subprocesses behind ctx.lsp, so its model-visible schema stays stable across providers. Requires a registered provider (e.g. `@deepseek-ai/dsh-lsp-stdio`) at runtime; without one, a query returns the structured `LSP_UNAVAILABLE` error rather than changing the schema.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-memory',
+    dir: 'tool-memory',
+    source: 'packages/memory/tool-memory/src/index.ts',
+    requires: ['ctx.tools', 'ctx.systemPrompt', 'ctx.memory', 'a calling root Agent'],
+    writes: ['tool/call', 'tool/result', 'Host memory domain entries'],
+    async mount(ctx) {
+      ctx.provide('memory', {})
+      await ctx.plugin(ToolMemory)
+    },
+    note:
+      'Exposes `memory_save`, `memory_delete`, and `memory_list` when `ctx.memory` is active. Delegated subagents and incognito sessions cannot write or delete persistent memories; shipped Web presets and SDK app mount this package.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-ralph',

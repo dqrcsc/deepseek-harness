@@ -187,6 +187,14 @@
       config:
         backend: json
 
+    # Persistent user and workspace memories over the memory storage domain,
+    # plus asynchronous post-turn memory extraction in interactive profiles.
+    - id: memory
+      name: '@deepseek-ai/dsh-memory'
+
+    - id: memory-extractor
+      name: '@deepseek-ai/dsh-memory-extractor'
+
     # Persisted projection cache: throttled write-behind over the
     # session_projcache domain (per-record layout — one version-stamped
     # checkpoint document per session), serving the session listing's

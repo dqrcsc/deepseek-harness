@@ -45,6 +45,7 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   plan/                 logged planning
   goal/                 session goals
   schedule/             scheduled follow-ups
+  memory/               cross-project persistent memory
   preset/               agent composition
   guard/                loop/tool guards
   extensions/           runtime self-modification

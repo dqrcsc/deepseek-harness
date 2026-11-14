@@ -143,7 +143,7 @@ it.for(['standard', 'ptc'] as const)('compares the shipped %s tool sets and perm
 it.for(['standard', 'ptc'] as const)('detects missing shared tools in %s', async (mode, test) => {
   const collect = await fixture(test)
   const desktop = await collect('desktop', mode)
-  for (const [id, tool] of [['present', 'present'], ['tool-ask-user', 'ask_user_question'], ['tool-schedule', 'schedule_create'], ['tool-session-query', 'session_search']]) {
+  for (const [id, tool] of [['present', 'present'], ['tool-ask-user', 'ask_user_question'], ['tool-schedule', 'schedule_create'], ['tool-session-query', 'session_search'], ['tool-memory', 'memory_save']]) {
     const missing = await collect('sdk', mode, [{ id, disabled: true }])
     expect(() => { assertToolParity(mode, missing.names, desktop.names) }).toThrow(new RegExp(`Missing from SDK:.*${tool}`))
   }

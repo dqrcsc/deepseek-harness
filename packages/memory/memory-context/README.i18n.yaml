@@ -1,0 +1,52 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/memory/memory-context/README.md
+/:
+  en: 9ab03f45a14aaebb
+  zh: 7aa6729741743bb2
+/deepseek-ai-dsh-memory-context:
+  en: b83a65dae04d449b
+  zh: c7da76319084afec
+/deepseek-ai-dsh-memory-context/summary:
+  en: 0776dff4876bbc88
+  zh: ef22e04048bfb5d3
+/deepseek-ai-dsh-memory-context/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-memory-context/use-this-package:
+  en: 88c4712b3dd8a9a2
+  zh: 8ea14b9cb1efbaa1
+/deepseek-ai-dsh-memory-context/understand-the-implementation:
+  en: 165a21dacd073c79
+  zh: d238340b9c996bdb
+/deepseek-ai-dsh-memory-context/understand-the-implementation/source-map:
+  en: b5e77361a4b4515f
+  zh: d699bb47d46a0d3b
+/deepseek-ai-dsh-memory-context/further-exploration:
+  en: ea081726e0674078
+  zh: 13de08d8cd2d82c0
+/deepseek-ai-dsh-memory-context/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-memory-context/model-experience/preparation-time-memory-snapshot:
+  en: 7693e0a270e8f7ee
+  zh: 1c1afbdd6d202a8d
+/deepseek-ai-dsh-memory-context/model-experience/preparation-time-memory-snapshot/what-the-model-sees:
+  en: 7d5953426996233c
+  zh: 76d0623480333d60
+/deepseek-ai-dsh-memory-context/model-experience/preparation-time-memory-snapshot/what-the-model-sees/memory-snapshot-message:
+  en: 39b280387cf8eaea
+  zh: d6760fc98d552fb9
+/deepseek-ai-dsh-memory-context/model-experience/preparation-time-memory-snapshot/token-effect:
+  en: 1a4f571dab64d066
+  zh: 0cbfa23b3e7a2bc8
+/deepseek-ai-dsh-memory-context/model-experience/preparation-time-memory-snapshot/kv-cache-effect:
+  en: c46721cc90bd738f
+  zh: 27179838efd6b657
+/deepseek-ai-dsh-memory-context/known-limitations-and-deferred-work:
+  en: d064d4f561048e71
+  zh: d1c2cc7afe0b094a
+/deepseek-ai-dsh-memory-context/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

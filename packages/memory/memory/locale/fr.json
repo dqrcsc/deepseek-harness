@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Mémoire persistante",
+    "description": "Stocke les mémoires utilisateur et d'espace de travail inter-projets, la confidentialité des sessions et la sélection de contexte sous budget."
+  }
+}

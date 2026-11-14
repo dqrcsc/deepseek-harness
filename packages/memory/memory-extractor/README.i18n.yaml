@@ -1,0 +1,49 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/memory/memory-extractor/README.md
+/:
+  en: 71579869186ab40a
+  zh: 505f1c4a1f8273f6
+/deepseek-ai-dsh-memory-extractor:
+  en: 52fe6b7477bea03c
+  zh: 1132dd399e78b64d
+/deepseek-ai-dsh-memory-extractor/summary:
+  en: 6c5ebeecdc9f3a0e
+  zh: 6b0dfeb743738a1c
+/deepseek-ai-dsh-memory-extractor/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-memory-extractor/use-this-package:
+  en: 9812c88a8dba370c
+  zh: 9a4b826070b86ca3
+/deepseek-ai-dsh-memory-extractor/understand-the-implementation:
+  en: 165a21dacd073c79
+  zh: d238340b9c996bdb
+/deepseek-ai-dsh-memory-extractor/understand-the-implementation/source-map:
+  en: 5f25dbec87157a4a
+  zh: d2731083ad85f041
+/deepseek-ai-dsh-memory-extractor/further-exploration:
+  en: f72e53d268aabdee
+  zh: 5befe8f48ab798ba
+/deepseek-ai-dsh-memory-extractor/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-memory-extractor/model-experience/auxiliary-memory-extraction-request:
+  en: 3549e6426897ca01
+  zh: abc4df6f5ec1c367
+/deepseek-ai-dsh-memory-extractor/model-experience/auxiliary-memory-extraction-request/what-the-model-sees:
+  en: 1ed7c1efc8cdd922
+  zh: 9843e8b1f5c8dae5
+/deepseek-ai-dsh-memory-extractor/model-experience/auxiliary-memory-extraction-request/token-effect:
+  en: f09dc1fceccf555a
+  zh: 0b3c173a8acbb32b
+/deepseek-ai-dsh-memory-extractor/model-experience/auxiliary-memory-extraction-request/kv-cache-effect:
+  en: 5415a342edbd9d93
+  zh: 73be8276c3210448
+/deepseek-ai-dsh-memory-extractor/known-limitations-and-deferred-work:
+  en: ff713ab408faad32
+  zh: 680faf8b49e8f452
+/deepseek-ai-dsh-memory-extractor/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

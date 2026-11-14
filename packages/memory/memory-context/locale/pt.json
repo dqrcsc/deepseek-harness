@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Contexto de memória",
+    "description": "Injeta memórias persistentes relevantes em turnos elegíveis preservando a estabilidade do cache de prompt."
+  }
+}
