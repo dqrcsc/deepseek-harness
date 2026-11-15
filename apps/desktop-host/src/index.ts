@@ -14,6 +14,7 @@ import { localDragResource } from './file-drag.ts'
 import { installDesktopUpdateTaskControl } from './update-tasks.ts'
 import { installDesktopQuitInspection } from './quit-inspection.ts'
 import { installPlatformSessionPublisher } from './platform-session.ts'
+import { installBrowserProxyPublisher } from './browser-proxy.ts'
 import { installOperationDiagnostics } from './operation-diagnostics.ts'
 
 async function main(): Promise<void> {
@@ -131,6 +132,9 @@ async function main(): Promise<void> {
   control.quitInspection = installDesktopQuitInspection(ctx)
   installPlatformSessionPublisher(ctx, (session) => {
     if (process.connected) process.send?.({ type: 'platform-session', session })
+  })
+  installBrowserProxyPublisher(ctx, (proxyUrl) => {
+    if (process.connected) process.send?.({ type: 'browser-proxy', proxyUrl })
   })
   const url = ctx.connection.authenticatedUrl(`${ctx.webServer.protocol}//127.0.0.1:${String(ctx.webServer.port)}`)
   if (process.connected) process.send?.({ type: 'ready', url, injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) }, (error) => { if (error !== null) console.error(error) })

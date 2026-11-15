@@ -84,6 +84,10 @@ flowchart LR
   cfg --> plugin_dsh_base_memory
   plugin_dsh_base_memory_extractor["memory-extractor<br/>@deepseek-ai/dsh-memory-extractor"]
   cfg --> plugin_dsh_base_memory_extractor
+  plugin_dsh_base_vpn_tunnel["vpn-tunnel<br/>@deepseek-ai/dsh-vpn-tunnel"]
+  cfg --> plugin_dsh_base_vpn_tunnel
+  plugin_dsh_base_network_proxy["network-proxy<br/>@deepseek-ai/dsh-network-proxy"]
+  cfg --> plugin_dsh_base_network_proxy
   plugin_dsh_base_session_projection_cache["session-projection-cache<br/>@deepseek-ai/dsh-session-projection-cache"]
   cfg --> plugin_dsh_base_session_projection_cache
   plugin_dsh_base_otel["otel<br/>@deepseek-ai/dsh-otel"]
@@ -254,6 +258,8 @@ flowchart LR
 | `storage-domain` | `@deepseek-ai/dsh-storage-domain` |
 | `memory` | `@deepseek-ai/dsh-memory` |
 | `memory-extractor` | `@deepseek-ai/dsh-memory-extractor` |
+| `vpn-tunnel` | `@deepseek-ai/dsh-vpn-tunnel` |
+| `network-proxy` | `@deepseek-ai/dsh-network-proxy` |
 | `session-projection-cache` | `@deepseek-ai/dsh-session-projection-cache` |
 | `otel` | `@deepseek-ai/dsh-otel` |
 | `session-telemetry-otel` | `@deepseek-ai/dsh-session-telemetry-otel` |

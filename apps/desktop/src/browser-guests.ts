@@ -16,9 +16,22 @@ interface GuestLease {
 export class DesktopBrowserGuests {
   private readonly partitions = new Map<string, string>()
   private readonly leases = new Map<DesktopBrowserLeaseId, GuestLease>()
+  private proxyUrl: string | null = null
 
   /** @param hostUrl - current authenticated DSH Host, which guests cannot request. */
   constructor(private readonly hostUrl: () => string | undefined) {}
+
+  /**
+   * Apply or clear the loopback HTTP/HTTPS proxy across all existing and future `<webview>` partitions.
+   * @param proxyUrl - Loopback proxy URL (`http://127.0.0.1:<port>`) or `null` for direct connections.
+   */
+  setProxy(proxyUrl: string | null): void {
+    if (this.proxyUrl === proxyUrl) return
+    this.proxyUrl = proxyUrl
+    for (const partition of this.partitions.values()) {
+      this.applySessionProxy(session.fromPartition(partition))
+    }
+  }
 
   /**
    * Reserve one guest in a workspace's process-lifetime partition.
@@ -139,6 +152,9 @@ export class DesktopBrowserGuests {
   }
 
   private configureSession(browserSession: Session): void {
+    if (this.proxyUrl !== null) {
+      this.applySessionProxy(browserSession)
+    }
     browserSession.setPermissionRequestHandler((_contents, _permission, callback) => { callback(false) })
     browserSession.setPermissionCheckHandler(() => false)
     browserSession.setDevicePermissionHandler(() => false)
@@ -150,6 +166,19 @@ export class DesktopBrowserGuests {
       callback({ cancel: network
         ? url.username !== '' || url.password !== '' || this.isApplicationHost(url)
         : !['about:', 'data:', 'blob:'].includes(url.protocol) })
+    })
+  }
+
+  private applySessionProxy(browserSession: Session): void {
+    const config = this.proxyUrl === null
+      ? { mode: 'system' as const }
+      : {
+        mode: 'fixed_servers' as const,
+        proxyRules: `http=${this.proxyUrl};https=${this.proxyUrl}`,
+        proxyBypassRules: '<local>',
+      }
+    void browserSession.setProxy(config).catch((error: unknown) => {
+      console.error('desktop browser: failed to configure partition proxy', error)
     })
   }
 

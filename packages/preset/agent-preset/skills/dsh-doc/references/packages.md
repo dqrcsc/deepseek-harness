@@ -354,6 +354,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@deepseek-ai/dsh-network-proxy` | yes | Host VPN subscription manager, smart-routing policy controller, encrypted subscription cache, and connectivity diagnostics service for the DeepSeek Harness |
 | `@deepseek-ai/dsh-vpn-tunnel` | yes | Pure-TypeScript VPN subscription parser, encrypted tunnel dialer, anti-FakeIP DNS resolver, and loopback proxy gateway |
 
 ## plan

@@ -361,3 +361,39 @@ it.each([undefined, '', 7])('rejects malformed Platform account identity %s on p
   expect(changed.mock.calls).toEqual([[null]])
   await host.stop()
 })
+
+it.each([null, 'http://127.0.0.1:48123'])('carries loopback browser proxy %s over private IPC and clears on shutdown', async (proxyUrl) => {
+  const runtime = projectWithHost(HTTP_HOST.replace(
+    "process.send({ type: 'ready'",
+    `process.send({ type: 'browser-proxy', proxyUrl: ${JSON.stringify(proxyUrl)} }); process.send({ type: 'ready'`,
+  ))
+  const onBrowserProxy = vi.fn()
+  const host = new DesktopHostProcess(
+    process.execPath, runtime, runtime, undefined, process.env,
+    undefined, undefined, undefined, undefined, undefined, onBrowserProxy,
+  )
+  hosts.push(host)
+  await host.start()
+  expect(onBrowserProxy).toHaveBeenCalledWith(proxyUrl)
+  await host.stop()
+  expect(onBrowserProxy).toHaveBeenLastCalledWith(null)
+})
+
+it.each(['http://example.com:8080', 'socks5://127.0.0.1:1080', 'http://127.0.0.1:0', 'http://127.0.0.1:70000', 42])(
+  'rejects non-loopback or malformed browser-proxy IPC value %s',
+  async (proxyUrl) => {
+    const runtime = projectWithHost(HTTP_HOST.replace(
+      "process.send({ type: 'ready'",
+      `process.send({ type: 'browser-proxy', proxyUrl: ${JSON.stringify(proxyUrl)} }); process.send({ type: 'ready'`,
+    ))
+    const onBrowserProxy = vi.fn()
+    const host = new DesktopHostProcess(
+      process.execPath, runtime, runtime, undefined, process.env,
+      undefined, undefined, undefined, undefined, undefined, onBrowserProxy,
+    )
+    hosts.push(host)
+    await expect(host.start()).rejects.toThrow('invalid IPC event')
+    expect(onBrowserProxy.mock.calls).toEqual([[null]])
+    await host.stop()
+  },
+)

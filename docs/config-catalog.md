@@ -2722,6 +2722,47 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-message-feedback -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-network-proxy -->
+<a id="deepseek-aidsh-network-proxy"></a>
+
+## `@deepseek-ai/dsh-network-proxy`
+
+- `inject`: `vpnTunnel` · `storageDomain` · `credentials`
+- `source`: [`packages/network/network-proxy/src/index.ts:102`](../packages/network/network-proxy/src/index.ts)
+
+```ts config-catalog
+/** Validated configuration for {@link NetworkProxyService}. */
+export interface Config {
+  /** Explicit DeepSeek Harness home directory override used for cache and `$DSH_HOME/.env` lookup. */
+  dshHome?: string
+  /** Explicit OS user `.env` file path override (`~/.env` by default). */
+  userEnvPath?: string
+  /** Per-target timeout in milliseconds for `runDiagnostics`; defaults to `8000`. */
+  diagnosticTimeoutMs?: number
+  /** Background timer interval in milliseconds checking subscriptions due for `autoRefreshMinutes`; defaults to `60000`. */
+  autoRefreshCheckIntervalMs?: number
+  /** Default node-probe limit when `probeNodes` omits `limit`; defaults to `12`. */
+  defaultProbeLimit?: number
+  /** Optional custom diagnostic target list overriding built-in domestic/overseas targets. */
+  diagnosticTargets?: ConfiguredDiagnosticTarget[]
+}
+
+/** Configurable diagnostic target entry accepted in {@link Config.diagnosticTargets}. */
+export interface ConfiguredDiagnosticTarget {
+  /** Stable target identifier. */
+  id: string
+  /** Human-readable target label. */
+  label: string
+  /** HTTP(S) target URL. */
+  url: string
+  /** Outbound traffic category (`llm`, `web`, `mcp`, `plugin`, or `embedding`). */
+  category: 'llm' | 'web' | 'mcp' | 'plugin' | 'embedding'
+  /** Optional LLM provider identifier when `category === 'llm'`. */
+  providerId?: string
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-network-proxy -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-office-kit -->
 <a id="deepseek-aidsh-office-kit"></a>
 

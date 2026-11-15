@@ -25,7 +25,12 @@ interface PlatformSessionEvent {
   readonly session: PlatformSession | null
 }
 
-type DesktopHostEvent = ReadyEvent | FatalEvent | PlatformSessionEvent | {
+interface BrowserProxyEvent {
+  readonly type: 'browser-proxy'
+  readonly proxyUrl: string | null
+}
+
+type DesktopHostEvent = ReadyEvent | FatalEvent | PlatformSessionEvent | BrowserProxyEvent | {
   readonly type: 'starting'
   readonly runId: PluginOperationRunId
 } | { readonly type: 'shutdown-complete' } | {
@@ -88,6 +93,25 @@ function isDesktopHostEvent(message: unknown): message is DesktopHostEvent {
         const url = new URL(session.origin)
         return url.origin === session.origin && !url.username && !url.password
           && (url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))
+      } catch { return false }
+    }
+    case 'browser-proxy': {
+      if (candidate.proxyUrl === null) return true
+      if (typeof candidate.proxyUrl !== 'string') return false
+      try {
+        const parsed = new URL(candidate.proxyUrl)
+        const port = Number(parsed.port)
+        return parsed.protocol === 'http:'
+          && parsed.hostname === '127.0.0.1'
+          && parsed.username === ''
+          && parsed.password === ''
+          && parsed.pathname === '/'
+          && parsed.search === ''
+          && parsed.hash === ''
+          && Number.isInteger(port)
+          && port >= 1
+          && port <= 65_535
+          && candidate.proxyUrl === `http://127.0.0.1:${String(port)}`
       } catch { return false }
     }
     case 'fatal':
@@ -199,6 +223,7 @@ export class DesktopHostProcess {
 
     private readonly onPlatformSession?: (session: PlatformSession | null) => void,
     private readonly onPluginOperation?: (record: PluginOperationRecord) => void,
+    private readonly onBrowserProxy?: (proxyUrl: string | null) => void,
   ) {}
 
   /**
@@ -246,6 +271,7 @@ export class DesktopHostProcess {
       if (message.type === 'starting') this.runId = message.runId
       else if (message.type === 'ready') this.readyResolve({ url: message.url, injections: message.injections })
       else if (message.type === 'platform-session') this.onPlatformSession?.(message.session)
+      else if (message.type === 'browser-proxy') this.onBrowserProxy?.(message.proxyUrl)
       else if (message.type === 'shutdown-complete') {
         if (this.stopping) this.shutdownCompleted = true
         else this.fail(new Error('dsh desktop host acknowledged an unrequested shutdown'))
@@ -349,6 +375,7 @@ export class DesktopHostProcess {
     if (child === undefined) return
     this.stopping = true
     this.onPlatformSession?.(null)
+    this.onBrowserProxy?.(null)
     if (child.connected) child.send({ type: 'shutdown' }, (error) => { if (error !== null) this.fail(error) })
     const exited = this.exitPromise ?? Promise.resolve()
     const graceful = await exitsWithin(exited, 10_000)
@@ -369,6 +396,7 @@ export class DesktopHostProcess {
   private fail(error: Error): void {
     if (this.runId !== undefined) Object.assign(error, { hostRunId: this.runId })
     this.onPlatformSession?.(null)
+    this.onBrowserProxy?.(null)
     this.readyReject(error)
     for (const request of this.controlRequests.values()) request.reject(error)
     this.controlRequests.clear()

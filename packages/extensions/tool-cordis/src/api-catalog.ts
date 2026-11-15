@@ -2436,6 +2436,85 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'networkProxy',
+    summary: 'Host-wide VPN subscription manager and smart-routing policy controller (`ctx.networkProxy`).',
+    description: 'Host-wide VPN subscription manager and smart-routing policy controller (`ctx.networkProxy`).',
+    methods: [
+      {
+        signature: 'browserGuestProxyUrl(): string | null',
+        description: 'Return the loopback HTTP proxy URL (`http://127.0.0.1:<port>`) for Desktop Electron `<webview>` partitions, or `null` when `direct` mode is active, `proxyBrowserGuests` is disabled, or no gateway is running.',
+        parameters: [],
+        returns: 'loopback proxy URL or `null`.',
+      },
+      {
+        signature: '@Remote(\'status\') async status(): Promise<NetworkProxyStatus>',
+        description: 'Read the complete redacted status snapshot including subscriptions, node telemetry, and discoverable `.env` candidates.',
+        parameters: [],
+        returns: 'current {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'setMode\') async setMode(request: SetNetworkModeRequest, signal?: AbortSignal): Promise<NetworkProxyStatus>',
+        description: 'Switch outbound routing mode (`direct`, `smart`, or `global`) durably and start or stop the loopback gateway as needed.',
+        parameters: [{ name: 'request', description: 'target {@link NetworkProxyMode}.' }, { name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'updateRouting\') async updateRouting(request: UpdateNetworkRoutingRequest, signal?: AbortSignal): Promise<NetworkProxyStatus>',
+        description: 'Update region-tier preferences, latency ceiling, subprocess/guest toggles, provider/capability overrides, or custom rules.',
+        parameters: [{ name: 'request', description: 'partial routing settings update.' }, { name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'addSubscription\') async addSubscription(request: AddSubscriptionRequest, signal?: AbortSignal): Promise<RefreshSubscriptionsResult>',
+        description: 'Add a VPN subscription URL, store its secret URL in `ctx.credentials`, fetch & encrypt-cache its nodes, and activate it.',
+        parameters: [{ name: 'request', description: 'display label, secret URL, optional enabled toggle, and optional auto-refresh interval.' }, { name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'refresh outcome and updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'updateSubscription\') async updateSubscription(request: UpdateSubscriptionRequest, signal?: AbortSignal): Promise<NetworkProxyStatus>',
+        description: 'Update an existing subscription\'s name, URL, enabled state, or auto-refresh interval.',
+        parameters: [{ name: 'request', description: 'subscription ID and fields to revise.' }, { name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'removeSubscription\') async removeSubscription( request: RemoveSubscriptionRequest, signal?: AbortSignal, ): Promise<RemoveSubscriptionResult & { readonly status: NetworkProxyStatus }>',
+        description: 'Remove a subscription, deleting its metadata row, `ctx.credentials` secret record, and encrypted cache file.',
+        parameters: [{ name: 'request', description: 'target subscription identifier.' }, { name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'removal flag and updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'refreshSubscriptions\') async refreshSubscriptions( request: RefreshSubscriptionsRequest, signal?: AbortSignal, ): Promise<RefreshSubscriptionsResult>',
+        description: 'Refresh one subscription (`request.id`) or all enabled subscriptions, updating encrypted caches and active nodes.',
+        parameters: [{ name: 'request', description: 'optional single subscription filter.' }, { name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'per-subscription outcomes and updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'importEnvSubscriptions\') async importEnvSubscriptions(signal?: AbortSignal): Promise<ImportEnvSubscriptionsResult>',
+        description: 'Discover `SUB_VPN_*` and `VPN_SUB_*` URLs from `process.env`, `$DSH_HOME/.env`, and `~/.env`, store new URLs in `ctx.credentials`, and fetch their initial node lists.',
+        parameters: [{ name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'counts of imported/skipped candidates, fetch outcomes, and updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'selectNode\') async selectNode(request: SelectNetworkNodeRequest, signal?: AbortSignal): Promise<NetworkProxyStatus>',
+        description: 'Pin traffic to `request.nodeId`, or pass `null` to restore automatic region-tier and latency selection.',
+        parameters: [{ name: 'request', description: 'target node identifier or `null`.' }, { name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'probeNodes\') async probeNodes( request: ProbeNetworkNodesRequest, signal?: AbortSignal, ): Promise<ProbeNetworkNodesResult>',
+        description: 'Benchmark candidate or subscription-filtered proxy nodes through the pure-TypeScript tunnel engine.',
+        parameters: [{ name: 'request', description: 'optional subscription filter, custom probe URL, and node count limit.' }, { name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'node probe results and updated {@link NetworkProxyStatus}.',
+      },
+      {
+        signature: '@Remote(\'runDiagnostics\') async runDiagnostics(signal?: AbortSignal): Promise<NetworkDiagnosticReport>',
+        description: 'Run concurrent end-to-end connectivity diagnostics across domestic and overseas endpoints using the active router.',
+        parameters: [{ name: 'signal', description: 'optional cancellation signal.' }],
+        returns: 'structured {@link NetworkDiagnosticReport}.',
+      },
+    ],
+  },
+  {
     key: 'officeKit',
     summary: 'A provider lifetime owns all converters, queued calls, and temporary files.',
     description: 'A provider lifetime owns all converters, queued calls, and temporary files.',
@@ -5638,6 +5717,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
+    name: 'network-proxy/changed',
+    mode: 'emit',
+    signature: '\'network-proxy/changed\'(): void',
+    summary: 'Network proxy mode, subscriptions, routing preferences, selected node, or gateway endpoint changed.',
+    description: 'Network proxy mode, subscriptions, routing preferences, selected node, or gateway endpoint changed.',
+    parameters: [],
+  },
+  {
     name: 'permission-presets/catalog-changed',
     mode: 'emit',
     signature: '\'permission-presets/catalog-changed\'(): void',
@@ -6078,6 +6165,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface AddShareSessionsRequest {\n    readonly shareId: string;\n    readonly sessionIds: readonly string[];\n}',
   },
   {
+    name: 'AddSubscriptionRequest',
+    declaration: 'export interface AddSubscriptionRequest {\n    readonly name: string;\n    readonly url: string;\n    readonly enabled?: boolean;\n    readonly autoRefreshMinutes?: number;\n}',
+  },
+  {
     name: 'AdmittedPromptContentPart',
     declaration: 'export type AdmittedPromptContentPart = {\n    readonly type: \'text\';\n    readonly text: string;\n} | {\n    readonly type: \'image\';\n    readonly attachment: ImageAttachmentRef;\n} | {\n    readonly type: \'file\';\n    readonly attachment: FileAttachmentRef;\n};',
   },
@@ -6152,6 +6243,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentTerminalRequest',
     declaration: 'export interface AgentTerminalRequest {\n    readonly title: string;\n    readonly cwd?: string;\n    readonly cols: number;\n    readonly rows: number;\n    readonly policy: SandboxExecutionPolicy;\n    readonly preferredShells: readonly string[];\n    readonly env?: Readonly<Record<string, string>>;\n}',
+  },
+  {
+    name: 'AmbientEnvSubscriptionPreview',
+    declaration: 'export interface AmbientEnvSubscriptionPreview {\n    readonly envKey: string;\n    readonly source: EnvSubscriptionSource;\n    readonly maskedUrl: string;\n    readonly alreadyImported: boolean;\n}',
   },
   {
     name: 'AnalyticsPreset',
@@ -6392,6 +6487,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ButtonProps',
     declaration: 'export interface ButtonProps {\n    readonly label: string;\n    readonly hotkey?: string | undefined;\n    readonly disabled?: boolean | undefined;\n    readonly onPress?: (() => unknown) | undefined;\n}',
+  },
+  {
+    name: 'CapabilityRoutingOverrides',
+    declaration: 'export interface CapabilityRoutingOverrides {\n    readonly web?: RouteOverridePolicy;\n    readonly mcp?: RouteOverridePolicy;\n    readonly plugin?: RouteOverridePolicy;\n    readonly embedding?: RouteOverridePolicy;\n}',
   },
   {
     name: 'ChangeRequestCheck',
@@ -6828,6 +6927,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'DeveloperMessage',
     declaration: 'export interface DeveloperMessage extends MessageBase {\n    readonly role: \'developer\';\n}',
+  },
+  {
+    name: 'DiagnosticTargetResult',
+    declaration: 'export interface DiagnosticTargetResult {\n    readonly id: string;\n    readonly label: string;\n    readonly url: string;\n    readonly route: \'direct\' | \'proxy\' | \'reject\';\n    readonly nodeName?: string;\n    readonly ok: boolean;\n    readonly statusCode?: number;\n    readonly latencyMs: number | null;\n    readonly error?: string;\n}',
   },
   {
     name: 'DiffCallView',
@@ -7444,6 +7547,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ImageVariantId',
     declaration: 'export type ImageVariantId = Branded<\'ImageVariantId\'>;',
+  },
+  {
+    name: 'ImportEnvSubscriptionsResult',
+    declaration: 'export interface ImportEnvSubscriptionsResult {\n    readonly importedCount: number;\n    readonly skippedCount: number;\n    readonly outcomes: readonly SubscriptionRefreshOutcome[];\n    readonly status: NetworkProxyStatus;\n}',
   },
   {
     name: 'IncompatiblePlugin',
@@ -8198,6 +8305,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface NativeFileApplication {\n    readonly id: string;\n    readonly name: string;\n    readonly default: boolean;\n    readonly icon: string | null;\n}',
   },
   {
+    name: 'NetworkDiagnosticReport',
+    declaration: 'export interface NetworkDiagnosticReport {\n    readonly checkedAt: string;\n    readonly mode: NetworkProxyMode;\n    readonly selectedNodeName: string | null;\n    readonly targets: readonly DiagnosticTargetResult[];\n}',
+  },
+  {
+    name: 'NetworkProxyMode',
+    declaration: 'export type NetworkProxyMode = \'direct\' | \'smart\' | \'global\';',
+  },
+  {
+    name: 'NetworkProxyStatus',
+    declaration: 'export interface NetworkProxyStatus {\n    readonly mode: NetworkProxyMode;\n    readonly routing: NetworkRoutingSettings;\n    readonly subscriptions: readonly SubscriptionSummary[];\n    readonly gateway: VpnGatewayEndpoint | null;\n    readonly nodes: readonly NodeHealthSnapshot[];\n    readonly selectedNodeId: VpnNodeId | null;\n    readonly pinnedNodeId: VpnNodeId | null;\n    readonly ambientEnvCandidates: readonly AmbientEnvSubscriptionPreview[];\n}',
+  },
+  {
+    name: 'NetworkRoutingSettings',
+    declaration: 'export interface NetworkRoutingSettings {\n    readonly preferRegion: string;\n    readonly maxPreferredLatencyMs: number;\n    readonly proxySubprocesses: boolean;\n    readonly proxyBrowserGuests: boolean;\n    readonly providerOverrides: Record<string, RouteOverridePolicy>;\n    readonly capabilityOverrides: CapabilityRoutingOverrides;\n    readonly customRules: readonly string[];\n}',
+  },
+  {
     name: 'NodeHealthSnapshot',
     declaration: 'export interface NodeHealthSnapshot {\n    readonly nodeId: VpnNodeId;\n    readonly subscriptionId: VpnSubscriptionId;\n    readonly name: string;\n    readonly protocol: ProxyProtocol;\n    readonly latencyMs: number | null;\n    readonly consecutiveFailures: number;\n    readonly circuitOpenUntilMs: number | null;\n    readonly activeConnections: number;\n    readonly totalSuccesses: number;\n    readonly totalFailures: number;\n    readonly lastError?: string;\n}',
   },
@@ -8562,6 +8685,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PrincipalMap {\n    owner: {\n        readonly kind: \'owner\';\n    };\n}',
   },
   {
+    name: 'ProbeNetworkNodesRequest',
+    declaration: 'export interface ProbeNetworkNodesRequest {\n    readonly subscriptionId?: VpnSubscriptionId;\n    readonly probeUrl?: string;\n    readonly limit?: number;\n}',
+  },
+  {
+    name: 'ProbeNetworkNodesResult',
+    declaration: 'export interface ProbeNetworkNodesResult {\n    readonly results: readonly VpnProbeResult[];\n    readonly status: NetworkProxyStatus;\n}',
+  },
+  {
     name: 'ProbeNodesOptions',
     declaration: 'export interface ProbeNodesOptions {\n    readonly nodeIds?: readonly VpnNodeId[];\n    readonly limit?: number;\n    readonly probeUrl?: string;\n    readonly timeoutMs?: number;\n    readonly concurrency?: number;\n    readonly signal?: AbortSignal;\n    readonly skipTargetCertVerify?: boolean;\n}',
   },
@@ -8766,6 +8897,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface RedactedSecret {\n    path: string[];\n    set: boolean;\n}',
   },
   {
+    name: 'RefreshSubscriptionsRequest',
+    declaration: 'export interface RefreshSubscriptionsRequest {\n    readonly id?: VpnSubscriptionId;\n}',
+  },
+  {
+    name: 'RefreshSubscriptionsResult',
+    declaration: 'export interface RefreshSubscriptionsResult {\n    readonly outcomes: readonly SubscriptionRefreshOutcome[];\n    readonly status: NetworkProxyStatus;\n}',
+  },
+  {
     name: 'Registry',
     declaration: 'export type Registry = string | null;',
   },
@@ -8870,6 +9009,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface RemoteUplinkWindow {\n    readonly maxBytes: number;\n    readonly frameOverheadBytes: number;\n}',
   },
   {
+    name: 'RemoveSubscriptionRequest',
+    declaration: 'export interface RemoveSubscriptionRequest {\n    readonly id: VpnSubscriptionId;\n}',
+  },
+  {
+    name: 'RemoveSubscriptionResult',
+    declaration: 'export interface RemoveSubscriptionResult {\n    readonly id: VpnSubscriptionId;\n    readonly removed: boolean;\n}',
+  },
+  {
     name: 'RenderedDocumentBytes',
     declaration: 'export interface RenderedDocumentBytes extends WorkspaceFileBytes {\n    readonly missingFonts: string[];\n    readonly generation: OfficeKitGeneration;\n}',
   },
@@ -8960,6 +9107,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ReviewVerdict',
     declaration: 'export type ReviewVerdict = \'approved\' | \'changes-requested\' | \'commented\' | \'dismissed\';',
+  },
+  {
+    name: 'RouteOverridePolicy',
+    declaration: 'export type RouteOverridePolicy = \'auto\' | \'direct\' | \'proxy\';',
   },
   {
     name: 'RoutingRule',
@@ -9160,6 +9311,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SearchResultView',
     declaration: 'export type SearchResultView = SearchMatchesResultView | SearchPathsResultView;',
+  },
+  {
+    name: 'SelectNetworkNodeRequest',
+    declaration: 'export interface SelectNetworkNodeRequest {\n    readonly nodeId: VpnNodeId | null;\n}',
   },
   {
     name: 'SerializedElement',
@@ -9850,6 +10005,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type SessionWorkspacePathApplication = NativeFileApplication;',
   },
   {
+    name: 'SetNetworkModeRequest',
+    declaration: 'export interface SetNetworkModeRequest {\n    readonly mode: NetworkProxyMode;\n}',
+  },
+  {
     name: 'SetRelayRequest',
     declaration: 'export interface SetRelayRequest {\n    readonly relayUrl: string | null;\n}',
   },
@@ -10328,6 +10487,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SubprocessTerminalSpawnSpec',
     declaration: 'export interface SubprocessTerminalSpawnSpec {\n    argv: readonly string[];\n    cwd: string;\n    env?: Record<string, string> | undefined;\n    rows: number;\n    cols: number;\n    terminalType: string;\n    shellActivity?: boolean | undefined;\n    graceMs: number;\n    signal?: AbortSignal | undefined;\n}',
+  },
+  {
+    name: 'SubscriptionRefreshOutcome',
+    declaration: 'export interface SubscriptionRefreshOutcome {\n    readonly id: VpnSubscriptionId;\n    readonly name: string;\n    readonly ok: boolean;\n    readonly nodeCount: number;\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'SubscriptionSummary',
+    declaration: 'export interface SubscriptionSummary {\n    readonly id: VpnSubscriptionId;\n    readonly name: string;\n    readonly maskedUrl: string;\n    readonly enabled: boolean;\n    readonly autoRefreshMinutes: number;\n    readonly nodeCount: number;\n    readonly lastUpdatedAt: string | null;\n    readonly userInfo?: SubscriptionUserInfo;\n    readonly lastError?: string;\n    readonly envSource?: EnvSubscriptionSource;\n    readonly envKey?: string;\n}',
   },
   {
     name: 'SubscriptionUserInfo',
@@ -10930,8 +11097,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface UpdateBundleOptions {\n    readonly registry?: Registry;\n    readonly spec?: string;\n    readonly requestId?: PluginInstallRequestId;\n}',
   },
   {
+    name: 'UpdateNetworkRoutingRequest',
+    declaration: 'export interface UpdateNetworkRoutingRequest {\n    readonly preferRegion?: string;\n    readonly maxPreferredLatencyMs?: number;\n    readonly proxySubprocesses?: boolean;\n    readonly proxyBrowserGuests?: boolean;\n    readonly providerOverrides?: Record<string, RouteOverridePolicy>;\n    readonly capabilityOverrides?: CapabilityRoutingOverrides;\n    readonly customRules?: readonly string[];\n}',
+  },
+  {
     name: 'UpdateSharePermissionsRequest',
     declaration: 'export interface UpdateSharePermissionsRequest {\n    readonly shareId: string;\n    readonly sessionMode?: \'view\' | \'write\';\n    readonly allowsFork?: boolean;\n    readonly ttlMinutes?: number | null;\n}',
+  },
+  {
+    name: 'UpdateSubscriptionRequest',
+    declaration: 'export interface UpdateSubscriptionRequest {\n    readonly id: VpnSubscriptionId;\n    readonly name?: string;\n    readonly url?: string;\n    readonly enabled?: boolean;\n    readonly autoRefreshMinutes?: number;\n}',
   },
   {
     name: 'UpdateTeamTaskRequest',

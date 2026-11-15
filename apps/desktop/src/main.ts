@@ -541,7 +541,7 @@ async function main(): Promise<void> {
           segmentBytes: 256 * 1024, recordBytes: 4096, queuedBytes: 64 * 1024,
         })
         operationJournal.enqueue(JSON.stringify(record))
-      })
+      }, (proxyUrl) => { browserGuests.setProxy(proxyUrl) })
     return {
       start: async () => {
         const ready = await host.start()

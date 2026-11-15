@@ -379,6 +379,7 @@ flowchart TD
     pkg_tool_memory["tool-memory"]
   end
   subgraph group_network["packages/network"]
+    pkg_network_proxy["network-proxy"]
     pkg_vpn_tunnel["vpn-tunnel"]
   end
   subgraph group_preset["packages/preset"]
@@ -557,6 +558,14 @@ flowchart TD
   pkg_host_frontend_static --> pkg_host_webserver
   pkg_lsp --> pkg_brand
   pkg_lsp --> pkg_llm
+  pkg_network_proxy --> pkg_brand
+  pkg_network_proxy --> pkg_credentials
+  pkg_network_proxy --> pkg_home_paths
+  pkg_network_proxy --> pkg_http_proxy
+  pkg_network_proxy --> pkg_llm
+  pkg_network_proxy --> pkg_storage_domain
+  pkg_network_proxy --> pkg_typert_protocol
+  pkg_network_proxy --> pkg_vpn_tunnel
   pkg_sandbox --> pkg_error
   pkg_sandbox --> pkg_llm
   pkg_sandbox --> pkg_session
@@ -1782,6 +1791,7 @@ flowchart TD
 | [`host-directory-picker-auto`](../packages/host/directory-picker-auto) | `host` | [`client-connection`](../packages/client/connection), [`client-ui-directory-picker-browse`](../packages/client/ui-directory-picker-browse), [`client-ui-directory-picker-native`](../packages/client/ui-directory-picker-native), [`host-directory-picker-browse`](../packages/host/directory-picker-browse), [`host-directory-picker-native`](../packages/host/directory-picker-native), [`host-webserver`](../packages/host/webserver) |
 | [`host-frontend-static`](../packages/host/frontend-static) | `host` | [`client-connection`](../packages/client/connection), [`host-webserver`](../packages/host/webserver) |
 | [`lsp`](../packages/lsp/lsp) | `lsp` | [`brand`](../packages/util/brand), [`llm`](../packages/llm/llm) |
+| [`network-proxy`](../packages/network/network-proxy) | `network` | [`brand`](../packages/util/brand), [`credentials`](../packages/credentials/credentials), [`home-paths`](../packages/util/home-paths), [`http-proxy`](../packages/util/http-proxy), [`llm`](../packages/llm/llm), [`storage-domain`](../packages/storage/storage-domain), [`typert-protocol`](../packages/typert/protocol), [`vpn-tunnel`](../packages/network/vpn-tunnel) |
 | [`sandbox`](../packages/sandbox/sandbox) | `sandbox` | [`error`](../packages/util/error), [`llm`](../packages/llm/llm), [`session`](../packages/core/session) |
 | [`session-format-catalog`](../packages/session/session-format-catalog) | `session` | [`session`](../packages/core/session) |
 | [`session-log-deepseek`](../packages/session/session-log-deepseek) | `session` | [`deepseek-llm-api-extensions`](../packages/llm/deepseek-llm-api-extensions), [`session`](../packages/core/session) |
