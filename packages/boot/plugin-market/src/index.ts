@@ -10,6 +10,7 @@ import type { BundleInfo } from '@deepseek-ai/dsh-plugin-manager/types'
 // Also declares the `pluginManager` service this one reads bundles from.
 import { pinnedGitOrigin } from '@deepseek-ai/dsh-plugin-manager'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+import { runWithTrafficContext } from '@deepseek-ai/dsh-http-proxy'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import {
   DetailFailure, detailImageResponse, languageChain, NPM_FILE_SOURCES, npmFileSourceOrder, npmFiles,
@@ -337,7 +338,7 @@ export default class PluginMarket extends TypertRemoteService {
 
   private async readDetail(location: DetailLocation, languages: readonly string[], refresh: boolean): Promise<PluginDetail> {
     try {
-      return await this.details.read(location, languages, refresh)
+      return await runWithTrafficContext({ category: 'plugin' }, () => this.details.read(location, languages, refresh))
     } catch (error) {
       if (!(error instanceof DetailFailure)) throw error
       throw new RemoteError('plugin-market/detail-unavailable', error.message, { reason: error.reason }, { cause: error })
@@ -353,7 +354,10 @@ export default class PluginMarket extends TypertRemoteService {
     const cache = `private, max-age=${String(Math.floor(this.config.cacheTtlMs / 1000))}`
     if (document === null || path === null) return detailImageResponse('invalid', cache)
     try {
-      return detailImageResponse(await this.details.image(document, path), cache)
+      return detailImageResponse(
+        await runWithTrafficContext({ category: 'plugin' }, () => this.details.image(document, path)),
+        cache,
+      )
     } catch (error) {
       if (!(error instanceof DetailFailure)) throw error
       return detailImageResponse(error.reason, cache)
@@ -427,7 +431,10 @@ export default class PluginMarket extends TypertRemoteService {
       new RemoteError('plugin-market/fetch-failed', `Could not fetch ${url}: ${reason}`, { url, reason }, { cause })
     let response: Response
     try {
-      response = await fetch(url, { signal, redirect: 'error', headers: { accept: 'application/json' } })
+      response = await runWithTrafficContext(
+        { category: 'plugin' },
+        () => fetch(url, { signal, redirect: 'error', headers: { accept: 'application/json' } }),
+      )
     } catch (error) {
       throw failed(causeChainOf(error), error)
     }

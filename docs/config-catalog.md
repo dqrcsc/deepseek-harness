@@ -262,7 +262,7 @@ export interface Config {
 ## `@deepseek-ai/dsh-api-session-controller`
 
 - `inject`: `agentDefaultModel` · `agents` · `attachments` · `fileUploads` · `fs` · `llm` · `remoteAccess` · `sessions` · `sessionProjections` · `sessionQuery` · `typert` · `typertGateway` · `workspaceRegistry`
-- `source`: [`packages/api/session-controller/src/index.ts:110`](../packages/api/session-controller/src/index.ts)
+- `source`: [`packages/api/session-controller/src/index.ts:112`](../packages/api/session-controller/src/index.ts)
 
 ```ts config-catalog
 /** Session Controller deployment policy. */
@@ -2924,7 +2924,7 @@ export interface Config {
 
 - `inject`: `pluginManager`
 - `refs`: [`NpmFileSource`](subsystems/boot.md) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/boot/plugin-market/src/index.ts:43`](../packages/boot/plugin-market/src/index.ts)
+- `source`: [`packages/boot/plugin-market/src/index.ts:44`](../packages/boot/plugin-market/src/index.ts)
 
 ```ts config-catalog
 /** Index sources and fetch limits. */
@@ -3376,7 +3376,7 @@ export interface Config {
 
 - `inject`: `sessions`
 - `refs`: [`SessionQueryConfig`](../packages/session-query/session-query/src/index.ts)
-- `source`: [`packages/session-query/session-query-sqlite/src/index.ts:108`](../packages/session-query/session-query-sqlite/src/index.ts)
+- `source`: [`packages/session-query/session-query-sqlite/src/index.ts:109`](../packages/session-query/session-query-sqlite/src/index.ts)
 
 ```ts config-catalog
 /** Combined session-query configuration backed by SQLite full-text search. */
@@ -4928,6 +4928,48 @@ export interface Config {
 export type ApprovalPolicy = 'ask' | 'never'
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-user-approval -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-vpn-tunnel -->
+<a id="deepseek-aidsh-vpn-tunnel"></a>
+
+## `@deepseek-ai/dsh-vpn-tunnel`
+
+- `source`: [`packages/network/vpn-tunnel/src/index.ts:162`](../packages/network/vpn-tunnel/src/index.ts)
+
+```ts config-catalog
+/** Validated configuration for {@link VpnTunnelRuntime}. */
+export interface Config {
+  /** Loopback port bound on `127.0.0.1` (`0` picks an OS-assigned ephemeral port). */
+  bindPort?: number
+  /** Upstream TCP/TLS + proxy handshake timeout in milliseconds. */
+  connectTimeoutMs?: number
+  /** Per-node probe deadline in milliseconds. */
+  probeTimeoutMs?: number
+  /** Maximum concurrent tunnel probes executed by `probeNodes`. */
+  probeConcurrency?: number
+  /** Default HTTP(S) endpoint used for node latency benchmarking. */
+  defaultProbeUrl?: string
+  /** Direct HTTP(S) subscription fetch timeout in milliseconds. */
+  subscriptionFetchTimeoutMs?: number
+  /** Maximum accepted subscription response size in bytes. */
+  subscriptionMaxBytes?: number
+  /** Clean UDP DNS servers queried when OS hostname lookup returns a `198.18.0.0/15` FakeIP. */
+  dnsServers?: string[]
+  /** Per-server UDP DNS query timeout in milliseconds. */
+  dnsTimeoutMs?: number
+  /** Initial region-tier preference expression (`美国|新加坡`). */
+  preferRegion?: string
+  /** Initial preferred-region latency ceiling in milliseconds. */
+  maxPreferredLatencyMs?: number
+  /** Consecutive dial/probe failures before opening a node's circuit breaker. */
+  circuitFailureThreshold?: number
+  /** Initial circuit-breaker cooldown in milliseconds. */
+  circuitBaseCooldownMs?: number
+  /** Maximum exponential-backoff circuit-breaker cooldown in milliseconds. */
+  circuitMaxCooldownMs?: number
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-vpn-tunnel -->
 
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web -->
 <a id="deepseek-aidsh-web"></a>

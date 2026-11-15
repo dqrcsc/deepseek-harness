@@ -203,7 +203,7 @@ function resolveScheme(own: ProxyCandidate, ...fallbacks: (string | undefined)[]
  * @param noProxy - the bypass list as the environment supplied it.
  * @returns the effective bypass list.
  */
-function withLoopback(noProxy: string | undefined): string {
+export function withLoopback(noProxy: string | undefined): string {
   const entries = (noProxy ?? '').split(/[,\s]+/).map(entry => entry.trim()).filter(entry => entry !== '')
   if (entries.includes('*')) return '*'
   const present = new Set(entries.map(entry => entry.toLowerCase()))
@@ -263,6 +263,40 @@ export function isLoopbackHost(hostname: string): boolean {
   const mappedHigh = /^::ffff:([0-9a-f]{1,4}):[0-9a-f]{1,4}$/.exec(host)?.[1]
   if (mappedHigh !== undefined) return Number.parseInt(mappedHigh, 16) >>> 8 === 127
   return LOOPBACK_IPV4.test(host.startsWith('::ffff:') ? host.slice('::ffff:'.length) : host)
+}
+
+/** Strict four-octet IPv4 matcher capturing the first two octets for RFC 1918 / link-local checks. */
+const IPV4_OCTETS = new RegExp(`^(${OCTET})\\.(${OCTET})\\.${OCTET}\\.${OCTET}$`)
+
+/** Whether the first two IPv4 octets fall inside RFC 1918 private or RFC 3927 link-local space. */
+function isPrivateIpv4LeadingOctets(first: number, second: number): boolean {
+  return first === 10
+    || (first === 172 && second >= 16 && second <= 31)
+    || (first === 192 && second === 168)
+    || (first === 169 && second === 254)
+}
+
+/**
+ * Whether a host belongs to loopback, link-local, mDNS `.local`, or RFC 1918 / RFC 4193
+ * private address space that an external VPN tunnel cannot route back into the caller's LAN.
+ *
+ * @param hostname - a URL's hostname, bracketed or not.
+ * @returns true when the host is loopback or private LAN/link-local space.
+ */
+export function isPrivateNetworkHost(hostname: string): boolean {
+  if (isLoopbackHost(hostname)) return true
+  const host = hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase()
+  if (host === 'local' || host.endsWith('.local')) return true
+  if (/^f[cd][0-9a-f]{0,2}:/.test(host) || /^fe[89ab][0-9a-f]?:/.test(host)) return true
+  const mappedHex = /^::ffff:([0-9a-f]{1,4}):[0-9a-f]{1,4}$/.exec(host)?.[1]
+  if (mappedHex !== undefined) {
+    const hi = Number.parseInt(mappedHex, 16)
+    return isPrivateIpv4LeadingOctets(hi >>> 8, hi & 0xff)
+  }
+  const v4Candidate = host.startsWith('::ffff:') ? host.slice('::ffff:'.length) : host
+  const match = IPV4_OCTETS.exec(v4Candidate)
+  if (match === null) return false
+  return isPrivateIpv4LeadingOctets(Number(match[1]), Number(match[2]))
 }
 
 /**

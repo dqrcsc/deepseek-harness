@@ -4689,6 +4689,111 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'vpnTunnel',
+    summary: 'Pure-TypeScript VPN tunnel runtime (`ctx.vpnTunnel`).',
+    description: 'Pure-TypeScript VPN tunnel runtime (`ctx.vpnTunnel`). Mounting opens no socket until ensureGateway, fetchSubscription, probeNodes, or probeUrl is called.',
+    methods: [
+      {
+        signature: 'state(): VpnTunnelStateSnapshot',
+        description: 'Return a redacted snapshot of the gateway endpoint, node health metrics, and active selection preferences.',
+        parameters: [],
+        returns: 'current {@link VpnTunnelStateSnapshot}.',
+      },
+      {
+        signature: 'async ensureGateway(): Promise<VpnGatewayEndpoint>',
+        description: 'Start the loopback HTTP/CONNECT + SOCKS5 gateway on `127.0.0.1` if not already running.',
+        parameters: [],
+        returns: 'bound loopback proxy endpoint.',
+      },
+      {
+        signature: 'async stopGateway(): Promise<void>',
+        description: 'Stop the loopback gateway and close any in-flight tunnel streams.',
+        parameters: [],
+      },
+      {
+        signature: 'setSubscriptions(subscriptions: readonly ParsedSubscription[]): void',
+        description: 'Replace the active parsed subscriptions, merging their proxy nodes and Clash routing rules.',
+        parameters: [{ name: 'subscriptions', description: 'active parsed subscription documents.' }],
+      },
+      {
+        signature: 'setRoutingPolicy(policy: VpnRoutingPolicyInput): void',
+        description: 'Update gateway mode, region-tier preferences, latency ceiling, or custom high-priority routing rules.',
+        parameters: [{ name: 'policy', description: 'partial routing policy fields to update.' }],
+      },
+      {
+        signature: 'selectNode(nodeId: VpnNodeId | null): void',
+        description: 'Pin traffic to `nodeId`, or pass `null` to restore automatic region-tier and latency selection.',
+        parameters: [{ name: 'nodeId', description: 'target node identifier, or `null` for automatic mode.' }],
+      },
+      {
+        signature: 'decideRoute(host: string, mode: \'direct\' | \'smart\' | \'global\' = this.gatewayMode): VpnRouteDecision',
+        description: 'Evaluate the routing disposition (`proxy`, `direct`, or `reject`) for `host` under `mode`.',
+        parameters: [{ name: 'host', description: 'destination hostname or IP literal.' }, { name: 'mode', description: 'routing mode (`direct`, `smart`, or `global`; defaults to the active gateway mode).' }],
+        returns: 'computed {@link VpnRouteDecision}.',
+      },
+      {
+        signature: 'async fetchSubscription( url: string, subscriptionId: VpnSubscriptionId, signal?: AbortSignal, ): Promise<ParsedSubscription>',
+        description: 'Fetch and parse a remote VPN subscription URL directly (bypassing global proxy dispatchers and FakeIP DNS).',
+        parameters: [{ name: 'url', description: 'HTTP(S) subscription URL.' }, { name: 'subscriptionId', description: 'nominal identifier assigned to parsed nodes.' }, { name: 'signal', description: 'optional caller cancellation signal.' }],
+        returns: 'validated {@link ParsedSubscription}.',
+      },
+      {
+        signature: 'async probeNodes(options: ProbeNodesOptions = {}): Promise<VpnProbeResult[]>',
+        description: 'Benchmark candidate or specified proxy nodes in bounded parallel batches and update node health metrics.',
+        parameters: [{ name: 'options', description: 'optional node ID filter, count limit, probe URL, concurrency, and deadline.' }],
+        returns: 'per-node {@link VpnProbeResult} list in input/candidate order.',
+      },
+      {
+        signature: 'async probeUrl(targetUrl: string, options: ProbeUrlOptions = {}): Promise<VpnProbeResult>',
+        description: 'Probe `targetUrl` through an explicit `nodeId` or the currently highest-ranked proxy node.',
+        parameters: [{ name: 'targetUrl', description: 'HTTP(S) URL to request through the tunnel.' }, { name: 'options', description: 'optional node ID, deadline, and cancellation signal.' }],
+        returns: 'redacted {@link VpnProbeResult}.',
+      },
+      {
+        signature: 'parseSubscription(text: string, options: ParseSubscriptionOptions): ParsedSubscription',
+        description: 'Parse raw Clash YAML or Base64/plain URI subscription content offline.',
+        parameters: [{ name: 'text', description: 'raw subscription payload text.' }, { name: 'options', description: 'subscription ID, optional quota header, and server Date header.' }],
+        returns: 'validated {@link ParsedSubscription}.',
+      },
+      {
+        signature: 'discoverEnvSubscriptions( env: Readonly<Record<string, string | undefined>>, fileLayers: readonly { readonly source: \'dsh-env\' | \'user-env\'; readonly content: string }[] = [], ): EnvSubscriptionCandidate[]',
+        description: 'Discover `SUB_VPN_*` and `VPN_SUB_*` candidate URLs across `env` and `.env` file layers.',
+        parameters: [{ name: 'env', description: 'process environment record.' }, { name: 'fileLayers', description: 'ordered `.env` file contents (`dsh-env` and `user-env`).' }],
+        returns: 'deduplicated {@link EnvSubscriptionCandidate} list.',
+      },
+      {
+        signature: 'maskUrl(url: string): string',
+        description: 'Mask path and query tokens in a subscription URL for display (`https://host/***`).',
+        parameters: [{ name: 'url', description: 'raw subscription URL.' }],
+        returns: 'masked display URL.',
+      },
+      {
+        signature: 'redactError(err: unknown): string',
+        description: 'Redact URLs, hostnames, IP literals, and credentials from an error or message.',
+        parameters: [{ name: 'err', description: 'thrown error or diagnostic value.' }],
+        returns: 'redacted single-line summary.',
+      },
+      {
+        signature: 'subscriptionId(raw: string): VpnSubscriptionId',
+        description: 'Brand a raw identifier as a VpnSubscriptionId.',
+        parameters: [{ name: 'raw', description: 'non-empty subscription identifier string.' }],
+        returns: 'branded {@link VpnSubscriptionId}.',
+      },
+      {
+        signature: 'nodeId(raw: string): VpnNodeId',
+        description: 'Brand a raw identifier as a VpnNodeId.',
+        parameters: [{ name: 'raw', description: 'non-empty node identifier string.' }],
+        returns: 'branded {@link VpnNodeId}.',
+      },
+      {
+        signature: 'parseRuleLine(line: string): RoutingRule | null',
+        description: 'Parse a single Clash-style routing rule line (`DOMAIN-SUFFIX,openai.com,PROXY`).',
+        parameters: [{ name: 'line', description: 'rule line text.' }],
+        returns: 'parsed {@link RoutingRule}, or `null` when blank, comment, or unsupported.',
+      },
+    ],
+  },
+  {
     key: 'web',
     summary: 'The web access service.',
     description: 'The web access service. Registered as `ctx.web` (one instance per context) and exposed to Clients as the `web` Remote namespace (`listProviders`).\n\nSelection semantics (resolved at execution time, never order-dependent):\n\n- A configured id that is registered and `available()` → that provider.\n- A configured id not registered → `WEB_PROVIDER_CONFIGURED_MISSING`.\n- A configured id registered but unavailable → `WEB_PROVIDER_CONFIGURED_UNAVAILABLE`.\n- No id configured, exactly one registered usable provider → that provider.\n- No id configured, multiple usable providers → `WEB_PROVIDER_AMBIGUOUS`.\n- No id configured, no usable provider → `WEB_PROVIDER_UNAVAILABLE`.',
@@ -6857,6 +6962,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface EncodedImageAttachment {\n    mediaType: ImageMediaType;\n    data: string;\n    name?: string;\n}',
   },
   {
+    name: 'EnvSubscriptionCandidate',
+    declaration: 'export interface EnvSubscriptionCandidate {\n    readonly envKey: string;\n    readonly source: EnvSubscriptionSource;\n    readonly url: string;\n    readonly maskedUrl: string;\n}',
+  },
+  {
+    name: 'EnvSubscriptionSource',
+    declaration: 'export type EnvSubscriptionSource = \'env\' | \'dsh-env\' | \'user-env\';',
+  },
+  {
     name: 'EpochHeader',
     declaration: 'export interface EpochHeader {\n    config: LlmCallConfig;\n    adapterDefaults?: LlmCallConfigAdapterDefaults;\n    tools?: ToolSchema[];\n    system?: never;\n}',
   },
@@ -8085,8 +8198,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface NativeFileApplication {\n    readonly id: string;\n    readonly name: string;\n    readonly default: boolean;\n    readonly icon: string | null;\n}',
   },
   {
+    name: 'NodeHealthSnapshot',
+    declaration: 'export interface NodeHealthSnapshot {\n    readonly nodeId: VpnNodeId;\n    readonly subscriptionId: VpnSubscriptionId;\n    readonly name: string;\n    readonly protocol: ProxyProtocol;\n    readonly latencyMs: number | null;\n    readonly consecutiveFailures: number;\n    readonly circuitOpenUntilMs: number | null;\n    readonly activeConnections: number;\n    readonly totalSuccesses: number;\n    readonly totalFailures: number;\n    readonly lastError?: string;\n}',
+  },
+  {
     name: 'NpmFileSource',
     declaration: 'export type NpmFileSource = \'jsdelivr\' | \'unpkg\' | \'npmmirror\';',
+  },
+  {
+    name: 'ObfsPluginConfig',
+    declaration: 'export interface ObfsPluginConfig {\n    readonly mode: \'http\' | \'tls\';\n    readonly host: string;\n    readonly uri?: string;\n}',
   },
   {
     name: 'ObjectJsonSchema',
@@ -8235,6 +8356,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PaneOpenResult',
     declaration: 'export interface PaneOpenResult {\n    id: string;\n    isPlaced: boolean;\n    reason?: string;\n}',
+  },
+  {
+    name: 'ParsedSubscription',
+    declaration: 'export interface ParsedSubscription {\n    readonly nodes: readonly ProxyNodeConfig[];\n    readonly rules: readonly RoutingRule[];\n    readonly clockOffsetSeconds: number;\n    readonly userInfo?: SubscriptionUserInfo;\n}',
+  },
+  {
+    name: 'ParseSubscriptionOptions',
+    declaration: 'export interface ParseSubscriptionOptions {\n    readonly subscriptionId: VpnSubscriptionId;\n    readonly dateHeader?: string | null;\n    readonly userInfoHeader?: string | null;\n    readonly nowMs?: number;\n}',
   },
   {
     name: 'PatchHunk',
@@ -8433,6 +8562,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PrincipalMap {\n    owner: {\n        readonly kind: \'owner\';\n    };\n}',
   },
   {
+    name: 'ProbeNodesOptions',
+    declaration: 'export interface ProbeNodesOptions {\n    readonly nodeIds?: readonly VpnNodeId[];\n    readonly limit?: number;\n    readonly probeUrl?: string;\n    readonly timeoutMs?: number;\n    readonly concurrency?: number;\n    readonly signal?: AbortSignal;\n    readonly skipTargetCertVerify?: boolean;\n}',
+  },
+  {
+    name: 'ProbeUrlOptions',
+    declaration: 'export interface ProbeUrlOptions {\n    readonly nodeId?: VpnNodeId;\n    readonly timeoutMs?: number;\n    readonly signal?: AbortSignal;\n    readonly skipTargetCertVerify?: boolean;\n}',
+  },
+  {
     name: 'ProductEvent',
     declaration: 'export type ProductEvent = {\n    [K in keyof ProductEventMap]: {\n        eventName: K;\n        attributes: ProductEventMap[K];\n        timestamp: number;\n    };\n}[keyof ProductEventMap];',
   },
@@ -8531,6 +8668,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ProviderRequestId',
     declaration: 'export type ProviderRequestId = Branded<\'ProviderRequestId\'>;',
+  },
+  {
+    name: 'ProxyNodeConfig',
+    declaration: 'export interface ProxyNodeConfig {\n    readonly id: VpnNodeId;\n    readonly subscriptionId: VpnSubscriptionId;\n    readonly name: string;\n    readonly protocol: ProxyProtocol;\n    readonly server: string;\n    readonly port: number;\n    readonly cipher?: string;\n    readonly password?: string;\n    readonly uuid?: string;\n    readonly alterId?: number;\n    readonly username?: string;\n    readonly udp?: boolean;\n    readonly tls?: TlsTransportConfig;\n    readonly ws?: WsTransportConfig;\n    readonly obfs?: ObfsPluginConfig;\n    readonly clockOffsetSeconds?: number;\n}',
+  },
+  {
+    name: 'ProxyProtocol',
+    declaration: 'export type ProxyProtocol = \'ss2022\' | \'ss\' | \'trojan\' | \'vless\' | \'vmess\' | \'socks5\' | \'http\';',
   },
   {
     name: 'PrunedEntry',
@@ -8817,12 +8962,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ReviewVerdict = \'approved\' | \'changes-requested\' | \'commented\' | \'dismissed\';',
   },
   {
+    name: 'RoutingRule',
+    declaration: 'export interface RoutingRule {\n    readonly kind: RuleKind;\n    readonly pattern: string;\n    readonly action: RuleAction;\n}',
+  },
+  {
     name: 'RpcId',
     declaration: 'export type RpcId = Branded<\'rpc-id\'>;',
   },
   {
     name: 'RRuleScheduleRecord',
     declaration: 'export interface RRuleScheduleRecord {\n    readonly kind: \'rrule\';\n    readonly id: ScheduleId;\n    readonly title: string;\n    readonly prompt: string;\n    readonly rrule: string;\n    readonly scheduledAt: string;\n}',
+  },
+  {
+    name: 'RuleAction',
+    declaration: 'export type RuleAction = \'PROXY\' | \'DIRECT\' | \'REJECT\';',
+  },
+  {
+    name: 'RuleKind',
+    declaration: 'export type RuleKind = \'DOMAIN\' | \'DOMAIN-SUFFIX\' | \'DOMAIN-KEYWORD\' | \'IP-CIDR\' | \'IP-CIDR6\' | \'MATCH\';',
   },
   {
     name: 'RunnerFailureRule',
@@ -10173,6 +10330,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SubprocessTerminalSpawnSpec {\n    argv: readonly string[];\n    cwd: string;\n    env?: Record<string, string> | undefined;\n    rows: number;\n    cols: number;\n    terminalType: string;\n    shellActivity?: boolean | undefined;\n    graceMs: number;\n    signal?: AbortSignal | undefined;\n}',
   },
   {
+    name: 'SubscriptionUserInfo',
+    declaration: 'export interface SubscriptionUserInfo {\n    readonly uploadBytes?: number;\n    readonly downloadBytes?: number;\n    readonly totalBytes?: number;\n    readonly expireUnixSeconds?: number;\n}',
+  },
+  {
     name: 'SurfaceEvent',
     declaration: 'export type SurfaceEvent = SessionEvent<SurfaceEventType>;',
   },
@@ -10367,6 +10528,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TimedUserQuestionResult',
     declaration: 'export type TimedUserQuestionResult = AskUserQuestionAnswer | {\n    pending: true;\n    callId: ToolCallId;\n};',
+  },
+  {
+    name: 'TlsTransportConfig',
+    declaration: 'export interface TlsTransportConfig {\n    readonly enabled: boolean;\n    readonly servername?: string;\n    readonly skipCertVerify?: boolean;\n    readonly alpn?: readonly string[];\n}',
   },
   {
     name: 'ToastOptions',
@@ -10789,6 +10954,42 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ViewerPluginPolicy {\n    readonly plugin: string;\n    readonly mode: \'all\' | \'none\' | \'selected\';\n    readonly endpoints?: readonly string[];\n}',
   },
   {
+    name: 'VpnGatewayEndpoint',
+    declaration: 'export interface VpnGatewayEndpoint {\n    readonly host: string;\n    readonly port: number;\n    readonly httpProxyUrl: string;\n    readonly socksProxyUrl: string;\n}',
+  },
+  {
+    name: 'VpnGatewayMode',
+    declaration: 'export type VpnGatewayMode = \'smart\' | \'global\';',
+  },
+  {
+    name: 'VpnNodeId',
+    declaration: 'export type VpnNodeId = Branded<\'VpnNodeId\'>;',
+  },
+  {
+    name: 'VpnProbeResult',
+    declaration: 'export interface VpnProbeResult {\n    readonly nodeId: VpnNodeId;\n    readonly ok: boolean;\n    readonly latencyMs: number | null;\n    readonly statusCode?: number;\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'VpnRouteAction',
+    declaration: 'export type VpnRouteAction = \'proxy\' | \'direct\' | \'reject\';',
+  },
+  {
+    name: 'VpnRouteDecision',
+    declaration: 'export interface VpnRouteDecision {\n    readonly action: VpnRouteAction;\n    readonly matchedRule?: string;\n    readonly nodeId?: VpnNodeId;\n}',
+  },
+  {
+    name: 'VpnRoutingPolicyInput',
+    declaration: 'export interface VpnRoutingPolicyInput {\n    readonly gatewayMode?: VpnGatewayMode;\n    readonly preferRegion?: string;\n    readonly maxPreferredLatencyMs?: number;\n    readonly customRules?: readonly RoutingRule[];\n}',
+  },
+  {
+    name: 'VpnSubscriptionId',
+    declaration: 'export type VpnSubscriptionId = Branded<\'VpnSubscriptionId\'>;',
+  },
+  {
+    name: 'VpnTunnelStateSnapshot',
+    declaration: 'export interface VpnTunnelStateSnapshot {\n    readonly gateway: VpnGatewayEndpoint | null;\n    readonly nodes: readonly NodeHealthSnapshot[];\n    readonly selectedNodeId: VpnNodeId | null;\n    readonly pinnedNodeId: VpnNodeId | null;\n    readonly preferRegion: string;\n    readonly maxPreferredLatencyMs: number;\n}',
+  },
+  {
     name: 'WebBootBatch',
     declaration: 'export interface WebBootBatch {\n    phase: WebBootBatchPhase;\n    url: string;\n    rev: string;\n    entries: string[];\n}',
   },
@@ -11135,6 +11336,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorktreeCleanup',
     declaration: 'export interface WorktreeCleanup {\n    readonly revision: number;\n    readonly status: \'scheduled\' | \'retained\' | \'removed\' | \'failed\';\n}',
+  },
+  {
+    name: 'WsTransportConfig',
+    declaration: 'export interface WsTransportConfig {\n    readonly path: string;\n    readonly headers?: Readonly<Record<string, string>>;\n}',
   },
 ]
 

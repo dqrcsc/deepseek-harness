@@ -78,11 +78,13 @@ describe('SubprocessRuntime seam', () => {
     await expect(ctx.plugin(SecondService)).rejects.toThrow(/service "subprocess" has been registered/)
   })
 
-  it('scrubbedParentEnv drops credential-shaped and DSH_ names (case-insensitively) but keeps PATH', () => {
+  it('scrubbedParentEnv drops credential-shaped, VPN subscription, and DSH_ names (case-insensitively) but keeps PATH', () => {
     process.env.DSH_SCRUB_PROBE = 'stale'
     process.env.dsh_scrub_probe_lower = 'stale'
     process.env.SCRUB_PROBE_TOKEN = 'secret'
     process.env.SCRUB_PROBE_PASSWORD = 'secret'
+    process.env.SUB_VPN_1 = 'https://secret.example/sub'
+    process.env.VPN_SUB_URL = 'https://secret.example/sub2'
     process.env.SCRUB_PROBE_PLAIN = 'visible'
     try {
       const env = scrubbedParentEnv()
@@ -90,6 +92,8 @@ describe('SubprocessRuntime seam', () => {
       expect(env.dsh_scrub_probe_lower).toBeUndefined()
       expect(env.SCRUB_PROBE_TOKEN).toBeUndefined()
       expect(env.SCRUB_PROBE_PASSWORD).toBeUndefined()
+      expect(env.SUB_VPN_1).toBeUndefined()
+      expect(env.VPN_SUB_URL).toBeUndefined()
       expect(env.SCRUB_PROBE_PLAIN).toBe('visible')
       expect(env.PATH).toBeDefined()
     } finally {
@@ -97,6 +101,8 @@ describe('SubprocessRuntime seam', () => {
       delete process.env.dsh_scrub_probe_lower
       delete process.env.SCRUB_PROBE_TOKEN
       delete process.env.SCRUB_PROBE_PASSWORD
+      delete process.env.SUB_VPN_1
+      delete process.env.VPN_SUB_URL
       delete process.env.SCRUB_PROBE_PLAIN
     }
   })

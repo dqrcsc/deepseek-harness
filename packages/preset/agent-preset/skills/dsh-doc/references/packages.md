@@ -350,6 +350,12 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@deepseek-ai/dsh-memory-extractor` | yes | Silent post-turn durable memory extractor and conflict resolver for the DeepSeek Harness |
 | `@deepseek-ai/dsh-tool-memory` | no | Model-facing memory_save, memory_delete, and memory_list tools for the DeepSeek Harness |
 
+## network
+
+| Package | Config | Description |
+|---|---|---|
+| `@deepseek-ai/dsh-vpn-tunnel` | yes | Pure-TypeScript VPN subscription parser, encrypted tunnel dialer, anti-FakeIP DNS resolver, and loopback proxy gateway |
+
 ## plan
 
 | Package | Config | Description |

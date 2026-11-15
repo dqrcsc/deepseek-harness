@@ -24,6 +24,7 @@
     { "path": "../../subprocess/subprocess" },
     { "path": "../../client/connection/tsconfig.host.json" },
     { "path": "../../util/plugin-detail" },
+    { "path": "../../util/http-proxy" },
     { "path": "../../util/atomic-write" }
   ]
 }

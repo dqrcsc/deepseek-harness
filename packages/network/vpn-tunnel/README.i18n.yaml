@@ -1,0 +1,37 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/network/vpn-tunnel/README.md
+/:
+  en: 0fc14354ca1e5b45
+  zh: 8c3e352eb9ecc8ea
+/deepseek-ai-dsh-vpn-tunnel:
+  en: 62a74876c4f65dd3
+  zh: ec4acb7991b0191f
+/deepseek-ai-dsh-vpn-tunnel/summary:
+  en: 49f2e160c8098634
+  zh: eda575717603fa15
+/deepseek-ai-dsh-vpn-tunnel/table-of-contents:
+  en: 23386452a66b2fbd
+  zh: 55b2121ae6059425
+/deepseek-ai-dsh-vpn-tunnel/use-this-package:
+  en: 10e3d1db98982b02
+  zh: 824cc4e35134fa7a
+/deepseek-ai-dsh-vpn-tunnel/understand-the-implementation:
+  en: 371c40171f3f2da6
+  zh: 05bb2d3aa3dd763c
+/deepseek-ai-dsh-vpn-tunnel/further-exploration:
+  en: f90d92daf195239e
+  zh: ffbff7bb141a3271
+/deepseek-ai-dsh-vpn-tunnel/model-experience:
+  en: 95e768d8f1676bdf
+  zh: f3b5c9a463e93aad
+/deepseek-ai-dsh-vpn-tunnel/model-experience/kv-cache-effect:
+  en: 023cc248a5d3c707
+  zh: 792a9e154721c874
+/deepseek-ai-dsh-vpn-tunnel/known-limitations-and-deferred-work:
+  en: 62b95c3a06732259
+  zh: f03628461465febc
+/deepseek-ai-dsh-vpn-tunnel/known-limitations-and-deferred-work/dev-note:
+  en: 0a1253c6f7b5e8b9
+  zh: 9f56528562c7c914

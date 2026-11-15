@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "VPN tunnel runtime",
+    "description": "Dial encrypted proxy subscriptions and run a loopback smart-routing gateway in pure TypeScript."
+  }
+}

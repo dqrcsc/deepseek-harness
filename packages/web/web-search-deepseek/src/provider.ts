@@ -6,6 +6,7 @@
  * @module @deepseek-ai/dsh-web-search-deepseek/provider
  */
 
+import { runWithTrafficContext } from '@deepseek-ai/dsh-http-proxy'
 import { WebError } from '@deepseek-ai/dsh-web'
 import type {
   WebSearchProvider,
@@ -258,7 +259,7 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
     throwIfSearchAborted(signal)
     let response: Response
     try {
-      response = await fetch(endpoint, {
+      response = await runWithTrafficContext({ category: 'web', providerId: DEEPSEEK_PROVIDER_ID }, () => fetch(endpoint, {
         method: 'POST',
         redirect: 'error',
         headers: {
@@ -270,7 +271,7 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
         },
         body: JSON.stringify(body),
         ...signal !== undefined ? { signal } : {},
-      })
+      }))
     } catch (error: unknown) {
       if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
       throw searchEndpointError(

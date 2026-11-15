@@ -46,12 +46,12 @@ export type {
 
 /**
  * Credential-shaped environment names are NOT forwarded to children (the
- * harness's own `DEEPSEEK_API_KEY`/secrets must not leak into a spawned
- * process implicitly). One heuristic for every in-repo spawner; a
- * deliberately supplied entry survives because explicit env layers merge
- * after the scrub.
+ * harness's own `DEEPSEEK_API_KEY`/secrets and `SUB_VPN_*`/`VPN_SUB_*`
+ * subscription URLs must not leak into a spawned process implicitly). One
+ * heuristic for every in-repo spawner; a deliberately supplied entry survives
+ * because explicit env layers merge after the scrub.
  */
-export const SENSITIVE_ENV_PATTERN = /KEY|PASSWORD|SECRET|TOKEN/i
+export const SENSITIVE_ENV_PATTERN = /KEY|PASSWORD|SECRET|TOKEN|(?:^|_)(?:SUB_VPN|VPN_SUB)(?:_|$)/i
 
 /**
  * The ambient parent environment minus credential-shaped names and minus all

@@ -82,6 +82,7 @@ const GROUP_ORDER = [
   'pty',
   'sandbox',
   'ssh',
+  'network',
   'fs',
   'skill',
   'compact',
@@ -531,6 +532,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'service',
     consumers: ['host-product-telemetry-otel', 'session-telemetry-otel'],
     note: 'Product analytics and Session feedback adapters create independent reporting channels through one injected service.',
+  },
+  {
+    key: 'vpnTunnel',
+    pkg: 'vpn-tunnel',
+    title: 'Pure-TypeScript VPN tunnel runtime',
+    mode: 'service',
+    note: 'Parses subscription payloads, dials outbound proxy protocols in pure Node.js, ranks regional node candidates with circuit breaking, and runs the authenticated loopback HTTP and CONNECT gateway.',
   },
   {
     key: 'productTelemetry',

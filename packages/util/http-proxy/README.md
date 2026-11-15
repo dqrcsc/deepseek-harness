@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Use this package to apply one outbound HTTP proxy policy to Harness requests that use Node's built-in `fetch`, including LLM, web-search, and HTTP MCP traffic. The launcher reads standard proxy environment variables once, and ordinary `fetch` callers require no extra imports or changes. Local loopback traffic stays direct, while unsupported proxy URLs are reported and skipped for the affected scheme. Public helpers let callers route transports with their own proxy settings, prepare child-process environments, or clear proxy variables for isolated replays.
+Use this package to apply a launch-time HTTP proxy policy or a live dynamic proxy router to Harness requests using Node's built-in `fetch`, covering LLM, embedding, web-search, plugin-market, and HTTP MCP traffic. Ordinary `fetch` callers require no extra imports, while `runWithTrafficContext` and `streamWithTrafficContext` tag async trees for per-capability and per-provider routing without restarts. Loopback traffic stays direct; public helpers classify private hosts, route HTTP/2 transports, and scrub or inject child-process proxy variables.
 
 ## Table of Contents
 
@@ -34,9 +34,12 @@ Plain `fetch()` is proxied, and so is any SDK that reaches `globalThis.fetch` �
 | You are writing | Use |
 |---|---|
 | A plain request, or an SDK that reaches `globalThis.fetch` | nothing — the global dispatcher already routes it |
+| An outbound capability or provider call that participates in smart split-tunneling | wrap the call in `runWithTrafficContext({ category, providerId }, fn)` or `streamWithTrafficContext({ category, providerId }, source)` |
+| A runtime VPN/proxy service that switches routes without restarting | `installDynamicProxyRouter({ resolve, childProxyUrl })`, `evictProxy(url)`, and `dispose()` |
 | A call that needs its own transport choice, such as HTTP/1.1 only | `createRouteDispatcher(env, { allowH2: false })`, use it as `dispatcher`, close it when done |
 | A call that must branch on whether this request is proxied | `proxyRouteFor(url)` |
 | An SDK that takes a proxy URL of its own | `proxyRouteFor(url)`, and pass `route.proxy` |
+| A private/LAN bypass check (`localhost`, RFC1918, carrier-grade NAT, IPv6 link-local/ULA) | `isPrivateNetworkHost(host)` |
 | A spawn whose environment you build yourself | apply `proxyEnvironmentForChild()` to it (`undefined` means remove) |
 | A harness that must reach its own fixture server | apply `clearedProxyEnv()` to the spawn |
 
@@ -73,9 +76,10 @@ A proxy value the package cannot use — a SOCKS or PAC URL, an unparseable stri
 
 | File | Holds |
 |---|---|
-| `src/policy.ts` | Resolution and bypass matching; a diagnostic names the variable, never its value. Imports no transport, so it stays loadable where undici is absent. |
-| `src/install.ts` | The global dispatcher, the active-policy record, the route, and the child environment. Imports undici dynamically. |
-| `src/index.ts` | The package face: five functions and two types. |
+| `src/context.ts` | `AsyncLocalStorage`-backed `TrafficContext` attribution (`currentTrafficContext`, `runWithTrafficContext`, `streamWithTrafficContext`) for per-capability and per-provider split tunneling. |
+| `src/policy.ts` | Environment policy resolution, loopback/private-network host classification (`isPrivateNetworkHost`), and bypass matching; a diagnostic names the variable, never its value. Imports no transport, so it stays loadable where undici is absent. |
+| `src/install.ts` | The global dispatcher, `installDynamicProxyRouter` with pooled per-proxy `ProxyAgent` eviction, the active-policy record, `proxyRouteFor`, and child-process proxy environments. Imports undici dynamically. |
+| `src/index.ts` | The public package exports: policy/router installation, per-request route lookup, traffic-context tagging, private-host inspection, and child-environment helpers. |
 
 ### Bypass matching
 

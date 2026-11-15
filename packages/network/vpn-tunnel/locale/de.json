@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "VPN-Tunnel-Laufzeit",
+    "description": "Verbindet verschlüsselte Proxy-Abonnements und betreibt ein lokales Smart-Routing-Gateway in reinem TypeScript."
+  }
+}
