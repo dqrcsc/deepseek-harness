@@ -27,6 +27,7 @@ import type {
   MessageImagesOwnerProps, NodeKey, TurnLocation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionLocateRequest } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { KeyedSnapshotSelectorHook, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
@@ -441,6 +442,12 @@ function makeHarness(
     session.set({ loadingOlder: false, historyLoadStatus: 'pendingConsumption' })
   }
   const loadThrough = vi.fn<(seq: number) => Promise<void>>().mockResolvedValue(undefined)
+  const locateRequest = createSnapshotStore<SessionLocateRequest | null>(null)
+  const acknowledgeLocate = vi.fn<(requestId: number) => void>()
+  const searchEvents = vi.fn<ChatViewSlotProps['searchEvents']>(async () => ({
+    ok: true,
+    value: { items: [], hasMore: false },
+  }))
   // Mutable outline holder: tests swap the value and drive a re-render via set().
   let outlineValue: unknown
   const openView = vi.fn<(view: string, focus: string) => void>()
@@ -563,6 +570,7 @@ function makeHarness(
     useInteractionIds: bindSnapshotSelector(createSnapshotStore<readonly string[]>([])),
     dispatchInteraction: () => null,
     usePresentation: bindSnapshotSelector(derivePresentationPolicy(transcriptView, collapseTiming, foldedReplies)),
+    useLocateRequest: bindSnapshotSelector(locateRequest),
     // The fixture implements the concrete flow dispatch behind the generic slot signature.
     renderSlot: renderSlot as ChatViewSlotProps['renderSlot'],
     SessionProvider: SessionProviderStub,
@@ -575,6 +583,8 @@ function makeHarness(
     loadOlder,
     consumeOlder,
     loadThrough,
+    acknowledgeLocate,
+    searchEvents,
     loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
     chatScroll,
     forkAt,
@@ -604,6 +614,7 @@ function makeHarness(
     set, setSession: session.set, setChat: chatSource.set, ChatView, props,
     setConnection: (state: ConnectionState) => { connection.set(state) },
     openFile, openUserFile, loadOlder, consumeOlder, prepareOlder, loadThrough, openView,
+    locateRequest, acknowledgeLocate, searchEvents,
     setOutline: (value: unknown) => { outlineValue = value },
     chatScroll, forkAt, toolOwners, fenceCalls,
     setPerformanceUsage: (mode: 'compact' | 'detailed') => { performanceUsage.set(mode) },
@@ -4890,6 +4901,40 @@ describe('ChatView', () => {
     const rows = [...view.container.querySelectorAll('[data-chat-steering-batch="start"]')]
       .map(element => element.closest<HTMLElement>('[data-chat-node-key]')?.dataset.chatNodeKey)
     expect(rows).toEqual(['fixture:steering:3'])
+  })
+
+  it('locates a target event seq, renders located pulse and semantic-match badge on ChatNodeSeat, and opens Find', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel')
+    const h = makeHarness({
+      nodes: [
+        userInTurn(1, ' literal keyword question ', 1),
+        assistant(2, 'conceptually relevant answer without literal token', 1, 1),
+      ],
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    act(() => {
+      h.locateRequest.set({
+        requestId: 1,
+        seq: SessionSeq(2),
+        query: 'keyword',
+        mode: 'hybrid',
+      })
+    })
+    expect(h.acknowledgeLocate).toHaveBeenCalledWith(1)
+    const targetSeat = view.container.querySelector<HTMLElement>('[data-chat-event-seq="2"]')
+    expect(targetSeat?.hasAttribute('data-search-located')).toBe(true)
+    expect(targetSeat?.querySelector('[data-search-semantic-badge]')?.textContent).toBe('语义相关匹配')
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', metaKey: true, cancelable: true }))
+    })
+    const searchInput = view.getByRole('searchbox', { name: '在当前会话中查找' }) as HTMLInputElement
+    expect(searchInput.value).toBe('keyword')
+
+    fireEvent.click(view.getByRole('button', { name: '关闭查找' }))
+    expect(targetSeat?.hasAttribute('data-search-located')).toBe(false)
+    expect(targetSeat?.querySelector('[data-search-semantic-badge]')).toBeNull()
   })
 })
 

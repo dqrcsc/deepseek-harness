@@ -74,9 +74,9 @@ async function ensureSeedOpen(page: Page): Promise<void> {
   // Search is a collapsed header action; expand it so the input is actionable.
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  const search = page.getByPlaceholder('Search session names', { exact: false })
+  const search = page.getByPlaceholder('Search titles or messages…', { exact: false })
   if (await chat.count() === 0) {
-    await search.fill('WATERFALL')
+    await search.fill(SEED_ID)
     const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
     await expect.poll(() => result.count(), { timeout: 15_000 }).toBe(1)
     await result.click()
@@ -85,7 +85,7 @@ async function ensureSeedOpen(page: Page): Promise<void> {
   await chat.click()
   await page.getByText('FIRST_DONE', { exact: true }).waitFor({ timeout: 15_000 })
   if (await search.inputValue() !== '') {
-    await search.fill('')
+    await page.getByRole('button', { name: 'Clear search', exact: true }).click()
     await expect.poll(() => search.inputValue(), { timeout: 5_000 }).toBe('')
   }
 }
@@ -200,7 +200,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     // Search is a collapsed header action; expand it so the input is actionable.
     const searchButton = page.getByRole('button', { name: 'Search sessions' })
     if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-    const search = page.getByPlaceholder('Search session names', { exact: false })
+    const search = page.getByPlaceholder('Search titles or messages…', { exact: false })
     // The cold row has not been opened, so only the persisted log can satisfy
     // this query. First search lazily reconciles the SQLite content index.
     await search.fill('zzzqx-no-such-session')
@@ -233,12 +233,16 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     await compareOrRefreshGolden(SEARCH_EXPECTED, snapshot, MODE)
 
     await result.click()
-    // Search navigation returns to the browser with the opened Session row exposed.
+    // Clicking a search result keeps the query and result list mounted while marking the opened row selected.
+    expect(await search.inputValue()).toBe('WATERFALL')
+    await expect.poll(() => result.getAttribute('aria-selected'), { timeout: 10_000 }).toBe('true')
+    await expect.poll(() => page.getByText('FIRST_DONE', { exact: true }).count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => page.getByRole('heading', { name: 'Navigation Summary' }).count(), { timeout: 15_000 }).toBe(1)
+    // Dismissing search via Escape returns to the browser with the opened Session row revealed.
+    await search.press('Escape')
     await expect.poll(() => search.inputValue(), { timeout: 5_000 }).toBe('')
     const selectedRow = page.locator('[role="tree"][aria-label="Sessions"] [role="treeitem"][aria-selected="true"]')
     await expect.poll(() => selectedRow.count(), { timeout: 10_000 }).toBe(1)
-    await expect.poll(() => page.getByText('FIRST_DONE', { exact: true }).count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
-    await expect.poll(() => page.getByRole('heading', { name: 'Navigation Summary' }).count(), { timeout: 15_000 }).toBe(1)
   }, 90_000)
 
   it.skipIf(MODE === 'record')('renders recorded Markdown with icon tooltips and switchable wrapping', async () => {

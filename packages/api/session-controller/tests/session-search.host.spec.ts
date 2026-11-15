@@ -14,6 +14,7 @@ import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import {
   SessionQueryEngine,
   SessionQueryError,
+  type SessionEventSearchRequest,
   type SessionSearchHit,
   type SessionSearchRequest,
 } from '@deepseek-ai/dsh-session-query'
@@ -69,6 +70,9 @@ class SearchSessionQuery extends SessionQueryEngine {
     private readonly search: (
       ...args: Parameters<SessionQueryEngine['searchSessions']>
     ) => Promise<unknown>,
+    private readonly events?: (
+      ...args: Parameters<SessionQueryEngine['searchEvents']>
+    ) => Promise<unknown>,
   ) {
     super(ctx)
   }
@@ -79,8 +83,13 @@ class SearchSessionQuery extends SessionQueryEngine {
     return this.search(...args) as ReturnType<SessionQueryEngine['searchSessions']>
   }
 
-  override searchEvents(): Promise<never> {
-    return Promise.reject(new Error('event search is not configured in this test'))
+  override searchEvents(
+    ...args: Parameters<SessionQueryEngine['searchEvents']>
+  ): ReturnType<SessionQueryEngine['searchEvents']> {
+    if (this.events === undefined) {
+      return Promise.reject(new Error('event search is not configured in this test'))
+    }
+    return this.events(...args) as ReturnType<SessionQueryEngine['searchEvents']>
   }
 }
 
@@ -89,8 +98,11 @@ function installSearchQuery(
   searchSessions: (
     ...args: Parameters<SessionQueryEngine['searchSessions']>
   ) => Promise<unknown>,
+  searchEvents?: (
+    ...args: Parameters<SessionQueryEngine['searchEvents']>
+  ) => Promise<unknown>,
 ): void {
-  new SearchSessionQuery(ctx, searchSessions)
+  new SearchSessionQuery(ctx, searchSessions, searchEvents)
 }
 
 describe('session.search', () => {
@@ -141,6 +153,7 @@ describe('session.search', () => {
           header: cold,
           live: false,
           persisted: true,
+          matchCount: 3,
           bestMatch: {
             sessionId: cold.id,
             seq: 4,
@@ -161,7 +174,14 @@ describe('session.search', () => {
     expect(response).toEqual({
       ok: true,
       value: {
-        items: [{ sessionId: 'cold', snippet: 'the matching answer' }],
+        items: [{
+          sessionId: 'cold',
+          snippet: 'the matching answer',
+          seq: 4,
+          role: 'assistant',
+          time: 200,
+          matchCount: 3,
+        }],
         hasMore: false,
       },
     })
@@ -246,7 +266,7 @@ describe('session.search', () => {
     expect(response).toEqual({
       ok: true,
       value: {
-        items: [{ sessionId: 'visible', snippet: 'allowed snippet' }],
+        items: [{ sessionId: 'visible', snippet: 'allowed snippet', seq: 3, role: 'user', time: 203 }],
         hasMore: false,
       },
     })
@@ -423,9 +443,9 @@ describe('session.search', () => {
       ok: true,
       value: {
         items: [
-          { sessionId: 'fresh-first', snippet: 'match 2' },
-          { sessionId: 'shared', snippet: 'match 1' },
-          { sessionId: 'fresh-last', snippet: 'match 3' },
+          { sessionId: 'fresh-first', snippet: 'match 2', seq: 2, role: 'user', time: 202 },
+          { sessionId: 'shared', snippet: 'match 1', seq: 1, role: 'user', time: 201 },
+          { sessionId: 'fresh-last', snippet: 'match 3', seq: 3, role: 'user', time: 203 },
         ],
         hasMore: false,
       },
@@ -659,7 +679,7 @@ describe('session.search', () => {
     expect(response).toEqual({
       ok: true,
       value: {
-        items: [{ sessionId: 'visible', snippet: expected }],
+        items: [{ sessionId: 'visible', snippet: expected, seq: 0, role: 'user', time: 200 }],
         hasMore: false,
       },
     })
@@ -788,7 +808,7 @@ describe('session.search', () => {
     expect(response).toEqual({
       ok: true,
       value: {
-        items: [{ sessionId: 'cold-32750', snippet: 'match 0' }],
+        items: [{ sessionId: 'cold-32750', snippet: 'match 0', seq: 0, role: 'user', time: 200 }],
         hasMore: false,
       },
     })
@@ -897,5 +917,310 @@ describe('session.search', () => {
     if (failed.ok) throw new Error('unreachable')
     expect(failed.error.code).toBe('gateway/internal')
     expect(failed.error.message).toContain('database unavailable')
+  })
+})
+
+describe('session.searchEvents', () => {
+  it('rejects searchEvents when the query service is absent', async () => {
+    const ctx = await baseContext()
+    ctx.provide('attachments', { imageLimits: TEST_IMAGE_LIMITS } as never)
+    const list = new ApiSessionList(ctx, 8)
+    await list.initialize()
+
+    await expect(list.searchEvents(
+      { sessionId: sid('s1'), query: 'query' },
+      new AbortController().signal,
+    )).rejects.toMatchObject({ code: 'gateway/internal' })
+    await ctx.fiber.dispose()
+  })
+
+  it('validates sessionId, query, and limit before invoking the provider', async () => {
+    const ctx = await baseContext()
+    ctx.provide('attachments', { imageLimits: TEST_IMAGE_LIMITS } as never)
+    const searchEvents = vi.fn()
+    installSearchQuery(ctx, vi.fn(), searchEvents)
+    const list = new ApiSessionList(ctx, 8)
+    await list.initialize()
+    const signal = new AbortController().signal
+
+    for (const invalid of [
+      { sessionId: sid('   '), query: 'ok' },
+      { sessionId: sid('bad\0id'), query: 'ok' },
+      { sessionId: sid('s1'), query: '' },
+      { sessionId: sid('s1'), query: 'ok', limit: 0 },
+      { sessionId: sid('s1'), query: 'ok', limit: 101 },
+      { sessionId: sid('s1'), query: 'ok', limit: 1.5 },
+    ]) {
+      await expect(list.searchEvents(invalid, signal)).rejects.toMatchObject({ code: 'gateway/bad-request' })
+    }
+    expect(searchEvents).not.toHaveBeenCalled()
+    await ctx.fiber.dispose()
+  })
+
+  it('returns chronologically sorted current message hits, adapts limit, restarts stale cursors, and deduplicates seqs', async () => {
+    const ctx = await baseContext()
+    const target = header('target')
+    ctx.sessions.create(target.id, { meta: target })
+
+    const invalidLimit = new SessionQueryError('max 2', 'SESSION_QUERY_INVALID_LIMIT')
+    const staleCursor = new SessionQueryError('stale', 'SESSION_QUERY_STALE_CURSOR')
+    const searchEvents = vi.fn((req: SessionEventSearchRequest) => {
+      switch (searchEvents.mock.calls.length) {
+        case 1:
+          expect(req).toEqual({
+            sessionId: target.id,
+            query: 'needle',
+            mode: 'phrase',
+            filters: [
+              { kind: 'type', values: ['user/message', 'assistant/message'] },
+              { kind: 'surface', values: ['current'] },
+            ],
+            limit: 3,
+          })
+          return Promise.reject(invalidLimit)
+        case 2:
+          expect(req.limit).toBe(1)
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: target.id,
+              seq: SessionSeq(12),
+              type: 'assistant/message',
+              time: 500,
+              surface: 'current',
+              snippet: 'older ranking page',
+            }],
+            nextCursor: 'stale-page',
+          })
+        case 3:
+          expect(req.cursor).toBe('stale-page')
+          return Promise.reject(staleCursor)
+        case 4:
+          expect(req.cursor).toBeUndefined()
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: target.id,
+              seq: SessionSeq(20),
+              type: 'assistant/message',
+              time: 900,
+              surface: 'current',
+              snippet: 'late hit ranked first',
+            }],
+            nextCursor: 'c1',
+          })
+        case 5:
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: sid('foreign'),
+              seq: SessionSeq(1),
+              type: 'user/message',
+              time: 100,
+              surface: 'current',
+              snippet: 'wrong session',
+            }],
+            nextCursor: 'c2',
+          })
+        case 6:
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: target.id,
+              seq: SessionSeq(20),
+              type: 'assistant/message',
+              time: 900,
+              surface: 'current',
+              snippet: 'duplicate seq',
+            }],
+            nextCursor: 'c3',
+          })
+        case 7:
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: target.id,
+              seq: SessionSeq(4),
+              type: 'user/message',
+              time: 300,
+              surface: 'current',
+              snippet: 'early hit ranked second',
+            }],
+            nextCursor: 'c4',
+          })
+        case 8:
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: target.id,
+              seq: SessionSeq(8),
+              type: 'user/message',
+              time: 400,
+              surface: 'shadowed',
+              snippet: 'shadowed hit',
+            }],
+            nextCursor: 'c5',
+          })
+        case 9:
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: target.id,
+              seq: SessionSeq(9),
+              type: 'tool/result',
+              time: 410,
+              surface: 'current',
+              snippet: 'non-message hit',
+            }],
+            nextCursor: 'c6',
+          })
+        case 10:
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: target.id,
+              seq: SessionSeq(15),
+              type: 'assistant/message',
+              time: 700,
+              surface: 'current',
+              snippet: 'middle hit',
+            }],
+            nextCursor: 'c7',
+          })
+        case 11:
+          return Promise.resolve({
+            session: target,
+            items: [{
+              sessionId: target.id,
+              seq: SessionSeq(30),
+              type: 'user/message',
+              time: 950,
+              surface: 'current',
+              snippet: 'lookahead hit',
+            }],
+          })
+        default:
+          return Promise.reject(new Error('unexpected call'))
+      }
+    })
+    installSearchQuery(ctx, vi.fn(), searchEvents)
+    const remote = await createSessionTestRemote(ctx, defaults)
+
+    const response = await remote.searchEvents(
+      { sessionId: target.id, query: '  needle  ', mode: 'phrase', limit: 3 },
+      new AbortController().signal,
+    )
+
+    expect(response).toEqual({
+      ok: true,
+      value: {
+        items: [
+          { seq: 4, role: 'user', time: 300, snippet: 'early hit ranked second' },
+          { seq: 15, role: 'assistant', time: 700, snippet: 'middle hit' },
+          { seq: 20, role: 'assistant', time: 900, snippet: 'late hit ranked first' },
+        ],
+        hasMore: true,
+      },
+    })
+    await ctx.fiber.dispose()
+  })
+
+  it('defaults mode to hybrid and limit to 100, and handles final-page termination, not-found, repeated cursors, oversized pages, budget exhaustion, and aborts', async () => {
+    const ctx = await baseContext()
+    const target = header('target')
+    ctx.sessions.create(target.id, { meta: target })
+
+    let modeCheckCalls = 0
+    const searchEvents = vi.fn((req: SessionEventSearchRequest) => {
+      modeCheckCalls++
+      if (modeCheckCalls === 1) {
+        expect(req.mode).toBe('hybrid')
+        expect(req.limit).toBe(100)
+        return Promise.resolve({
+          session: target,
+          items: [
+            {
+              sessionId: target.id,
+              seq: SessionSeq(1),
+              type: 'user/message',
+              time: 100,
+              surface: 'current',
+              snippet: 'one',
+            },
+          ],
+        })
+      }
+      if (modeCheckCalls === 2) {
+        return Promise.reject(new SessionQueryError('missing', 'SESSION_QUERY_SESSION_NOT_FOUND'))
+      }
+      if (modeCheckCalls === 3) {
+        return Promise.resolve({
+          session: target,
+          items: [
+            { sessionId: target.id, seq: SessionSeq(1), type: 'user/message', time: 1, surface: 'current', snippet: 'a' },
+            { sessionId: target.id, seq: SessionSeq(2), type: 'user/message', time: 2, surface: 'current', snippet: 'b' },
+            { sessionId: target.id, seq: SessionSeq(3), type: 'user/message', time: 3, surface: 'current', snippet: 'c' },
+          ],
+        })
+      }
+      if (modeCheckCalls === 4) {
+        return Promise.resolve({ session: target, items: [], nextCursor: 'dup' })
+      }
+      if (modeCheckCalls === 5) {
+        return Promise.resolve({ session: target, items: [], nextCursor: 'dup' })
+      }
+      if (modeCheckCalls === 6) {
+        return Promise.reject(new SessionQueryError('aborted', 'SESSION_QUERY_ABORTED'))
+      }
+      if (modeCheckCalls === 7) {
+        return Promise.resolve({
+          session: target,
+          items: [
+            { sessionId: target.id, seq: SessionSeq(1), type: 'user/message', time: 1, surface: 'current', snippet: 'a' },
+            { sessionId: target.id, seq: SessionSeq(2), type: 'user/message', time: 2, surface: 'current', snippet: 'b' },
+          ],
+          nextCursor: 'more-7',
+        })
+      }
+      if (modeCheckCalls === 8) {
+        return Promise.resolve({
+          session: target,
+          items: [
+            { sessionId: target.id, seq: SessionSeq(3), type: 'user/message', time: 3, surface: 'current', snippet: 'extra' },
+            { sessionId: target.id, seq: SessionSeq(4), type: 'user/message', time: 4, surface: 'current', snippet: 'overflow' },
+          ],
+        })
+      }
+      return Promise.resolve({ session: target, items: [], nextCursor: `loop-${modeCheckCalls}` })
+    })
+    installSearchQuery(ctx, vi.fn(), searchEvents)
+    const remote = await createSessionTestRemote(ctx, defaults)
+    const signal = new AbortController().signal
+
+    const defaultsResult = await remote.searchEvents({ sessionId: target.id, query: 'q' }, signal)
+    expect(defaultsResult).toEqual({
+      ok: true,
+      value: { items: [{ seq: 1, role: 'user', time: 100, snippet: 'one' }], hasMore: false },
+    })
+
+    await expect(remote.searchEvents({ sessionId: target.id, query: 'q', mode: 'lexical', limit: 2 }, signal))
+      .resolves.toMatchObject({ ok: false, error: { code: 'session/not-found' } })
+
+    await expect(remote.searchEvents({ sessionId: target.id, query: 'q', limit: 2 }, signal))
+      .resolves.toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
+
+    await expect(remote.searchEvents({ sessionId: target.id, query: 'q' }, signal))
+      .resolves.toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
+
+    await expect(remote.searchEvents({ sessionId: target.id, query: 'q' }, signal))
+      .resolves.toMatchObject({ ok: false, error: { code: 'gateway/cancelled' } })
+
+    const exactLookahead = await remote.searchEvents({ sessionId: target.id, query: 'q', limit: 2 }, signal)
+    expect(exactLookahead).toMatchObject({ ok: true, value: { hasMore: true } })
+
+    await expect(remote.searchEvents({ sessionId: target.id, query: 'q' }, signal))
+      .resolves.toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
+
+    await ctx.fiber.dispose()
   })
 })

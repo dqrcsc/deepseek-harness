@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { ConversationLocationDataStore, ConversationTurnDataMap } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { AssistantBlock, ConversationLocationDataStore, ConversationTurnDataMap } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatNodeHookContext, ChatNodeOwnerProps, ChatFlowSlotProps, UsePresentation } from '../contract/slots.ts'
 import { hasAssistantReplyContent } from '../contract/assistant-content.ts'
 import type { ChatNode } from '../contract/chat-nodes.ts'
@@ -42,6 +42,42 @@ function turnOf(node: ChatNode | undefined): number | undefined {
   return location?.kind === 'turn' || location?.kind === 'step' ? location.turn.turn : undefined
 }
 
+/** Minimal node fields read by {@link resolveNodeEventSeq}. */
+export type NodeEventSeqSource =
+  | {
+    readonly kind: 'assistant-step'
+    readonly anchorSeq: number
+    readonly data: {
+      readonly blocks?: readonly AssistantBlock[] | undefined
+      readonly finalNode?: { readonly seq: number } | undefined
+    }
+  }
+  | {
+    readonly kind: Exclude<ChatNode['kind'], 'assistant-step'>
+    readonly anchorSeq: number
+  }
+
+/**
+ * Resolve the durable event `seq` addressed by search and jump operations for a seat.
+ * Split reasoning parts defer to the companion reply row when one exists, while tool-only
+ * steps keep `data-chat-event-seq` on their reasoning row inside the step-process group.
+ * @param node - Chat node rendered by this seat.
+ * @param groupPart - Optional split portion (`reasoning` vs `response`).
+ * @returns Durable event sequence, or `undefined` when this seat is not an event target.
+ */
+export function resolveNodeEventSeq(node: NodeEventSeqSource | undefined, groupPart?: string): number | undefined {
+  if (node === undefined) return undefined
+  if (node.kind === 'turn-tail' || node.kind === 'turn-process') return undefined
+  if (node.kind === 'assistant-step') {
+    if (groupPart === 'reasoning' && (node.data.blocks === undefined || hasAssistantReplyContent(node.data.blocks))) {
+      return undefined
+    }
+    return node.data.finalNode?.seq ?? node.anchorSeq
+  }
+  if (groupPart === 'reasoning') return undefined
+  return node.anchorSeq
+}
+
 /**
  * Subscribe, apply Turn-process visibility, and dispatch one stable Context key.
  * Policy reads select this seat's own conclusion, so a mode change re-renders
@@ -56,6 +92,9 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
   const node = useChatNode(nodeKey)
   const routedNode = node as ChatNode | undefined
   const turn = turnOf(routedNode)
+  const eventSeq = resolveNodeEventSeq(routedNode, groupPart)
+  const isLocated = useStore(state => eventSeq !== undefined && state.locatedSeq === eventSeq)
+  const isSemanticMatch = useStore(state => eventSeq !== undefined && state.semanticMatchSeq === eventSeq)
   const processPresentation = useChatNodeProcess(nodeKey)
   const processSpec = processPresentation?.spec
   const storedOpen = useStore(state => processSpec !== undefined
@@ -160,9 +199,16 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
       data-chat-group-part={groupPart}
       data-chat-flow-kind={routedNode.kind}
       data-chat-turn={turn}
+      data-chat-event-seq={eventSeq}
+      data-search-located={isLocated ? '' : undefined}
       data-turn-process-member={processMember || undefined}
       data-turn-process-hidden={processHidden || undefined}
     >
+      {isSemanticMatch && (
+        <div className={css.semanticMatchRow} data-search-semantic-badge="">
+          <span className={css.semanticMatchPill}>{t('find.semanticMatch')}</span>
+        </div>
+      )}
       {renderSlot('conversation.chat.node', routedOwner, {
         entryKey: routedNode.kind,
         hookContext,

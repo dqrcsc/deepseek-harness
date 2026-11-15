@@ -4,7 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent/types'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-client-file-upload/client'
-import { typertOwnedValue } from '@deepseek-ai/dsh-typert-protocol'
+import { typertOwnedValue, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { createSessionControlStream } from './transport.ts'
 import { ClientSessions } from './sessions/service.ts'
 import type { SessionRemotes } from './sessions/remotes.ts'
@@ -13,6 +13,7 @@ import type {} from '../remote-events.ts'
 export {
   createSessionControlStream,
   SessionEventStream,
+  SESSION_EVENT_SEARCH_RESULT_LIMIT,
   SESSION_SEARCH_RESULT_LIMIT,
   SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS,
 } from './transport.ts'
@@ -24,6 +25,15 @@ export type {
   SessionJournalChange,
   SessionRemote,
 } from './transport.ts'
+export type {
+  SessionSearchEventItem as SessionEventSearchItem,
+  SessionSearchEventsValue as SessionEventSearchValue,
+  SessionSearchMessageRole,
+  SessionSearchEventsMode as SessionSearchMode,
+} from '../types.ts'
+
+/** Outcome of one `session/searchEvents` RPC invocation. */
+export type SessionEventSearchResult = RemoteResult<import('../types.ts').SessionSearchEventsValue>
 export { createScope, scopeOf } from './scope.ts'
 export type { AgentContext, AgentScopeHandle } from './scope.ts'
 export { SessionCreateError, SessionForkError } from './sessions/service.ts'

@@ -9,6 +9,7 @@ import type {
   SessionControlFrame,
   SessionProjectionHints,
   SessionRenameValue,
+  SessionSearchMessageRole,
   SessionSummary,
 } from '../../types.ts'
 import { mergeOrderedBaseline } from '../ordered-baseline.ts'
@@ -45,6 +46,10 @@ export type SessionListPhase = 'pending' | 'ready'
 export interface SessionSearchResultItem {
   sessionId: SessionId
   snippet: string
+  seq?: number
+  role?: SessionSearchMessageRole
+  time?: number
+  matchCount?: number
 }
 
 /** Immutable session-list snapshot for useSessionList. */

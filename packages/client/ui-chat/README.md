@@ -175,6 +175,8 @@ The turn rail mounts only visible marks, overscan, and the focused mark's neighb
 
 While the pointer is outside the rail, automatic follow keeps the rail still when the active mark's center is inside the fade-free band and centers it after it leaves that band. Previews follow pointer movement or focus; marks scrolling under a stationary pointer do not select another preview.
 
+In-session find (`Cmd/Ctrl+F` when `session/searchEvents` is permitted on a non-blank conversation) queries `session.searchEvents` across `hybrid` and `phrase` modes and accepts incoming `SessionLocateTarget` requests from sidebar search jumps. Stepping to a hit or opening a located `seq` before the loaded window calls `loadThrough(seq)`, expands enclosing collapsed Turn and process disclosures plus searchable hidden containers once mounted, scrolls the target message row into the reading zone, and pulses its background when motion is enabled. Literal query-token occurrences are painted through the native CSS Custom Highlight API (`::highlight(dsh-search-match)` and `::highlight(dsh-search-active)`) over `TreeWalker` text ranges without mutating DOM nodes; when a `hybrid` dense-recall hit contains no literal token match in rendered text, the target row shows a localized semantic-match badge instead, and all matched event `seq` values mark their owning Turns on the turn rail.
+
 <details>
 <summary>Scroll implementation — click to expand</summary>
 

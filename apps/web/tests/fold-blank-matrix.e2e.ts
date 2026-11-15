@@ -418,10 +418,11 @@ async function openSessionBySearch(page: Page, query: string): Promise<void> {
   await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(query)
+  await page.getByRole('textbox', { name: 'Search titles or messages…', exact: true }).fill(query)
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await expect.poll(() => results.count(), { timeout: 60_000 }).toBe(1)
   await results.click()
+  await page.getByRole('button', { name: 'Clear search', exact: true }).click()
 }
 
 async function choosePreferences(page: Page, scenario: Case): Promise<void> {
@@ -603,13 +604,13 @@ async function prepareWorld(browser: Browser, scenario: Case, scaffold: WebScaff
     const fixture = seededFixture(scenario.id, scenario.bodyParagraphs)
     await seedSession(scaffold, fixture.log, sessionId)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    await openSessionBySearch(page, fixture.markers.user(1))
+    await openSessionBySearch(page, sessionId)
     await page.locator(MAIN_ROOT).getByText('FOLDMX_BODY', { exact: false }).last().waitFor({ timeout: 30_000 })
     const resolved = await scaffold.ctx.sessionController.resolveAgent(sessionId)
     if ('error' in resolved) throw resolved.error
     scaffold.ctx.permissionPresets.set(resolved.agent.session, 'danger-full-access')
     await choosePreferences(page, scenario)
-    return { browser, scaffold, page, root: MAIN_ROOT, target: sessionId, tripwire, searchQuery: fixture.markers.user(1) }
+    return { browser, scaffold, page, root: MAIN_ROOT, target: sessionId, tripwire, searchQuery: sessionId }
   }
   const parentFixture = createChatScrollFixture({ markerPrefix: 'FOLDMXP', title: `FOLDMX parent ${scenario.id}`, turns: 2 })
   await seedSession(scaffold, parentFixture.log, sessionId)
@@ -618,7 +619,7 @@ async function prepareWorld(browser: Browser, scenario: Case, scaffold: WebScaff
   scaffold.ctx.permissionPresets.set(resolved.agent.session, 'danger-full-access')
   const childId = await createChild(scaffold, sessionId, scenario)
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-  await openSessionBySearch(page, parentFixture.markers.user(1))
+  await openSessionBySearch(page, sessionId)
   await choosePreferences(page, scenario)
   const trigger = page.getByRole('button', { name: '1 subagent', exact: true })
   await trigger.waitFor({ timeout: 15_000 })
@@ -631,7 +632,7 @@ async function prepareWorld(browser: Browser, scenario: Case, scaffold: WebScaff
   await page.mouse.move(0, 0)
   return {
     browser, scaffold, page, root: SIDE_ROOT, target: childId, parentId: sessionId, tripwire,
-    searchQuery: parentFixture.markers.user(1),
+    searchQuery: sessionId,
   }
 }
 

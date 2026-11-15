@@ -422,12 +422,38 @@ describe('UiWorkspaceService', () => {
     expect(b.sessions.retain).not.toHaveBeenCalled()
   })
 
-  it('retains an explicit main target before revealing its Conversation', () => {
+  it('retains an explicit main target before revealing its Conversation and manages locate requests', () => {
     const b = bench()
-    b.uiWorkspace.openSession(sid('target'))
+    const observed = b.uiWorkspace.locateRequest(sid('target'))
+    expect(b.uiWorkspace.locateRequest(sid('target'))).toBe(observed)
+    expect(observed.getSnapshot()).toBeNull()
+
+    b.uiWorkspace.openSession(sid('target'), {
+      locate: { seq: 14 as never, query: 'needle', mode: 'hybrid' },
+    })
     expect(b.selectPanel).toHaveBeenCalledWith(null)
     expect(b.sessions.retain).toHaveBeenCalledWith(sid('target'), { source: 'mainView' })
     expect(b.sessions.refreshProjections).not.toHaveBeenCalled()
+    const firstLocate = observed.getSnapshot()
+    expect(firstLocate).toEqual({
+      seq: 14,
+      query: 'needle',
+      mode: 'hybrid',
+      requestId: 1,
+    })
+
+    // Mismatched or unknown acknowledgements are ignored; matching requestId clears it.
+    b.uiWorkspace.acknowledgeLocate(sid('unknown'), 1)
+    b.uiWorkspace.acknowledgeLocate(sid('target'), 999)
+    expect(observed.getSnapshot()).toEqual(firstLocate)
+    b.uiWorkspace.acknowledgeLocate(sid('target'), 1)
+    expect(observed.getSnapshot()).toBeNull()
+
+    // A normal openSession without `locate` clears any unconsumed locate on that session.
+    b.uiWorkspace.openSession(sid('target'), { locate: { seq: 22 as never } })
+    expect(observed.getSnapshot()?.requestId).toBe(2)
+    b.uiWorkspace.openSession(sid('target'))
+    expect(observed.getSnapshot()).toBeNull()
   })
 
   it('keeps the current panel when retaining the target fails', () => {

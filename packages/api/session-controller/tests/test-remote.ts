@@ -57,6 +57,8 @@ import type {
   SessionPromptValue,
   SessionRenameRequest,
   SessionRenameValue,
+  SessionSearchEventsRequest,
+  SessionSearchEventsValue,
   SessionSearchRequest,
   SessionSearchValue,
   SessionSelectModelRequest,
@@ -75,6 +77,7 @@ export interface TestSessionRemote {
   canOpenWorkspacePath(): Promise<RemoteResult<boolean>>
   list(request: SessionListRequest, signal?: AbortSignal): Promise<RemoteResult<SessionListValue>>
   search(request: SessionSearchRequest, signal?: AbortSignal): Promise<RemoteResult<SessionSearchValue>>
+  searchEvents(request: SessionSearchEventsRequest, signal?: AbortSignal): Promise<RemoteResult<SessionSearchEventsValue>>
   create(request: SessionCreateRequest): Promise<RemoteResult<SessionCreateValue>>
   selectModel(request: SessionSelectModelRequest): Promise<RemoteResult<SessionSelectModelValue>>
   modelCatalog(): Promise<RemoteResult<ModelCatalog>>
@@ -371,6 +374,10 @@ export async function createSessionTestRemote(
     ),
     search: (request, signal = new AbortController().signal) => remoteResult(
       () => direct.search(request, signal),
+      signal,
+    ),
+    searchEvents: (request, signal = new AbortController().signal) => remoteResult(
+      () => direct.searchEvents(request, signal),
       signal,
     ),
     create: request => remoteResult(() => direct.create(request)),

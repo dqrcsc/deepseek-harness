@@ -10,16 +10,18 @@
   - button "More"
 - text: Workspaces
 - button "Search sessions"
-- textbox "Search session names"
+- textbox "Search titles or messages…"
 - button "View options"
 - button "Add workspace"
 - tree "Sessions":
   - treeitem "workspace" [expanded]
   - treeitem "New Session" [selected]
-- button "Account menu": More
+- button "Settings"
+- button "Account menu"
+- button "Switch to dark mode"
 - banner:
   - button "Open right sidebar"
-- text: Into the Unknown Preview
+- text: Hold the reins, command intelligence at will
 - button "Choose workspace": workspace
 - button "Standard mode"
 - textbox "Describe what you want to build, / commands, @ files or sessions":

@@ -47,6 +47,7 @@ import {
   type HybridQueryOptions,
   type SearchRow,
   type SessionHeaderRow,
+  type SessionSearchRow,
   queryHybridEvents,
   queryHybridSessions,
   queryLexicalEvents,
@@ -681,7 +682,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     offset: number,
     persistenceBinding: PersistenceBinding,
     signal: AbortSignal | undefined,
-  ): Promise<SearchRow[]> {
+  ): Promise<SessionSearchRow[]> {
     const persistenceVisible = persistenceBinding.service !== undefined
     switch (mode) {
       case 'phrase':
@@ -715,7 +716,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     request: NormalizedSessionRequest,
     offset: number,
     persistenceBinding: PersistenceBinding,
-  ): SearchRow[] {
+  ): SessionSearchRow[] {
     const selected = selectedDocumentsSql()
     const sessionWhere = buildSessionWhere(request.sessionFilters)
     const eventWhere = buildEventWhere(request.eventFilters)
@@ -735,17 +736,19 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
         SELECT * FROM matched ${where.length === 0 ? '' : `WHERE ${where}`}
       ),
       ranked AS (
-        SELECT *, ROW_NUMBER() OVER (
-          PARTITION BY session_id
-          ORDER BY match_count DESC, document_length ASC, time DESC, seq DESC
-        ) AS event_rank
+        SELECT *,
+          ROW_NUMBER() OVER (
+            PARTITION BY session_id
+            ORDER BY match_count DESC, document_length ASC, time DESC, seq DESC
+          ) AS event_rank,
+          COUNT(*) OVER (PARTITION BY session_id) AS session_match_count
         FROM filtered
       )
       SELECT * FROM ranked
       WHERE event_rank = 1
       ORDER BY match_count DESC, document_length ASC, time DESC, session_id ASC, seq DESC
       LIMIT ? OFFSET ?
-    `).all(...bindings) as unknown as SearchRow[]
+    `).all(...bindings) as SessionSearchRow[]
   }
 
   private _queryEvents(
@@ -808,12 +811,13 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     )
   }
 
-  private _sessionHit(row: SearchRow): SessionSearchHit {
+  private _sessionHit(row: SessionSearchRow): SessionSearchHit {
     return {
       header: rowHeader(row),
       live: row.live === 1,
       persisted: row.persisted === 1,
       bestMatch: this._eventHit(row),
+      matchCount: row.session_match_count,
     }
   }
 

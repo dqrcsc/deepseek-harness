@@ -210,6 +210,7 @@ async function launchScrollWorld(options: ScrollWorldOptions): Promise<ScrollWor
     page = await newEnglishPage(browser, 900)
     if (options.controlledClock) await page.clock.install()
     const tripwire = watchConsole(page)
+    seedIdsByPage.set(page, new Map(options.seeds.map(seed => [seed.fixture, seed.id] as const)))
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     // Session-list bootstrap can replace the controlled search state. Wait
@@ -308,6 +309,8 @@ async function loadedFlowRows(page: Page): Promise<number> {
   return page.locator('[data-chat-flow-key]').count()
 }
 
+const seedIdsByPage = new WeakMap<Page, ReadonlyMap<ChatScrollFixture, string>>()
+
 async function openSeed(page: Page, fixture: ChatScrollFixture, tailMarker?: string): Promise<void> {
   if (await page.locator('[data-sidebar-drawer][data-sidebar-collapsed]').count() > 0) {
     await page.locator('[data-shell-leading]').getByRole('button', { name: 'Open sidebar', exact: true }).click()
@@ -315,12 +318,11 @@ async function openSeed(page: Page, fixture: ChatScrollFixture, tailMarker?: str
   // Search collapsed into a header action; expand it before filling.
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  const search = page.getByRole('textbox', { name: 'Search session names', exact: true })
-  // Cold summaries initially show the temporary workspace basename, so the
-  // persisted first-prompt marker is the stable user-facing identity. The
-  // query itself triggers lazy content-index reconciliation; no transient
-  // empty-state paint is used as a barrier.
-  await search.fill(fixture.markers.user(1))
+  const search = page.getByRole('textbox', { name: 'Search titles or messages…', exact: true })
+  // Match by Session ID so opening from search uses normal tail/saved-scroll
+  // restoration rather than jumping to Turn 1's message.
+  const query = seedIdsByPage.get(page)?.get(fixture) ?? fixture.markers.user(1)
+  await search.fill(query)
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await expect.poll(() => results.count(), { timeout: 60_000 }).toBe(1)
   await results.click()
@@ -1125,7 +1127,7 @@ describe('web e2e: long Chat scroll contract', () => {
       }
       const sampleReturn = async (marker: string): Promise<ReturnFrame[]> => {
         await openSeed(page, fixtureB, fixtureB.markers.assistant(fixtureB.turns))
-        await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(fixtureA.markers.user(1))
+        await page.getByRole('textbox', { name: 'Search titles or messages…', exact: true }).fill('chat-running-return-a-e2e')
         const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
         await expect.poll(() => result.count()).toBe(1)
         // Start before the click; the first visible A frame is part of the assertion, not a setup wait.

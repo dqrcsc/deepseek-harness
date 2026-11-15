@@ -307,4 +307,24 @@ describe('Session Controller access', () => {
       code: 'remote-access/denied', details: { action: 'session/projections', reason: 'no-allow' },
     })
   })
+
+  it('authorizes session/searchEvents per named request.sessionId resource', async () => {
+    const { ctx } = await harness()
+    await ctx.plugin(TypertGatewayService)
+    guestPolicy(ctx, {
+      role: { name: 'test:event-searcher', resource: 'session', actions: ['session/searchEvents'] },
+      resource: { kind: 'session', id: SHARED },
+    })
+    vi.spyOn(ApiSessionList.prototype, 'searchEvents').mockResolvedValue({
+      items: [{ seq: 2, role: 'assistant', time: 100, snippet: 'hit' }],
+      hasMore: false,
+    })
+    await expect(guestCall(ctx, 'searchEvents', { request: { sessionId: SHARED, query: 'hit' } })).resolves.toEqual({
+      items: [{ seq: 2, role: 'assistant', time: 100, snippet: 'hit' }],
+      hasMore: false,
+    })
+    await expect(guestCall(ctx, 'searchEvents', { request: { sessionId: PRIVATE, query: 'hit' } })).rejects.toMatchObject({
+      code: 'remote-access/denied', details: { action: 'session/searchEvents', reason: 'no-allow' },
+    })
+  })
 })

@@ -53,7 +53,7 @@ function paragraphs(marker: string, count: number, text: string): string {
 }
 
 /** Settled history whose latest Turn is one Step: long reasoning, then an answer of `answerParagraphs`. */
-function seededLog(id: string, answerParagraphs: number): { log: string; search: string } {
+function seededLog(id: string, answerParagraphs: number): { log: string } {
   const base = createChatScrollFixture({ markerPrefix: `OPENFOLD${id.toUpperCase()}`, title: `OPENFOLD ${id}`, turns: TURNS })
   const parsed = parseSeedFixture(base.log)
   const boundary = parsed.events.findIndex(event => event.type === 'turn/start' && event.data.turn === TURNS)
@@ -78,7 +78,6 @@ function seededLog(id: string, answerParagraphs: number): { log: string; search:
   )
   return {
     log: [parsed.headerLine, ...drafts.map((event, seq) => JSON.stringify({ ...event, seq, time: seq + 1 })), ''].join('\n'),
-    search: base.markers.user(1),
   }
 }
 
@@ -128,7 +127,7 @@ async function openSessionBySearch(page: Page, query: string): Promise<void> {
   await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(query)
+  await page.getByRole('textbox', { name: 'Search titles or messages…', exact: true }).fill(query)
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await expect.poll(() => results.count(), { timeout: 60_000 }).toBe(1)
   await results.click()
@@ -249,10 +248,10 @@ async function sendFromOpenedGroup(browser: Browser, id: string, answerParagraph
     await page.setViewportSize({ width: 1170, height: 826 })
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     const session = SessionId(`open-fold-${id}`)
-    const { log, search } = seededLog(id, answerParagraphs)
+    const { log } = seededLog(id, answerParagraphs)
     await seedSession(scaffold, log, session)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    await openSessionBySearch(page, search)
+    await openSessionBySearch(page, session)
     await page.locator(ROOT).getByText('OPENFOLD_ANSWER', { exact: false }).last().waitFor({ timeout: 30_000 })
     await choosePreferences(page)
     await toBottom(page)

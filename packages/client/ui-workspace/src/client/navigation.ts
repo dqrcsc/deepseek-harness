@@ -13,12 +13,12 @@ import type {
 } from '@deepseek-ai/dsh-api-session-controller/client'
 // Type-only: pulls the `agentPreset` Session projection value into this program.
 import type {} from '@deepseek-ai/dsh-agent-preset-registry/types'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore, type ObservableSnapshot, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { DraftInitializationOptions } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { RowToast } from './contract/slots.ts'
@@ -36,13 +36,51 @@ export interface StartSessionOptions extends DraftInitializationOptions {
   readonly agentPreset?: string
 }
 
+/** Search mode carried by a conversation locate request. */
+export type SessionLocateMode = 'phrase' | 'lexical' | 'hybrid'
+
+/** Target message and optional highlight query when opening a Session at a specific event. */
+export interface SessionLocateTarget {
+  /** Event sequence number to reveal in the conversation view. */
+  readonly seq: SessionSeq
+  /** Search query whose matched terms should be highlighted in the conversation view. */
+  readonly query?: string
+  /** Search mode that produced the match; defaults to `'hybrid'` when `query` is present. */
+  readonly mode?: SessionLocateMode
+}
+
+/** Monotonically numbered locate request observed by the mounted conversation view. */
+export interface SessionLocateRequest extends SessionLocateTarget {
+  /** Monotonic request identifier used to acknowledge consumption idempotently. */
+  readonly requestId: number
+}
+
+/** Optional navigation behavior when opening a Session. */
+export interface OpenSessionOptions {
+  /** Event target inside the opened Session to reveal once its conversation mounts. */
+  readonly locate?: SessionLocateTarget
+}
+
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
   /**
    * Select a Session and show its Conversation as one UI navigation action.
    * @param target - known Session identity or durable direct-parent subagent address to display.
+   * @param options - optional in-conversation event target to reveal after opening.
    */
-  openSession(target: SessionTarget): void
+  openSession(target: SessionTarget, options?: OpenSessionOptions): void
+  /**
+   * Observe the pending in-conversation locate request for one Session.
+   * @param sessionId - Session whose pending locate request is observed.
+   * @returns referentially stable observable snapshot holding the current request or `null`.
+   */
+  locateRequest(sessionId: SessionId): ObservableSnapshot<SessionLocateRequest | null>
+  /**
+   * Clear a pending locate request once the conversation view consumes `requestId`.
+   * @param sessionId - Session whose locate request was consumed.
+   * @param requestId - request identifier observed from {@link locateRequest}.
+   */
+  acknowledgeLocate(sessionId: SessionId, requestId: number): void
   /**
    * Connect a Workspace and open its Session unless a later navigation supersedes it.
    * @param workspaceId - target Workspace.
@@ -173,6 +211,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   private readonly selection = createSnapshotStore<MainSelection>(
     {}, { persist: { name: 'dsh.sessions.current' } },
   )
+  private readonly locateStores = new Map<SessionId, SnapshotStore<SessionLocateRequest | null>>()
+  private locateSeq = 0
   private mainReference: SessionReference | undefined
   private restorationNavigation: AbortSignal | undefined
 
@@ -290,8 +330,35 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     }
   }
 
-  openSession(target: SessionTarget): void {
-    this.replaceMain(target, this.lifetime.signal, 'reveal')
+  openSession(target: SessionTarget, options?: OpenSessionOptions): void {
+    const opened = this.replaceMain(target, this.lifetime.signal, 'reveal')
+    /* v8 ignore next -- `this.lifetime.signal` throws before `replaceMain` returns `undefined`. */
+    if (opened === undefined) return
+    if (options?.locate !== undefined) {
+      this.locateStoreFor(opened).set({ ...options.locate, requestId: ++this.locateSeq })
+    } else {
+      this.locateStores.get(opened)?.set(null)
+    }
+  }
+
+  locateRequest(sessionId: SessionId): ObservableSnapshot<SessionLocateRequest | null> {
+    return this.locateStoreFor(sessionId)
+  }
+
+  acknowledgeLocate(sessionId: SessionId, requestId: number): void {
+    const store = this.locateStores.get(sessionId)
+    if (store?.getSnapshot()?.requestId === requestId) {
+      store.set(null)
+    }
+  }
+
+  private locateStoreFor(sessionId: SessionId): SnapshotStore<SessionLocateRequest | null> {
+    let store = this.locateStores.get(sessionId)
+    if (store === undefined) {
+      store = createSnapshotStore<SessionLocateRequest | null>(null)
+      this.locateStores.set(sessionId, store)
+    }
+    return store
   }
 
   openWorkspace(
@@ -525,7 +592,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     signal: AbortSignal,
     panel: 'reveal' | 'preserve',
     beforeOpen?: (sessionId: SessionId) => void,
-  ): void {
+  ): SessionId | undefined {
     signal.throwIfAborted()
     const reference = this.sessions.retain(target, { source: 'mainView' })
     try {
@@ -533,7 +600,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       beforeOpen?.(reference.sessionId)
       if (signal.aborted) {
         reference.release()
-        return
+        return undefined
       }
       const subagentAddress = typeof target === 'string'
         ? this.sessions.subagentAddress(reference.sessionId)
@@ -550,6 +617,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     this.mainReference = reference
     previous?.release()
     if (panel === 'reveal') this.ctx.layout.selectPanel(null)
+    return reference.sessionId
   }
 
 }

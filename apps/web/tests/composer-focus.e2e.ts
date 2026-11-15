@@ -192,7 +192,7 @@ it('restores the previous caret or selection in fresh and existing sessions', as
   const hero = await exerciseComposer(page)
 
   await page.getByRole('button', { name: 'Search sessions' }).click()
-  await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(fixture.markers.user(1))
+  await page.getByRole('textbox', { name: 'Search titles or messages…', exact: true }).fill(fixture.markers.user(1))
   const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await expect.poll(() => result.count(), { timeout: 60_000 }).toBe(1)
   await result.click()

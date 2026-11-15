@@ -56,6 +56,8 @@ import type {
   SessionPromptValue,
   SessionRenameRequest,
   SessionRenameValue,
+  SessionSearchEventsRequest,
+  SessionSearchEventsValue,
   SessionSearchRequest,
   SessionSearchValue,
   SessionSelectModelRequest,
@@ -296,6 +298,18 @@ export class SessionController extends TypertRemoteService {
   async search(request: SessionSearchRequest, signal: AbortSignal): Promise<SessionSearchValue> {
     const result = await this.listState.search(request.query, signal)
     return { ...result, items: result.items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId })) }
+  }
+
+  /**
+   * Search current message content inside one Session without resuming an Agent.
+   * Authorized per Session through `request.sessionId`.
+   * @param request - target Session, query text, optional ranking mode, and optional result bound.
+   * @param signal - cancellation for index reconciliation and query execution.
+   * @returns bounded chronological event search hits for the Session.
+   */
+  @Remote('searchEvents')
+  searchEvents(request: SessionSearchEventsRequest, signal: AbortSignal): Promise<SessionSearchEventsValue> {
+    return this.listState.searchEvents(request, signal)
   }
 
   /**

@@ -16,9 +16,11 @@ import type { ChatFlowHookContext, ChatViewSlotProps, OpenFileOptions } from '..
 import type { ChatSnapshot } from '../contract/snapshot.ts'
 import { markdownLabels } from '../markdown-labels.ts'
 import { TurnNavigator } from './TurnNavigator.tsx'
+import { ChatSearchBar } from './ChatSearchBar.tsx'
 import { mergeTurnRailItems } from './turn-rail-items.ts'
 import { useTextInteraction } from './text-interaction.ts'
 import { useChatScroll } from './use-chat-scroll.ts'
+import { useChatSearch } from './use-chat-search.ts'
 import { fileMediaUrl, resolveWorkspacePath, sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import css from './ChatView.module.css'
 
@@ -61,10 +63,11 @@ const MOTION_TAIL_MS = 800
  * ordered business Node crosses the keyed renderer seat.
  */
 export function ChatView({
-  useSession, useChat, useConversation, useSessions, renderSlot,
+  useSession, useChat, useConversation, useSessions, useAccess, renderSlot,
   sessionId, openFile, openExternalLink, resolveFilePath, useContextMenu,
-  loadOlder, consumeOlder, loadThrough, loadImage, inspectCall, chatScroll, forkAt,
-  usePresentation, useProjection, useInteractionIds, dispatchInteraction, t, fileDrag,
+  loadOlder, consumeOlder, loadThrough, acknowledgeLocate, searchEvents,
+  loadImage, inspectCall, chatScroll, forkAt, actions,
+  usePresentation, useProjection, useInteractionIds, useLocateRequest, dispatchInteraction, t, fileDrag,
 }: ChatViewSlotProps) {
   const { getTriggerProps } = useContextMenu()
   const getMarkdownTriggerProps = useCallback((target: MarkdownMenuTarget) => getTriggerProps(() => {
@@ -227,14 +230,50 @@ export function ChatView({
   const interactionIds = useInteractionIds(ids => ids)
   const textInteraction = useTextInteraction(scroll.columnRef, interactionSurfaceRef, dispatchInteraction, interactionIds)
   const flowContext = useMemo<ChatFlowHookContext>(() => ({ motion: scroll.motion }), [scroll.motion])
+  const canSearchEvents = useAccess('session/searchEvents')
+  const locateRequest = useLocateRequest(request => request)
+  const search = useChatSearch({
+    isOpen: openState === 'open',
+    hasContent: order.length > 0,
+    canSearchEvents,
+    listRef: scroll.listRef,
+    columnRef: scroll.columnRef,
+    contentVersion: order,
+    railItems,
+    nodeStore,
+    locateRequest,
+    acknowledgeLocate,
+    searchEvents,
+    navigateToEvent: scroll.navigateToEvent,
+    actions,
+  })
 
   return (
     <div className={css.frame}>
+      <ChatSearchBar
+        open={search.open}
+        focusVersion={search.focusVersion}
+        query={search.query}
+        mode={search.mode}
+        searching={search.searching}
+        locating={scroll.locatingSeq !== null}
+        matchCount={search.matchCount}
+        activeIndex={search.activeIndex}
+        hasMore={search.hasMore}
+        onQueryChange={search.setQuery}
+        onToggleMode={search.toggleMode}
+        onPrevious={search.previous}
+        onNext={search.next}
+        onClose={search.close}
+        t={t}
+      />
       {scroll.initialized && (
         <TurnNavigator
           items={railItems}
           activeTurn={scroll.activeTurn}
           busyTurn={scroll.busyTurn}
+          matchedTurns={search.matchedTurns}
+          activeMatchTurn={search.activeMatchTurn}
           onNavigate={scroll.navigateToTurn}
           t={t}
         />

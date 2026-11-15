@@ -166,14 +166,28 @@ export interface SessionSummary {
   readonly projections?: SessionProjectionHints
 }
 
+/** Author role of a message-content search hit. */
+export type SessionSearchMessageRole = 'user' | 'assistant'
+
 /** One session-content search result. */
 export interface SessionSearchItem {
   readonly sessionId: SessionId
   readonly snippet: string
+  /** Durable event seq of the strongest matching message in this Session, when backed by an indexed event. */
+  readonly seq?: number
+  /** Author role of the matching message, when backed by an indexed event. */
+  readonly role?: SessionSearchMessageRole
+  /** Durable timestamp of the matching message in Unix epoch milliseconds, when backed by an indexed event. */
+  readonly time?: number
+  /** Number of matching messages in this Session when reported by the search index. */
+  readonly matchCount?: number
 }
 
 /** Maximum number of Sessions returned by one search. */
 export const SESSION_SEARCH_RESULT_LIMIT = 20
+
+/** Maximum number of matching events returned by one within-session search. */
+export const SESSION_EVENT_SEARCH_RESULT_LIMIT = 100
 
 /** Maximum search snippet length in Unicode code points. */
 export const SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS = 240
@@ -261,6 +275,37 @@ export interface SessionSearchRequest {
 /** Session search response value. */
 export interface SessionSearchValue {
   readonly items: readonly SessionSearchItem[]
+  readonly hasMore: boolean
+}
+
+/** Ranking mode for within-session event search. */
+export type SessionSearchEventsMode = 'phrase' | 'lexical' | 'hybrid'
+
+/** One within-session message-content search hit. */
+export interface SessionSearchEventItem {
+  /** Durable event seq of the matching message. */
+  readonly seq: number
+  /** Author role of the matching message. */
+  readonly role: SessionSearchMessageRole
+  /** Durable timestamp of the matching message in Unix epoch milliseconds. */
+  readonly time: number
+  /** Plain-text excerpt selected around the match. */
+  readonly snippet: string
+}
+
+/** Within-session message search request. */
+export interface SessionSearchEventsRequest {
+  readonly sessionId: SessionId
+  readonly query: string
+  /** Ranking and recall strategy; defaults to `hybrid`. */
+  readonly mode?: SessionSearchEventsMode
+  /** Positive result bound capped at {@link SESSION_EVENT_SEARCH_RESULT_LIMIT}; defaults to that cap. */
+  readonly limit?: number
+}
+
+/** Within-session message search response value, ordered by ascending `seq`. */
+export interface SessionSearchEventsValue {
+  readonly items: readonly SessionSearchEventItem[]
   readonly hasMore: boolean
 }
 

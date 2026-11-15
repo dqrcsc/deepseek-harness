@@ -25,7 +25,7 @@ export const HYBRID_RRF_K = 60
 export const LIVE_EMBEDDING_CACHE_LIMIT = 2_048
 
 /** Session header columns shared across SQLite search projections. */
-export interface SessionHeaderRow {
+export type SessionHeaderRow = {
   session_id: string
   version: number
   created_at: number
@@ -37,7 +37,7 @@ export interface SessionHeaderRow {
 }
 
 /** Selected event hit row ready for snippet formatting and pagination. */
-export interface SearchRow extends SessionHeaderRow {
+export type SearchRow = SessionHeaderRow & {
   live: number
   persisted: number
   seq: number
@@ -47,6 +47,11 @@ export interface SearchRow extends SessionHeaderRow {
   marked_text: string
   match_count: number
   document_length: number
+}
+
+/** Selected session best-match row with total matched events in that session. */
+export type SessionSearchRow = SearchRow & {
+  session_match_count: number
 }
 
 /** Validated hybrid search tuning parameters. */
@@ -139,7 +144,7 @@ export function queryLexicalSessions(
   offset: number,
   db: DatabaseSync,
   persistenceVisible: boolean,
-): SearchRow[] {
+): SessionSearchRow[] {
   const compiled = buildLexicalMatchQuery(request.query)
   const sessionWhere = buildSessionWhere(request.sessionFilters)
   const eventWhere = buildEventWhere(request.eventFilters)
@@ -164,10 +169,12 @@ export function queryLexicalSessions(
       SELECT * FROM matched ${where.length === 0 ? '' : `WHERE ${where}`}
     ),
     ranked AS (
-      SELECT *, ROW_NUMBER() OVER (
-        PARTITION BY session_id
-        ORDER BY phrase_hit DESC, lexical_score DESC, document_length ASC, time DESC, seq DESC
-      ) AS event_rank
+      SELECT *,
+        ROW_NUMBER() OVER (
+          PARTITION BY session_id
+          ORDER BY phrase_hit DESC, lexical_score DESC, document_length ASC, time DESC, seq DESC
+        ) AS event_rank,
+        COUNT(*) OVER (PARTITION BY session_id) AS session_match_count
       FROM filtered
     )
     SELECT * FROM ranked
@@ -175,7 +182,10 @@ export function queryLexicalSessions(
     ORDER BY phrase_hit DESC, lexical_score DESC, document_length ASC, time DESC, session_id ASC, seq DESC
     LIMIT ? OFFSET ?
   `).all(...bindings)
-  return rawRows.map(record => toSearchRow(parseRawCandidateRow(record), compiled.highlightTerms))
+  return rawRows.map((record) => {
+    const row = parseRawCandidateRow(record)
+    return toSessionSearchRow(row, compiled.highlightTerms, Number(record['session_match_count']))
+  })
 }
 
 /**
@@ -230,7 +240,7 @@ export async function queryHybridSessions(
   request: NormalizedSessionRequest,
   offset: number,
   options: HybridQueryOptions,
-): Promise<SearchRow[]> {
+): Promise<SessionSearchRow[]> {
   const embedding = options.embedding
   if (embedding === undefined || !embedding.isAvailable()) {
     return queryLexicalSessions(request, offset, options.db, options.persistenceVisible)
@@ -259,16 +269,17 @@ export async function queryHybridSessions(
 
   // `fused` is already strictly ordered strongest-first; the first appearance of
   // each `session_id` is its strongest event in exact session rank order.
-  const seenSessions = new Set<string>()
+  const sessionCounts = new Map<string, number>()
   const rankedSessions: ScoredCandidate[] = []
   for (const candidate of fused) {
-    if (seenSessions.has(candidate.row.session_id)) continue
-    seenSessions.add(candidate.row.session_id)
+    const previous = sessionCounts.get(candidate.row.session_id) ?? 0
+    sessionCounts.set(candidate.row.session_id, previous + 1)
+    if (previous > 0) continue
     rankedSessions.push(candidate)
   }
   return rankedSessions
     .slice(offset, offset + request.limit + 1)
-    .map(item => toSearchRow(item.row, highlightTerms))
+    .map(item => toSessionSearchRow(item.row, highlightTerms, sessionCounts.get(item.row.session_id) as number))
 }
 
 /**
@@ -751,7 +762,10 @@ function compareCandidates(a: ScoredCandidate, b: ScoredCandidate): number {
   return (b.rrfScore - a.rrfScore) || (a.lexicalRank - b.lexicalRank)
 }
 
-function toSearchRow(raw: RawCandidateRow, highlightTerms: readonly string[]): SearchRow {
+function toSearchRow(
+  raw: RawCandidateRow,
+  highlightTerms: readonly string[],
+): SearchRow {
   const marked = markSnippetMatch(raw.raw_text, highlightTerms)
   return {
     session_id: raw.session_id,
@@ -771,6 +785,17 @@ function toSearchRow(raw: RawCandidateRow, highlightTerms: readonly string[]): S
     marked_text: marked,
     match_count: raw.phrase_hit > 0 ? 1 : 0,
     document_length: raw.document_length,
+  }
+}
+
+function toSessionSearchRow(
+  raw: RawCandidateRow,
+  highlightTerms: readonly string[],
+  sessionMatchCount: number,
+): SessionSearchRow {
+  return {
+    ...toSearchRow(raw, highlightTerms),
+    session_match_count: sessionMatchCount,
   }
 }
 

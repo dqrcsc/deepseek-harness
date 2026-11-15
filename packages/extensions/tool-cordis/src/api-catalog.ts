@@ -3054,6 +3054,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'authorized bounded Session search results.',
       },
       {
+        signature: '@Remote(\'searchEvents\') searchEvents(request: SessionSearchEventsRequest, signal: AbortSignal): Promise<SessionSearchEventsValue>',
+        description: 'Search current message content inside one Session without resuming an Agent. Authorized per Session through `request.sessionId`.',
+        parameters: [{ name: 'request', description: 'target Session, query text, optional ranking mode, and optional result bound.' }, { name: 'signal', description: 'cancellation for index reconciliation and query execution.' }],
+        returns: 'bounded chronological event search hits for the Session.',
+      },
+      {
         signature: '@Remote(\'create\') create(request: SessionCreateRequest): Promise<SessionCreateValue>',
         description: 'Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.',
         parameters: [{ name: 'request', description: 'optional blank Session to reuse, location, and Agent preset.' }],
@@ -9499,16 +9505,36 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type SessionSearchCursor = Branded<\'SessionSearchCursor\'>;',
   },
   {
+    name: 'SessionSearchEventItem',
+    declaration: 'export interface SessionSearchEventItem {\n    readonly seq: number;\n    readonly role: SessionSearchMessageRole;\n    readonly time: number;\n    readonly snippet: string;\n}',
+  },
+  {
+    name: 'SessionSearchEventsMode',
+    declaration: 'export type SessionSearchEventsMode = \'phrase\' | \'lexical\' | \'hybrid\';',
+  },
+  {
+    name: 'SessionSearchEventsRequest',
+    declaration: 'export interface SessionSearchEventsRequest {\n    readonly sessionId: SessionId;\n    readonly query: string;\n    readonly mode?: SessionSearchEventsMode;\n    readonly limit?: number;\n}',
+  },
+  {
+    name: 'SessionSearchEventsValue',
+    declaration: 'export interface SessionSearchEventsValue {\n    readonly items: readonly SessionSearchEventItem[];\n    readonly hasMore: boolean;\n}',
+  },
+  {
     name: 'SessionSearchExecContext',
     declaration: 'export interface SessionSearchExecContext {\n    signal?: AbortSignal;\n}',
   },
   {
     name: 'SessionSearchHit',
-    declaration: 'export interface SessionSearchHit extends SessionRecord {\n    bestMatch: SessionEventSearchHit;\n}',
+    declaration: 'export interface SessionSearchHit extends SessionRecord {\n    bestMatch: SessionEventSearchHit;\n    matchCount?: number;\n}',
   },
   {
     name: 'SessionSearchItem',
-    declaration: 'export interface SessionSearchItem {\n    readonly sessionId: SessionId;\n    readonly snippet: string;\n}',
+    declaration: 'export interface SessionSearchItem {\n    readonly sessionId: SessionId;\n    readonly snippet: string;\n    readonly seq?: number;\n    readonly role?: SessionSearchMessageRole;\n    readonly time?: number;\n    readonly matchCount?: number;\n}',
+  },
+  {
+    name: 'SessionSearchMessageRole',
+    declaration: 'export type SessionSearchMessageRole = \'user\' | \'assistant\';',
   },
   {
     name: 'SessionSearchMode',

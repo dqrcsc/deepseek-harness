@@ -224,6 +224,8 @@ interface SessionEventSearchHit extends SessionEventRecord {
 interface SessionSearchHit extends SessionRecord {
   /** Strongest matching event for this session. */
   bestMatch: SessionEventSearchHit
+  /** Number of matching events in this session for the evaluated pool, when reported by the provider. */
+  matchCount?: number
 }
 ```
 

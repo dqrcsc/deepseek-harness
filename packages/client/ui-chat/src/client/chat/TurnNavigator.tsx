@@ -13,6 +13,10 @@ interface TurnNavigatorProps {
   readonly activeTurn: number | null
   /** Turn whose jump is still paging history in; its mark pulses. */
   readonly busyTurn: number | null
+  /** Turns containing at least one search match. */
+  readonly matchedTurns?: ReadonlySet<number>
+  /** Turn containing the currently focused search match. */
+  readonly activeMatchTurn?: number | null
   readonly onNavigate: (item: TurnRailItem) => void
   readonly t: ChatViewSlotProps['t']
 }
@@ -43,6 +47,7 @@ interface TurnMarkProps extends Pick<TurnNavigatorProps, 'onNavigate' | 't'> {
   readonly index: number
   readonly active: boolean
   readonly busy: boolean
+  readonly searchMatch: 'active' | 'match' | null
   readonly previewId: string | undefined
   readonly registerElement: (element: HTMLButtonElement | null) => void
   readonly onPreview: (turn: number | null) => void
@@ -50,17 +55,20 @@ interface TurnMarkProps extends Pick<TurnNavigatorProps, 'onNavigate' | 't'> {
 }
 
 const TurnMark = memo(function TurnMark({
-  item, index, active, busy, previewId, registerElement, onNavigate, onPreview, onFocusChange, t,
+  item, index, active, busy, searchMatch, previewId, registerElement, onNavigate, onPreview, onFocusChange, t,
 }: TurnMarkProps) {
   const classes = [css.mark]
   if (item.anchor.kind === 'unloaded') classes.push(css.markUnloaded)
   if (active) classes.push(css.markActive)
   else if (previewId !== undefined) classes.push(css.markPreview)
+  if (searchMatch === 'active') classes.push(css.markMatchActive)
+  else if (searchMatch === 'match') classes.push(css.markMatched)
   if (busy) classes.push(css.markBusy)
   return (
     <button
       ref={registerElement}
       data-index={index}
+      data-search-match={searchMatch ?? undefined}
       type="button"
       className={classes.join(' ')}
       aria-label={t(
@@ -79,7 +87,7 @@ const TurnMark = memo(function TurnMark({
 })
 
 function TurnNavigatorRail(
-  { items, activeTurn, busyTurn, onNavigate, t }: TurnNavigatorProps,
+  { items, activeTurn, busyTurn, matchedTurns, activeMatchTurn, onNavigate, t }: TurnNavigatorProps,
   ref: ForwardedRef<TurnNavigatorHandle>,
 ) {
   const [previewTurn, setPreviewTurn] = useState<number | null>(null)
@@ -246,6 +254,11 @@ function TurnNavigatorRail(
             {virtualItems.map(({ index, key }) => {
               const item = items[index]
               if (item === undefined) return null
+              const searchMatch = activeMatchTurn === item.turn
+                ? 'active'
+                : matchedTurns?.has(item.turn) === true
+                  ? 'match'
+                  : null
               return (
                 <TurnMark
                   key={key}
@@ -253,6 +266,7 @@ function TurnNavigatorRail(
                   index={index}
                   active={item.turn === activeTurn}
                   busy={item.turn === busyTurn}
+                  searchMatch={searchMatch}
                   previewId={item.turn === previewTurn ? previewId : undefined}
                   registerElement={virtualizer.measureElement}
                   onNavigate={onNavigate}

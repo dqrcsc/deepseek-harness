@@ -1,6 +1,6 @@
 - text: Workspaces
 - button "Search sessions"
-- textbox "Search session names"
+- textbox "Search titles or messages…"
 - button "View options"
 - button "Add workspace"
 - tree "Sessions":

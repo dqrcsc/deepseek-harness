@@ -1,2 +1,4 @@
-- button "Account menu": More
+- button "Settings"
+- button "Account menu"
+- button "Switch to dark mode"
 - button "Reconnecting, reconnect now": Reconnecting

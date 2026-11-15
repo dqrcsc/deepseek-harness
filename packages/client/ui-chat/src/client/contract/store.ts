@@ -14,4 +14,6 @@ export interface TurnProcessViewEntry {
 /** Per-Session state shared only by the Chat view and details surface. */
 export interface ChatStoreState {
   turnProcesses: TurnProcessViewEntry[]
+  locatedSeq: number | null
+  semanticMatchSeq: number | null
 }

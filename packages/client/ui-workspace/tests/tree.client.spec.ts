@@ -821,10 +821,28 @@ describe('deriveSearchResults', () => {
       noArchive,
       'default',
       noAttention,
-      { items: [{ sessionId: sid('body'), snippet: 'needle' }], hasMore: true },
+      {
+        items: [{
+          sessionId: sid('body'),
+          snippet: 'needle',
+          seq: 12,
+          role: 'assistant',
+          time: 900,
+          matchCount: 3,
+        }],
+        hasMore: true,
+      },
       3,
     )
     expect(backendMore.items).toHaveLength(1)
+    expect(backendMore.items[0]).toMatchObject({
+      id: sid('body'),
+      snippet: 'needle',
+      seq: 12,
+      role: 'assistant',
+      time: 900,
+      matchCount: 3,
+    })
     expect(backendMore.hasMore).toBe(true)
     expect(deriveSearchResults(list(), [], '  ', noArchive, 'default', noAttention, { items: [], hasMore: true }, 3))
       .toEqual({ items: [], hasMore: false })

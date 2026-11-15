@@ -255,7 +255,11 @@ export function apply(ctx: Context): void {
         return {
           ...nodeSources(binding),
           fileDrag: ctx.fileDrag.actions,
-          hooks: { presentation, interactionIds: ctx.uiConversation.interactions },
+          hooks: {
+            presentation,
+            interactionIds: ctx.uiConversation.interactions,
+            locateRequest: ctx.uiWorkspace.locateRequest(sessionId),
+          },
           dispatchInteraction: gesture => ctx.uiConversation.interactions.dispatch(sessionId, gesture),
           // Files open in the right Sidebar, not in a desktop application: the
           // content stays in the product, beside the conversation that produced
@@ -290,6 +294,12 @@ export function apply(ctx: Context): void {
           loadOlder: () => { void session.loadOlder({ deferConsumption: true }) },
           consumeOlder: () => session.consumeOlder(),
           loadThrough: seq => session.loadThrough(seq),
+          acknowledgeLocate: (requestId) => { ctx.uiWorkspace.acknowledgeLocate(sessionId, requestId) },
+          searchEvents: (query, options, signal) => ctx.remote.session.searchEvents({
+            sessionId,
+            query,
+            ...(options?.mode === undefined ? {} : { mode: options.mode }),
+          }, signal),
           loadImage: Object.assign(
             (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
             { peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment) },

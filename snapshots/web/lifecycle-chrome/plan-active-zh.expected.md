@@ -10,16 +10,18 @@
   - button "更多"
 - text: 工作区
 - button "搜索会话"
-- textbox "搜索会话名称"
+- textbox "搜索会话标题或对话内容…"
 - button "视图选项"
 - button "添加工作区"
 - tree "会话":
   - treeitem "workspace" [expanded]
   - treeitem "新会话" [selected]
-- button "账号菜单": 更多
+- button "设置"
+- button "账号菜单"
+- button "切换为深色模式"
 - banner:
   - button "打开右侧边栏"
-- text: 探索未至之境 预览版
+- text: 执辔在手，算力随心驰骋
 - button "选择工作区": workspace
 - button "标准模式"
 - textbox "描述你想要构建的内容, / 调用指令, @ 文件或对话"

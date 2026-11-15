@@ -10,6 +10,8 @@ type ChatActions = {
     answerStep: number,
     open: boolean,
   ) => void
+  setLocatedSeq: (draft: ChatStoreState, seq: number | null) => void
+  setSemanticMatchSeq: (draft: ChatStoreState, seq: number | null) => void
 }
 
 /**
@@ -49,13 +51,19 @@ export function turnProcessOpen(
  */
 export function createChatStore(): EngineStoreHandle<ChatStoreState, ChatActions> {
   return defineStore({
-    init: (): ChatStoreState => ({ turnProcesses: [] }),
+    init: (): ChatStoreState => ({ turnProcesses: [], locatedSeq: null, semanticMatchSeq: null }),
     actions: {
       setTurnProcessOpen: (draft, turn, answerStep, open) => {
         const index = draft.turnProcesses.findIndex(entry => entry.turn === turn)
         const next = (open ? { turn, answerStep } : { turn, answerStep, collapsed: true }) satisfies TurnProcessViewEntry
         if (index < 0) draft.turnProcesses.push(next)
         else draft.turnProcesses[index] = next
+      },
+      setLocatedSeq: (draft, seq) => {
+        if (draft.locatedSeq !== seq) draft.locatedSeq = seq
+      },
+      setSemanticMatchSeq: (draft, seq) => {
+        if (draft.semanticMatchSeq !== seq) draft.semanticMatchSeq = seq
       },
     },
   })

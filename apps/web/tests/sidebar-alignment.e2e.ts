@@ -144,7 +144,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
   it('aligns the 32px expanded search with both edges of New session', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-search-alignment'))
     const searchButton = page.getByRole('button', { name: 'Search sessions', exact: true })
-    const input = page.getByPlaceholder('Search session names', { exact: true })
+    const input = page.getByPlaceholder('Search titles or messages…', { exact: true })
     const search = input.locator('..')
     const newSession = page.locator('button[class*="newSession"]')
     const measure = async () => {
@@ -296,7 +296,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
     onTestFailed(() => saveFailureShot(page, `web-e2e-sidebar-rail-${entry}-${String(usedSearch)}`))
     if (usedSearch) {
       await page.getByRole('button', { name: 'Search sessions', exact: true }).click()
-      const input = page.getByPlaceholder('Search session names', { exact: true })
+      const input = page.getByPlaceholder('Search titles or messages…', { exact: true })
       if (entry === 'toggle-with-query') await input.fill(sessionTitle)
       else await input.press('Escape')
     }
@@ -362,7 +362,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
     expect(samples.sameHeader).toBe(true)
     expect(samples.sameAdd).toBe(true)
     if (entry === 'search') {
-      await expect.poll(() => page.getByPlaceholder('Search session names', { exact: true })
+      await expect.poll(() => page.getByPlaceholder('Search titles or messages…', { exact: true })
         .evaluate(element => element === document.activeElement)).toBe(true)
     }
     expect(tripwire.pageErrors).toEqual([])
@@ -374,7 +374,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
     await page.getByRole('menuitem', { name: 'All conversations (show archived)', exact: true }).click()
     await expect.poll(() => page.locator('[data-row-key="session:sidebar-search-geometry"]').textContent()).toContain(archivedTitle)
     await page.getByRole('button', { name: 'Search sessions', exact: true }).click()
-    await page.getByPlaceholder('Search session names', { exact: true }).fill('Archived geometry')
+    await page.getByPlaceholder('Search titles or messages…', { exact: true }).fill('Archived geometry')
     const row = page.getByRole('treeitem').filter({ hasText: archivedTitle })
     await row.hover()
     await row.getByRole('button', { name: 'Unarchive session', exact: true }).waitFor()

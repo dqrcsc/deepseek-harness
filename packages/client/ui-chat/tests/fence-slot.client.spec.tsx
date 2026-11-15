@@ -87,7 +87,12 @@ async function renderChat(events: readonly SessionEventLikeEntry[]) {
   runtime.ctx.provide('sidebarRight', { openResource: vi.fn(), openTab: vi.fn() } as never)
   runtime.ctx.provide('sidebarRightTabs', { register: vi.fn(() => () => {}), get: vi.fn(() => ({})), subscribe: vi.fn(() => () => {}) } as never)
   runtime.ctx.provide('resources', { register: vi.fn(() => () => {}) } as never)
-  runtime.remote.provideNamespaces({ session: { openWorkspacePath: vi.fn() } })
+  runtime.remote.provideNamespaces({
+    session: {
+      openWorkspacePath: vi.fn(),
+      searchEvents: vi.fn(async () => ({ ok: true, value: { items: [], hasMore: false } })),
+    },
+  })
   let mainReference: ReturnType<typeof runtime.sessions.retain> | undefined
   const openSession = (id: SessionId): void => {
     const next = runtime.sessions.retain(id, { source: 'mainView' })
@@ -100,6 +105,8 @@ async function renderChat(events: readonly SessionEventLikeEntry[]) {
       openSession(SID)
     }),
     openSession,
+    locateRequest: () => createSnapshotStore(null),
+    acknowledgeLocate: () => {},
   } as never)
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
