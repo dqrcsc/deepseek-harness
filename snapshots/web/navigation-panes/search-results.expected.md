@@ -1,2 +1,5 @@
 - tree "Search results":
-  - 'treeitem "Untitled {{workspace}} ## Navigation Summary - alpha nav - beta nav ``` echo WATERFALL ```"'
+  - 'treeitem "Untitled 2 matches {{workspace}} ## Navigation Summary - alpha nav - beta nav ``` echo WATERFALL ```"':
+    - text: "Untitled 2 matches {{workspace}} ## Navigation Summary - alpha nav - beta nav ``` echo"
+    - mark: WATERFALL
+    - text: "```"

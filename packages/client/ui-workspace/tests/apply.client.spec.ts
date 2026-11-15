@@ -851,6 +851,12 @@ describe('ui-workspace apply', () => {
     expect(startSession).toHaveBeenLastCalledWith(undefined, { clearPreviousDraft: false })
     browser.open('session' as never)
     expect(b.retain).toHaveBeenCalledWith('session', { source: 'mainView' })
+    browser.open('session' as never, { locate: { seq: 7 as never, query: 'match', mode: 'hybrid' } })
+    expect(b.ctx.uiWorkspace.locateRequest('session' as never).getSnapshot()).toMatchObject({
+      seq: 7,
+      query: 'match',
+      mode: 'hybrid',
+    })
     const signal = new AbortController().signal
     await expect(browser.searchSessions('match', signal)).resolves.toEqual({
       items: [{ sessionId: 'session', snippet: 'match' }],

@@ -152,4 +152,25 @@ describe('TurnNavigator', () => {
     expect(view.getByRole('tooltip').textContent).toBe('prompt 70')
     expect(underPointer.getAttribute('aria-describedby')).toBe(previewId)
   })
+
+  it('renders passive and active search match markers on turn rail buttons', async () => {
+    installTurnNavigatorObserver()
+    const view = render(
+      <TurnNavigator
+        items={items.slice(0, 5)}
+        activeTurn={1}
+        busyTurn={null}
+        matchedTurns={new Set([2, 4])}
+        activeMatchTurn={4}
+        onNavigate={vi.fn()}
+        t={t}
+      />,
+    )
+    const turn1 = await view.findByRole('button', { name: '跳转到第 1 轮' })
+    const turn2 = view.getByRole('button', { name: '跳转到第 2 轮' })
+    const turn4 = view.getByRole('button', { name: '跳转到第 4 轮' })
+    expect(turn1.getAttribute('data-search-match')).toBeNull()
+    expect(turn2.getAttribute('data-search-match')).toBe('match')
+    expect(turn4.getAttribute('data-search-match')).toBe('active')
+  })
 })

@@ -175,6 +175,8 @@ Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点，并且�
 
 指针位于轨道外时，自动跟随在活跃刻度中心处于非渐隐区域内时保持轨道不动，越界后才将其居中。预览随指针移动或焦点切换；刻度在静止指针下滚动不会选中另一个预览。
 
+会话内查找（非空白对话获准调用 `session/searchEvents` 时按 `Cmd/Ctrl+F` 打开）在 `hybrid` 与 `phrase` 模式下查询 `session.searchEvents`，并接收侧栏搜索跳转传入的 `SessionLocateTarget` 请求。跳转到早于已加载窗口的命中或目标 `seq` 时会调用 `loadThrough(seq)`，目标挂载后自动展开外层已收起的轮次与过程组以及可搜索隐藏容器，将目标消息行滚入阅读区，并在未启用减少动态效果时播放背景脉冲提示。字面查询词命中通过原生 CSS Custom Highlight API（`::highlight(dsh-search-match)` 与 `::highlight(dsh-search-active)`）在 `TreeWalker` 文本范围上着色，不改动 DOM 节点；当 `hybrid` 稠密召回命中在渲染文本中不含字面查询词时，目标行改为显示本地化的语义相关匹配徽标，所有命中事件的 `seq` 同时在轮次轨道上标记所属轮次。
+
 <details>
 <summary>滚动实现——点击展开</summary>
 

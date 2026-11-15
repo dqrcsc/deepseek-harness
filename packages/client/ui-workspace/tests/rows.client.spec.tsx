@@ -291,18 +291,21 @@ describe('workspace browser rows', () => {
       completed: false,
       archived: false,
       snippet: 'matching message excerpt',
+      matchCount: 4,
     }
-    render(<SearchResultItem result={result} currentId={result.id} onOpen={onOpen}
+    render(<SearchResultItem result={result} query="message" currentId={result.id} onOpen={onOpen}
       onUnarchive={vi.fn()} useSessionAccess={allowAllAccess.useSessionAccess} t={t} />)
     const row = screen.getByRole('treeitem')
     expect(row.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('Workspace context')).toBeTruthy()
-    expect(screen.getByText('matching message excerpt')).toBeTruthy()
+    expect(row.querySelector('mark')?.textContent).toBe('message')
+    expect(screen.getByText('4 处')).toBeTruthy()
+    expect(screen.getByText('4 处匹配')).toBeTruthy()
     expect(row.querySelector('[data-state="ongoing"]')).toBeTruthy()
     expect(screen.getByText('进行中')).toBeTruthy()
     expect(row.hasAttribute('draggable')).toBe(false)
     fireEvent.click(row)
-    expect(onOpen).toHaveBeenCalledWith(result.id)
+    expect(onOpen).toHaveBeenCalledWith(result)
   })
 
   it('withholds the search-result restore control while the Session access excludes unarchiving', () => {
@@ -1544,5 +1547,5 @@ it.each([['未命名', t], ['Untitled', tEn]])('labels unnamed search results as
   render(<SearchResultItem result={result} currentId={undefined} onOpen={onOpen}
     onUnarchive={vi.fn()} useSessionAccess={allowAllAccess.useSessionAccess} t={translate} />)
   fireEvent.click(screen.getByText(label))
-  expect(onOpen).toHaveBeenCalledWith(result.id)
+  expect(onOpen).toHaveBeenCalledWith(result)
 })

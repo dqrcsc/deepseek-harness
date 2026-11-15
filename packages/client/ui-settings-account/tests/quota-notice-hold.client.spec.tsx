@@ -109,8 +109,15 @@ async function bench() {
   runtime.ctx.provide('uiWorkspace', {
     openWorkspace: async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => { beforeOpen(SID) },
     openSession: () => {},
+    locateRequest: () => createSnapshotStore(null),
+    acknowledgeLocate: () => {},
   } as never)
-  runtime.remote.provideNamespaces({ session: { openWorkspacePath: async () => ({ ok: true, value: { opened: true } }) } })
+  runtime.remote.provideNamespaces({
+    session: {
+      openWorkspacePath: async () => ({ ok: true, value: { opened: true } }),
+      searchEvents: async () => ({ ok: true, value: { items: [], hasMore: false } }),
+    },
+  })
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
   runtime.ctx.provide('shortcuts', { catalog: createSnapshotStore([]) })

@@ -52,7 +52,7 @@ async function probeTab(page: Page, name: string): Promise<TabProbe> {
 async function openSeededSession(page: Page): Promise<void> {
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(FIXTURE.markers.user(1))
+  await page.getByRole('textbox', { name: 'Search titles or messages…', exact: true }).fill(SEED_ID)
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   const deadline = Date.now() + 60_000
   while (await results.count() !== 1) {

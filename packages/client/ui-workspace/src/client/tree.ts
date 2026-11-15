@@ -4,13 +4,13 @@
  * blank Session remains visible.
  */
 import {
-  type SessionListState, type SessionSearchResultItem, type SessionSummary,
+  type SessionListState, type SessionSearchMessageRole, type SessionSearchResultItem, type SessionSummary,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {
   SessionStatusSnapshot,
 } from '@deepseek-ai/dsh-client-ui-session/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 
@@ -100,6 +100,14 @@ export interface SearchResultNode {
   /** In the registry-global archive set: shown grayed and not openable. */
   archived: boolean
   snippet?: string
+  /** Best-match event sequence number when a content hit matched this session. */
+  seq?: SessionSeq
+  /** Speaker role of the best-match message when a content hit matched this session. */
+  role?: SessionSearchMessageRole
+  /** Epoch milliseconds of the best-match message when a content hit matched this session. */
+  time?: number
+  /** Total matched message count inside this session when reported by content search. */
+  matchCount?: number
 }
 
 /** Bounded merged search projection plus the refine-query hint bit. */
@@ -606,7 +614,13 @@ export function deriveSearchResults(
           : { pendingInteraction }),
         completed: status?.completionUnread === true,
         archived: archived.has(summary.id),
-        ...match === undefined ? {} : { snippet: match.snippet },
+        ...(match === undefined ? {} : {
+          snippet: match.snippet,
+          ...(match.seq === undefined ? {} : { seq: match.seq as SessionSeq }),
+          ...(match.role === undefined ? {} : { role: match.role }),
+          ...(match.time === undefined ? {} : { time: match.time }),
+          ...(match.matchCount === undefined ? {} : { matchCount: match.matchCount }),
+        }),
       }
     }),
     hasMore: content.hasMore || ordered.length > limit,

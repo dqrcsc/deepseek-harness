@@ -17,8 +17,17 @@ export interface ChatNavigationInput extends Pick<ChatViewSlotProps, 'loadOlder'
   readonly isOpen: boolean
 }
 
-interface TurnJump {
-  readonly turn: number
+type JumpTarget =
+  | { readonly kind: 'turn'; readonly turn: number }
+  | {
+    readonly kind: 'event'
+    readonly seq: SessionSeq
+    readonly fallbackTurn: number | null
+    readonly onLanded?: (seq: SessionSeq) => void
+  }
+
+interface NavigationJump {
+  readonly target: JumpTarget
   readonly seq: SessionSeq
   phase: 'loading' | 'settled'
   landing: 'pending' | 'landed' | 'interrupted'
@@ -27,9 +36,9 @@ interface TurnJump {
 
 type HistoryIntent = 'none' | 'auto' | 'manual'
 
-/** Owns one replaceable turn jump and the anchor retained while history loads. */
+/** Owns one replaceable turn or event jump and the anchor retained while history loads. */
 export class ChatNavigation {
-  private jump: TurnJump | null = null
+  private jump: NavigationJump | null = null
   private settleFrame: number | null = null
   private historyFrame: number | null = null
   private historyIntent: HistoryIntent = 'none'
@@ -41,6 +50,7 @@ export class ChatNavigation {
     private input: ChatNavigationInput,
     private readonly onBusyTurn: (turn: number | null) => void,
     private readonly onHistoryIntent: (intent: HistoryIntent) => void = () => {},
+    private readonly onLocatingSeq: (seq: SessionSeq | null) => void = () => {},
   ) {}
 
   /**
@@ -70,12 +80,14 @@ export class ChatNavigation {
     this.setHistoryIntent('none')
     this.clearTask()
     this.onBusyTurn(null)
+    this.onLocatingSeq(null)
   }
 
   /** Release a jump after reader input without cancelling an accepted history click. */
   readerInteracted(): void {
     this.clearTask()
     this.onBusyTurn(null)
+    this.onLocatingSeq(null)
   }
 
   private clearTask(): void {
@@ -101,15 +113,74 @@ export class ChatNavigation {
     this.cancel()
     this.viewport.beginPreserving()
     this.reading.pauseFollowing()
-    const jump: TurnJump = {
-      turn: item.turn,
+    const jump: NavigationJump = {
+      target: { kind: 'turn', turn: item.turn },
       seq: item.anchor.seq,
       phase: 'loading',
       landing: 'pending',
       repageHead: null,
     }
     this.jump = jump
-    this.onBusyTurn(jump.turn)
+    this.onBusyTurn(item.turn)
+    this.request(jump)
+  }
+
+  /**
+   * Replace the current jump with a specific event `seq`, paging earlier history and expanding folded ancestors as needed.
+   * @param seq - target durable event sequence.
+   * @param fallbackTurn - optional turn hint for busy state and nearest-row fallback.
+   * @param onLanded - optional callback invoked once the target event row aligns.
+   */
+  readonly navigateToEvent = (
+    seq: SessionSeq,
+    fallbackTurn: number | null = null,
+    onLanded?: (seq: SessionSeq) => void,
+  ): void => {
+    this.cancel()
+    const target: JumpTarget = {
+      kind: 'event',
+      seq,
+      fallbackTurn,
+      ...(onLanded === undefined ? {} : { onLanded }),
+    }
+    if (this.input.firstSeq !== null && this.input.firstSeq <= seq) {
+      const attempt = this.viewport.scrollToEventSeq(seq, 72, fallbackTurn)
+      if (attempt.status === 'landed') {
+        this.reading.acceptNavigation(attempt.landing)
+        if (this.input.loadingOlder) this.viewport.beginPreserving(attempt.landing.position)
+        onLanded?.(seq)
+        return
+      }
+      if (attempt.status === 'revealing') {
+        this.reading.pauseFollowing()
+        this.jump = { target, seq, phase: 'settled', landing: 'pending', repageHead: this.input.firstSeq }
+        return
+      }
+      if (fallbackTurn !== null) {
+        const fallback = this.viewport.scrollToTurnAtOrAfter(fallbackTurn)
+        if (fallback !== null) this.reading.acceptNavigation(fallback)
+      }
+      return
+    }
+    if (!this.input.hasMore) {
+      if (fallbackTurn !== null) {
+        const fallback = this.viewport.scrollToTurnAtOrAfter(fallbackTurn)
+        if (fallback !== null) this.reading.acceptNavigation(fallback)
+      }
+      return
+    }
+    this.viewport.beginPreserving()
+    this.reading.pauseFollowing()
+    const jump: NavigationJump = {
+      target,
+      seq,
+      phase: 'loading',
+      landing: 'pending',
+      repageHead: null,
+    }
+    this.jump = jump
+    this.onLocatingSeq(seq)
+    if (fallbackTurn !== null) this.onBusyTurn(fallbackTurn)
     this.request(jump)
   }
 
@@ -246,7 +317,8 @@ export class ChatNavigation {
       this.request(jump)
       return
     }
-    const fallback = this.viewport.scrollToTurnAtOrAfter(jump.turn)
+    const fallbackTurn = jump.target.kind === 'turn' ? jump.target.turn : jump.target.fallbackTurn
+    const fallback = fallbackTurn === null ? null : this.viewport.scrollToTurnAtOrAfter(fallbackTurn)
     this.cancel()
     if (fallback !== null) this.reading.acceptNavigation(fallback)
   }
@@ -258,18 +330,33 @@ export class ChatNavigation {
       if (settle) { this.cancel(); return true }
       return false
     }
-    const landing = this.viewport.scrollToTurn(jump.turn)
-    if (landing === null) return false
-    this.reading.acceptNavigation(landing)
+    if (jump.target.kind === 'turn') {
+      const landing = this.viewport.scrollToTurn(jump.target.turn)
+      if (landing === null) return false
+      this.reading.acceptNavigation(landing)
+      if (settle) this.cancel()
+      else {
+        this.viewport.beginPreserving(landing.position)
+        jump.landing = 'landed'
+      }
+      return true
+    }
+    const attempt = this.viewport.scrollToEventSeq(jump.target.seq, 72, jump.target.fallbackTurn)
+    if (attempt.status === 'missing') return false
+    if (attempt.status === 'revealing') return true
+    this.reading.acceptNavigation(attempt.landing)
+    const notify = jump.landing !== 'landed' ? jump.target.onLanded : undefined
+    const landedSeq = jump.target.seq
     if (settle) this.cancel()
     else {
-      this.viewport.beginPreserving(landing.position)
+      this.viewport.beginPreserving(attempt.landing.position)
       jump.landing = 'landed'
     }
+    notify?.(landedSeq)
     return true
   }
 
-  private request(jump: TurnJump): void {
+  private request(jump: NavigationJump): void {
     jump.phase = 'loading'
     const settled = (): void => {
       if (this.jump !== jump) return
@@ -299,11 +386,26 @@ export class ChatNavigation {
  */
 export function useChatNavigation(
   viewport: ChatViewport, reading: ChatReading, input: ChatNavigationInput,
-): { navigation: ChatNavigation; busyTurn: number | null; historyPending: boolean; historyProcessing: boolean } {
+): {
+  navigation: ChatNavigation
+  busyTurn: number | null
+  locatingSeq: SessionSeq | null
+  historyPending: boolean
+  historyProcessing: boolean
+} {
   const [busyTurn, setBusyTurn] = useState<number | null>(null)
+  const [locatingSeq, setLocatingSeq] = useState<SessionSeq | null>(null)
   const [historyIntent, setHistoryIntent] = useState<HistoryIntent>('none')
-  const [navigation] = useState(() => new ChatNavigation(viewport, reading, input, setBusyTurn, setHistoryIntent))
+  const [navigation] = useState(
+    () => new ChatNavigation(viewport, reading, input, setBusyTurn, setHistoryIntent, setLocatingSeq),
+  )
   useLayoutEffect(() => { navigation.setInput(input) }, [navigation, input])
   useLayoutEffect(() => () => { navigation.dispose() }, [navigation])
-  return { navigation, busyTurn, historyPending: historyIntent === 'manual', historyProcessing: historyIntent !== 'none' }
+  return {
+    navigation,
+    busyTurn,
+    locatingSeq,
+    historyPending: historyIntent === 'manual',
+    historyProcessing: historyIntent !== 'none',
+  }
 }

@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from 'vitest'
-import { mergeTurnRailItems } from '../src/client/chat/turn-rail-items.ts'
+import {
+  findTurnForSeq,
+  mergeTurnRailItems,
+  resolveMatchedTurns,
+  resolveTurnSeqBounds,
+} from '../src/client/chat/turn-rail-items.ts'
 import type { TurnNavigationItem } from '../src/client/contract/snapshot.ts'
 
 function loadedItem(turn: number, prompt = `p${String(turn)}`, response = `r${String(turn)}`): TurnNavigationItem {
@@ -73,5 +78,28 @@ describe('mergeTurnRailItems', () => {
       { turn: 3, prompt: '', response: '', anchor: { kind: 'unloaded', seq: 4 } },
       { turn: 6, prompt: 'kept', response: '', anchor: { kind: 'unloaded', seq: 7 } },
     ])
+  })
+
+  it('resolves turn start boundaries and maps matched event seqs onto turn numbers', () => {
+    const items = mergeTurnRailItems(
+      [loadedItem(3), loadedItem(4)],
+      [
+        { turn: 1, seq: 2, prompt: 't1', response: '' },
+        { turn: 2, seq: 10, prompt: 't2', response: '' },
+      ],
+    )
+    const anchors = new Map<string, number>([['anchor-3', 20]])
+    const bounds = resolveTurnSeqBounds(items, key => anchors.get(key))
+    expect(bounds).toEqual([
+      { turn: 1, startSeq: 2 },
+      { turn: 2, startSeq: 10 },
+      { turn: 3, startSeq: 20 },
+    ])
+    expect(findTurnForSeq(bounds, 1)).toBeNull()
+    expect(findTurnForSeq(bounds, 2)).toBe(1)
+    expect(findTurnForSeq(bounds, 9)).toBe(1)
+    expect(findTurnForSeq(bounds, 10)).toBe(2)
+    expect(findTurnForSeq(bounds, 25)).toBe(3)
+    expect([...resolveMatchedTurns(bounds, [1, 5, 10, 12, 24])]).toEqual([1, 2, 3])
   })
 })

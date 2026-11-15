@@ -87,3 +87,70 @@ export function mergeTurnRailItems(
   if (byTurn.size === 0) return EMPTY_ITEMS
   return [...byTurn.values()].sort((left, right) => left.turn - right.turn)
 }
+
+/** Ascending turn start-seq boundary used to map event `seq` hits onto Turn Rail ticks. */
+export interface TurnSeqBound {
+  readonly turn: number
+  readonly startSeq: number
+}
+
+/**
+ * Resolve ascending `{ turn, startSeq }` boundaries across both unloaded outline entries and loaded nodes.
+ * @param items - merged Turn Rail items in ascending turn order.
+ * @param resolveAnchorSeq - lookup returning `anchorSeq` for a loaded anchor key.
+ * @returns ascending turn boundaries with valid start sequences.
+ */
+export function resolveTurnSeqBounds(
+  items: readonly TurnRailItem[],
+  resolveAnchorSeq: (anchorKey: string) => number | undefined,
+): readonly TurnSeqBound[] {
+  const bounds: TurnSeqBound[] = []
+  for (const item of items) {
+    const startSeq = item.anchor.kind === 'unloaded'
+      ? item.anchor.seq
+      : resolveAnchorSeq(item.anchor.key)
+    if (startSeq !== undefined) bounds.push({ turn: item.turn, startSeq })
+  }
+  return bounds
+}
+
+/**
+ * Map a durable event `seq` to the Turn whose start boundary precedes or equals it.
+ * @param bounds - ascending boundaries from {@link resolveTurnSeqBounds}.
+ * @param seq - durable event sequence to classify.
+ * @returns owning turn number, or `null` when `seq` precedes every known turn.
+ */
+export function findTurnForSeq(bounds: readonly TurnSeqBound[], seq: number): number | null {
+  let low = 0
+  let high = bounds.length
+  let matched: number | null = null
+  while (low < high) {
+    const middle = (low + high) >>> 1
+    const entry = bounds[middle] as TurnSeqBound
+    if (entry.startSeq <= seq) {
+      matched = entry.turn
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  return matched
+}
+
+/**
+ * Collect the set of Turn numbers containing at least one matched event `seq`.
+ * @param bounds - ascending boundaries from {@link resolveTurnSeqBounds}.
+ * @param seqs - matched event sequences.
+ * @returns read-only set of matched turn numbers.
+ */
+export function resolveMatchedTurns(
+  bounds: readonly TurnSeqBound[],
+  seqs: readonly number[],
+): ReadonlySet<number> {
+  const turns = new Set<number>()
+  for (const seq of seqs) {
+    const turn = findTurnForSeq(bounds, seq)
+    if (turn !== null) turns.add(turn)
+  }
+  return turns
+}

@@ -128,6 +128,19 @@
   background: var(--dsw-alias-label-primary);
 }
 
+.markMatched::before {
+  opacity: 1;
+  transform: translateY(-50%) scaleX(0.85);
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.markMatchActive::before {
+  height: 3px;
+  opacity: 1;
+  transform: translateY(-50%) scaleX(1);
+  background: var(--dsw-alias-search-highlight-active-bg);
+}
+
 /* Keyboard focus outranks both resting states: the tick takes the brand color
    the rest of the rail never uses, and a hairline ring keeps it legible
    against a busy transcript. */

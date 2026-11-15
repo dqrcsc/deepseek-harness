@@ -62,8 +62,9 @@ it.each([false, true])('keeps workspace and archived search actions reachable wi
   }
   const openFixture = async () => {
     await activate(page.getByRole('button', { name: 'Search sessions', exact: true }))
-    await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(fixture.markers.user(1))
+    await page.getByRole('textbox', { name: 'Search titles or messages…', exact: true }).fill(id)
     await activate(page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem'))
+    await activate(page.getByRole('button', { name: 'Clear search', exact: true }))
     await expect.poll(() => row.getAttribute('aria-selected')).toBe('true')
   }
   const row = page.locator(`[data-row-key="session:${id}"]`)
@@ -132,7 +133,7 @@ it.each([false, true])('keeps workspace and archived search actions reachable wi
   await activate(page.getByRole('button', { name: 'View options', exact: true }))
   await activate(page.getByRole('menuitem', { name: 'All conversations (show archived)', exact: true }))
   await activate(page.getByRole('button', { name: 'Search sessions', exact: true }))
-  await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(fixture.markers.user(1))
+  await page.getByRole('textbox', { name: 'Search titles or messages…', exact: true }).fill(fixture.markers.user(1))
   const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await result.waitFor()
   const restore = result.getByRole('button', { name: 'Unarchive session', exact: true, includeHidden: true })
@@ -142,6 +143,7 @@ it.each([false, true])('keeps workspace and archived search actions reachable wi
   await expect.poll(() => scaffold.ctx.workspaceRegistry.archivedSessionIds.includes(id)).toBe(false)
   await restore.waitFor({ state: 'detached' })
   await activate(result)
+  await activate(page.getByRole('button', { name: 'Clear search', exact: true }))
   await expect.poll(() => row.getAttribute('aria-selected')).toBe('true')
 })
 
@@ -163,10 +165,11 @@ it.each([false, true])('keeps actions and focus usable with touch=%s across layo
   expect(await page.evaluate(() => matchMedia('(hover: hover)').matches)).toBe(!hasTouch)
 
   await page.getByRole('button', { name: 'Search sessions' }).click()
-  await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(fixture.markers.user(1))
+  await page.getByRole('textbox', { name: 'Search titles or messages…', exact: true }).fill(id)
   const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await expect.poll(() => result.count()).toBe(1)
   await result.click()
+  await page.getByRole('button', { name: 'Clear search', exact: true }).click()
   await page.getByText(fixture.markers.assistant(1), { exact: false }).last().waitFor()
   const row = page.locator(`[data-row-key="session:${id}"]`)
   await row.waitFor({ state: 'visible' })

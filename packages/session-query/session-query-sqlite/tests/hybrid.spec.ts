@@ -632,6 +632,13 @@ describe('SqliteSessionQueryEngine busy_timeout, lexical CJK, and hybrid RRF', (
         SessionId('live-a'),
         SessionId('live-b'),
       ])
+      expect(symmetricTie.items.map(item => item.matchCount)).toEqual([3, 1])
+
+      const phraseCounts = await ctx.sessionQuery.searchSessions({ query: 'alpha', mode: 'phrase' })
+      expect(phraseCounts.items[0]?.matchCount).toBe(1)
+
+      const lexicalCounts = await ctx.sessionQuery.searchSessions({ query: 'alpha target', mode: 'lexical' })
+      expect(lexicalCounts.items[0]?.matchCount).toBe(1)
 
       // Within-session hybrid search exercises intra-session vectorScored seq tie-breaker (same time=100, same session_id).
       const intraSession = await ctx.sessionQuery.searchEvents({

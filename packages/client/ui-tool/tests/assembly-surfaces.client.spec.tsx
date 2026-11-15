@@ -88,6 +88,7 @@ async function bench(nodes: ToolResultNode[]) {
   runtime.remote.provideNamespaces({
     session: {
       openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })),
+      searchEvents: vi.fn(async () => ({ ok: true, value: { items: [], hasMore: false } })),
     },
   })
   runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
@@ -99,6 +100,8 @@ async function bench(nodes: ToolResultNode[]) {
       beforeOpen(SID)
     }),
     openSession: vi.fn(),
+    locateRequest: () => createSnapshotStore(null),
+    acknowledgeLocate: () => {},
   } as never)
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)

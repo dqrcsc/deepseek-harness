@@ -8,21 +8,32 @@ import type { ImageAttachmentLimits } from '@deepseek-ai/dsh-attachment'
 import type { Session, SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type { ProjectionHandle, ProjectionSnapshot } from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
-import { SessionQueryError, type SessionRecord, type SessionSearchCursor } from '@deepseek-ai/dsh-session-query'
+import {
+  SessionQueryError,
+  type SessionEventMetadataFilter,
+  type SessionRecord,
+  type SessionSearchCursor,
+} from '@deepseek-ai/dsh-session-query'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { z } from 'zod'
 import {
+  SESSION_EVENT_SEARCH_RESULT_LIMIT,
   SESSION_SEARCH_RESULT_LIMIT,
   SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS,
 } from './types.ts'
 import type {
-  SessionListMetadata, SessionProjectionHints, SessionSearchItem,
-  SessionSearchValue, SessionSummary,
+  SessionListMetadata, SessionProjectionHints, SessionSearchEventItem,
+  SessionSearchEventsMode, SessionSearchEventsRequest, SessionSearchEventsValue,
+  SessionSearchItem, SessionSearchMessageRole, SessionSearchValue, SessionSummary,
 } from './types.ts'
 
 const SEARCH_PROVIDER_CALL_LIMIT = 100
 const SESSION_SEARCH_QUERY_MAX_CHARS = 500
 const MESSAGE_TYPES = new Set(['user/message', 'assistant/message'])
+const MESSAGE_SEARCH_FILTERS: readonly SessionEventMetadataFilter[] = [
+  { kind: 'type', values: ['user/message', 'assistant/message'] },
+  { kind: 'surface', values: ['current'] },
+]
 
 const sessionListMetadataSchema: z.ZodType<SessionListMetadata> = z.object({
   blank: z.boolean(),
@@ -202,14 +213,7 @@ export class ApiSessionList {
   async search(query: string, signal: AbortSignal): Promise<SessionSearchValue> {
     const normalizedQuery = normalizeSearchQuery(query)
     signal.throwIfAborted()
-    const provider = this.ctx.get('sessionQuery')
-    if (provider === undefined) {
-      throw new RemoteError(
-        'gateway/internal',
-        'session search is unavailable: this deployment does not mount @deepseek-ai/dsh-session-query',
-        {},
-      )
-    }
+    const provider = requireSessionQuery(this.ctx)
     try {
       const visible = await provider.listSessions(signal)
       signal.throwIfAborted()
@@ -217,88 +221,103 @@ export class ApiSessionList {
         .filter(record => record.header.cwd !== undefined)
         .map(record => record.header.id))
       if (visibleIds.size === 0) return { items: [], hasMore: false }
-      const authorized: SessionSearchItem[] = []
-      const acceptedIds = new Set<SessionId>()
-      const seenCursors = new Set<SessionSearchCursor>()
-      let cursor: SessionSearchCursor | undefined
-      let providerCalls = 0
-      let pageLimit = SESSION_SEARCH_RESULT_LIMIT
-      while (authorized.length <= SESSION_SEARCH_RESULT_LIMIT) {
-        signal.throwIfAborted()
-        if (providerCalls >= SEARCH_PROVIDER_CALL_LIMIT) {
-          throw new Error(`session search provider exceeded the ${SEARCH_PROVIDER_CALL_LIMIT}-call work budget`)
-        }
-        providerCalls++
-        const requestedCursor = cursor
-        const requestedLimit = pageLimit
-        let page
-        try {
-          page = await provider.searchSessions({
-            query: normalizedQuery,
-            mode: 'hybrid',
-            eventFilters: [
-              { kind: 'type', values: ['user/message', 'assistant/message'] },
-              { kind: 'surface', values: ['current'] },
-            ],
-            limit: requestedLimit,
-            ...(requestedCursor === undefined ? {} : { cursor: requestedCursor }),
-          }, { signal })
-          signal.throwIfAborted()
-        } catch (error: unknown) {
-          signal.throwIfAborted()
-          if (requestedCursor === undefined
-            && error instanceof SessionQueryError
-            && error.code === 'SESSION_QUERY_INVALID_LIMIT'
-            && requestedLimit > 1) {
-            pageLimit = Math.max(1, Math.floor(requestedLimit / 2))
-            continue
-          }
-          if (requestedCursor !== undefined
-            && error instanceof SessionQueryError
-            && error.code === 'SESSION_QUERY_STALE_CURSOR') {
-            authorized.length = 0
-            acceptedIds.clear()
-            seenCursors.clear()
-            cursor = undefined
-            continue
-          }
-          throw error
-        }
-        if (page.items.length > requestedLimit) {
-          throw new Error(`session search provider returned ${String(page.items.length)} items; maximum is ${String(requestedLimit)}`)
-        }
-        for (const hit of page.items) {
-          if (authorized.length > SESSION_SEARCH_RESULT_LIMIT) continue
+      return await paginateAuthorizedSearch({
+        label: 'session search provider',
+        targetLimit: SESSION_SEARCH_RESULT_LIMIT,
+        signal,
+        fetchPage: (limit, cursor) => provider.searchSessions({
+          query: normalizedQuery,
+          mode: 'hybrid',
+          eventFilters: MESSAGE_SEARCH_FILTERS,
+          limit,
+          ...(cursor === undefined ? {} : { cursor }),
+        }, { signal }),
+        acceptHit: (hit): { readonly key: SessionId; readonly item: SessionSearchItem } | undefined => {
           if (!visibleIds.has(hit.header.id)
             || hit.bestMatch.sessionId !== hit.header.id
             || hit.bestMatch.surface !== 'current'
-            || !MESSAGE_TYPES.has(hit.bestMatch.type)
-            || acceptedIds.has(hit.header.id)) continue
-          acceptedIds.add(hit.header.id)
-          authorized.push({
-            sessionId: hit.header.id,
-            snippet: truncateUnicodeCodePoints(hit.bestMatch.snippet, SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS),
-          })
-        }
-        if (page.nextCursor !== undefined) {
-          if (seenCursors.has(page.nextCursor)) {
-            throw new Error('session search provider repeated a continuation cursor')
+            || !MESSAGE_TYPES.has(hit.bestMatch.type)) return undefined
+          return {
+            key: hit.header.id,
+            item: {
+              sessionId: hit.header.id,
+              snippet: truncateUnicodeCodePoints(hit.bestMatch.snippet, SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS),
+              seq: hit.bestMatch.seq,
+              role: messageRoleOf(hit.bestMatch.type),
+              time: hit.bestMatch.time,
+              ...(hit.matchCount === undefined ? {} : { matchCount: hit.matchCount }),
+            },
           }
-          seenCursors.add(page.nextCursor)
-        }
-        if (authorized.length > SESSION_SEARCH_RESULT_LIMIT || page.nextCursor === undefined) break
-        cursor = page.nextCursor
-      }
-      return {
-        items: authorized.slice(0, SESSION_SEARCH_RESULT_LIMIT),
-        hasMore: authorized.length > SESSION_SEARCH_RESULT_LIMIT,
-      }
+        },
+      })
     } catch (error: unknown) {
       signal.throwIfAborted()
       if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_ABORTED') {
         throw new RemoteError('gateway/cancelled', 'session search was aborted', {})
       }
       throw new RemoteError('gateway/internal', `session search failed: ${String(error)}`, {})
+    }
+  }
+
+  /**
+   * Search current message content inside one Session without activating an Agent,
+   * returning up to `limit` relevance-ranked matches ordered chronologically by ascending `seq`.
+   * @param request - target Session, query text, optional ranking mode, and optional result bound.
+   * @param signal - cancellation for index reconciliation and query execution.
+   * @returns bounded chronological event search hits for the Session.
+   */
+  async searchEvents(request: SessionSearchEventsRequest, signal: AbortSignal): Promise<SessionSearchEventsValue> {
+    if (request.sessionId.trim().length === 0 || request.sessionId.includes('\0')) {
+      throw new RemoteError('gateway/bad-request', 'session search sessionId must not be empty or contain NUL', {})
+    }
+    const normalizedQuery = normalizeSearchQuery(request.query)
+    const mode: SessionSearchEventsMode = request.mode ?? 'hybrid'
+    const targetLimit = normalizeEventSearchLimit(request.limit)
+    signal.throwIfAborted()
+    const provider = requireSessionQuery(this.ctx)
+    try {
+      const page = await paginateAuthorizedSearch({
+        label: 'session event search provider',
+        targetLimit,
+        signal,
+        fetchPage: (limit, cursor) => provider.searchEvents({
+          sessionId: request.sessionId,
+          query: normalizedQuery,
+          mode,
+          filters: MESSAGE_SEARCH_FILTERS,
+          limit,
+          ...(cursor === undefined ? {} : { cursor }),
+        }, { signal }),
+        acceptHit: (hit): { readonly key: number; readonly item: SessionSearchEventItem } | undefined => {
+          if (hit.sessionId !== request.sessionId
+            || hit.surface !== 'current'
+            || !MESSAGE_TYPES.has(hit.type)) return undefined
+          return {
+            key: hit.seq,
+            item: {
+              seq: hit.seq,
+              role: messageRoleOf(hit.type),
+              time: hit.time,
+              snippet: truncateUnicodeCodePoints(hit.snippet, SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS),
+            },
+          }
+        },
+      })
+      return {
+        items: [...page.items].sort((left, right) => left.seq - right.seq),
+        hasMore: page.hasMore,
+      }
+    } catch (error: unknown) {
+      signal.throwIfAborted()
+      if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
+        throw new RemoteError('session/not-found', `session "${request.sessionId}" not found`, {
+          sessionId: request.sessionId,
+        })
+      }
+      if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_ABORTED') {
+        throw new RemoteError('gateway/cancelled', 'session event search was aborted', {})
+      }
+      throw new RemoteError('gateway/internal', `session event search failed: ${String(error)}`, {})
     }
   }
 
@@ -348,6 +367,91 @@ function hintsOf(
   return { kind, asOfSeq: block.asOfSeq, values: block.values }
 }
 
+function requireSessionQuery(ctx: Context): NonNullable<Context['sessionQuery']> {
+  const provider = ctx.get('sessionQuery')
+  if (provider === undefined) {
+    throw new RemoteError(
+      'gateway/internal',
+      'session search is unavailable: this deployment does not mount @deepseek-ai/dsh-session-query',
+      {},
+    )
+  }
+  return provider
+}
+
+async function paginateAuthorizedSearch<THit, TItem>(options: {
+  readonly label: string
+  readonly targetLimit: number
+  readonly signal: AbortSignal
+  readonly fetchPage: (
+    limit: number,
+    cursor: SessionSearchCursor | undefined,
+  ) => Promise<{ readonly items: readonly THit[]; readonly nextCursor?: SessionSearchCursor }>
+  readonly acceptHit: (hit: THit) => { readonly key: string | number; readonly item: TItem } | undefined
+}): Promise<{ readonly items: TItem[]; readonly hasMore: boolean }> {
+  const authorized: TItem[] = []
+  const acceptedKeys = new Set<string | number>()
+  const seenCursors = new Set<SessionSearchCursor>()
+  let cursor: SessionSearchCursor | undefined
+  let providerCalls = 0
+  let pageLimit = options.targetLimit
+  while (authorized.length <= options.targetLimit) {
+    options.signal.throwIfAborted()
+    if (providerCalls >= SEARCH_PROVIDER_CALL_LIMIT) {
+      throw new Error(`${options.label} exceeded the ${SEARCH_PROVIDER_CALL_LIMIT}-call work budget`)
+    }
+    providerCalls++
+    const requestedCursor = cursor
+    const requestedLimit = pageLimit
+    let page: { readonly items: readonly THit[]; readonly nextCursor?: SessionSearchCursor }
+    try {
+      page = await options.fetchPage(requestedLimit, requestedCursor)
+      options.signal.throwIfAborted()
+    } catch (error: unknown) {
+      options.signal.throwIfAborted()
+      if (requestedCursor === undefined
+        && error instanceof SessionQueryError
+        && error.code === 'SESSION_QUERY_INVALID_LIMIT'
+        && requestedLimit > 1) {
+        pageLimit = Math.max(1, Math.floor(requestedLimit / 2))
+        continue
+      }
+      if (requestedCursor !== undefined
+        && error instanceof SessionQueryError
+        && error.code === 'SESSION_QUERY_STALE_CURSOR') {
+        authorized.length = 0
+        acceptedKeys.clear()
+        seenCursors.clear()
+        cursor = undefined
+        continue
+      }
+      throw error
+    }
+    if (page.items.length > requestedLimit) {
+      throw new Error(`${options.label} returned ${String(page.items.length)} items; maximum is ${String(requestedLimit)}`)
+    }
+    for (const hit of page.items) {
+      if (authorized.length > options.targetLimit) continue
+      const candidate = options.acceptHit(hit)
+      if (candidate === undefined || acceptedKeys.has(candidate.key)) continue
+      acceptedKeys.add(candidate.key)
+      authorized.push(candidate.item)
+    }
+    if (page.nextCursor !== undefined) {
+      if (seenCursors.has(page.nextCursor)) {
+        throw new Error(`${options.label} repeated a continuation cursor`)
+      }
+      seenCursors.add(page.nextCursor)
+    }
+    if (authorized.length > options.targetLimit || page.nextCursor === undefined) break
+    cursor = page.nextCursor
+  }
+  return {
+    items: authorized.slice(0, options.targetLimit),
+    hasMore: authorized.length > options.targetLimit,
+  }
+}
+
 function normalizeSearchQuery(query: string): string {
   const normalized = query.trim()
   if (normalized.length === 0) {
@@ -364,6 +468,22 @@ function normalizeSearchQuery(query: string): string {
     throw new RemoteError('gateway/bad-request', 'session search query must not contain NUL', {})
   }
   return normalized
+}
+
+function normalizeEventSearchLimit(limit: number | undefined): number {
+  if (limit === undefined) return SESSION_EVENT_SEARCH_RESULT_LIMIT
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > SESSION_EVENT_SEARCH_RESULT_LIMIT) {
+    throw new RemoteError(
+      'gateway/bad-request',
+      `session event search limit must be an integer between 1 and ${SESSION_EVENT_SEARCH_RESULT_LIMIT}`,
+      {},
+    )
+  }
+  return limit
+}
+
+function messageRoleOf(type: string): SessionSearchMessageRole {
+  return type === 'user/message' ? 'user' : 'assistant'
 }
 
 function updatedAt(header: SessionHeader, metadata: SessionListMetadata | undefined): number {

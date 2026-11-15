@@ -44,6 +44,7 @@ type ChatActions = ChatInstance['actions']
 function sessionFakeFor() {
   return {
     loadOlder: vi.fn<ISession['loadOlder']>(() => Promise.resolve()),
+    consumeOlder: vi.fn<ISession['consumeOlder']>(() => false),
     loadThrough: vi.fn<ISession['loadThrough']>(() => Promise.resolve()),
     readAttachment: vi.fn<ISession['readAttachment']>(() => Promise.resolve({
       ok: true,
@@ -82,14 +83,21 @@ async function bench(initialSettings?: ChatSettings, withBrowserRegistry = true,
   const openWorkspacePath = vi.fn<ClientRemote['session']['openWorkspacePath']>(
     () => Promise.resolve({ ok: true, value: { opened: true } }),
   )
-  runtime.remote.provideNamespaces({ session: { openWorkspacePath } })
+  const searchEvents = vi.fn<ClientRemote['session']['searchEvents']>(
+    () => Promise.resolve({ ok: true, value: { items: [], hasMore: false } }),
+  )
+  runtime.remote.provideNamespaces({ session: { openWorkspacePath, searchEvents } })
   const openSession = vi.fn<(id: SessionId) => void>()
+  const locateRequest = vi.fn(() => createSnapshotStore(null))
+  const acknowledgeLocate = vi.fn<(id: SessionId, requestId: number) => void>()
   runtime.ctx.provide('uiWorkspace', {
     openWorkspace: vi.fn(async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
       beforeOpen(ROOT)
       openSession(ROOT)
     }),
     openSession,
+    locateRequest,
+    acknowledgeLocate,
   } as never)
   const session = sessionFakeFor()
   await runtime.sessions.add({
@@ -138,7 +146,8 @@ async function bench(initialSettings?: ChatSettings, withBrowserRegistry = true,
       return preference as LinkOpeningRowInjected
     },
     runtime, chat, chatSettings, browserAvailable,
-    layout, openWorkspacePath, sidebarRight, sidebarRightTabs, session, chatViewApi, chatFlowApi, rootReference, openSession,
+    layout, openWorkspacePath, searchEvents, locateRequest, acknowledgeLocate,
+    sidebarRight, sidebarRightTabs, session, chatViewApi, chatFlowApi, rootReference, openSession,
   }
 }
 
@@ -547,6 +556,17 @@ describe('Chat inject API', () => {
     expect(loaded).toEqual(expect.any(String))
     expect(b.session.readAttachment).toHaveBeenCalledWith(ATTACHMENT)
     expect(injected.loadImage.peek?.(ATTACHMENT)).toBe(loaded)
+
+    expect(b.locateRequest).toHaveBeenCalledWith(ROOT)
+    injected.acknowledgeLocate(7)
+    expect(b.acknowledgeLocate).toHaveBeenCalledWith(ROOT, 7)
+    expect(injected.consumeOlder()).toBe(false)
+
+    const controller = new AbortController()
+    await injected.searchEvents('needle', undefined, controller.signal)
+    expect(b.searchEvents).toHaveBeenCalledWith({ sessionId: ROOT, query: 'needle' }, controller.signal)
+    await injected.searchEvents('exact phrase', { mode: 'phrase' })
+    expect(b.searchEvents).toHaveBeenCalledWith({ sessionId: ROOT, query: 'exact phrase', mode: 'phrase' }, undefined)
     await b.runtime.dispose()
   })
 })

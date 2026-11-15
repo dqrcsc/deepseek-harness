@@ -30,7 +30,9 @@ interface ChatScrollState extends ChatReadingState {
   readonly listRef: RefObject<HTMLDivElement>
   readonly columnRef: RefObject<HTMLDivElement>
   readonly busyTurn: number | null
+  readonly locatingSeq: ReturnType<typeof useChatNavigation>['locatingSeq']
   readonly navigateToTurn: ChatNavigation['navigateToTurn']
+  readonly navigateToEvent: ChatNavigation['navigateToEvent']
   readonly loadEarlier: ChatNavigation['loadEarlier']
   readonly historyInputHeld: boolean
   readonly historyProcessing: boolean
@@ -59,7 +61,9 @@ export function useChatScroll(input: ChatScrollInput): ChatScrollState {
   const navigationInput = useMemo(() => ({
     firstSeq, loadingOlder, hasMore, historyLoadStatus, isOpen, loadOlder, consumeOlder, loadThrough,
   }), [firstSeq, loadingOlder, hasMore, historyLoadStatus, isOpen, loadOlder, consumeOlder, loadThrough])
-  const { navigation, busyTurn, historyPending, historyProcessing } = useChatNavigation(viewport, reading, navigationInput)
+  const {
+    navigation, busyTurn, locatingSeq, historyPending, historyProcessing,
+  } = useChatNavigation(viewport, reading, navigationInput)
   const content = useRef<{ input: ChatScrollInput; applied: ChatScrollInput | null; opened: boolean }>({
     input, applied: null, opened: false,
   })
@@ -197,8 +201,9 @@ export function useChatScroll(input: ChatScrollInput): ChatScrollState {
   }, [navigation, reading, cancelPendingFollow])
 
   return {
-    listRef, columnRef, ...state, busyTurn, motion: viewport.motion,
+    listRef, columnRef, ...state, busyTurn, locatingSeq, motion: viewport.motion,
     navigateToTurn: navigation.navigateToTurn,
+    navigateToEvent: navigation.navigateToEvent,
     loadEarlier: navigation.loadEarlier,
     historyPending,
     historyProcessing,

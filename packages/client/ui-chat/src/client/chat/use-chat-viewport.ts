@@ -19,6 +19,12 @@ export interface ViewportLanding {
   readonly turn: number | null
 }
 
+/** Result of aligning a specific persisted or live event row by its durable `seq`. */
+export type EventScrollResult =
+  | { readonly status: 'landed'; readonly landing: ViewportLanding }
+  | { readonly status: 'revealing' }
+  | { readonly status: 'missing' }
+
 interface ViewportEvents {
   scroll: (event: ViewportScroll) => void
   scrollEnd: (outer: boolean) => void
@@ -88,6 +94,8 @@ export class ChatViewport {
   private historyScrolling = new Set<EventTarget>()
   private historyPointer = false
   private historyTouch = false
+  /** Suppresses self-triggered `beforematch` capture listeners while expanding folded ancestors. */
+  private revealing = false
   /** Rows measured before an instant close; see {@link ChatViewport.keepAboveClosing}. */
   private closing: ClosingLayout | null = null
   /** Discards a closing measurement that no size observation consumed by the end of its frame. */
@@ -772,6 +780,65 @@ export class ChatViewport {
   }
 
   /**
+   * Reveal any folded Turn or step-process ancestors of an event row, then align it into the reading band.
+   * @param seq - durable event sequence to locate.
+   * @param offset - top reading inset in CSS pixels.
+   * @param fallbackTurn - optional owning turn used when a tool-only assistant step renders only subsequent tool seats.
+   * @returns `landed` once aligned, `revealing` when folded ancestors opened for next-commit measurement, or `missing`.
+   */
+  scrollToEventSeq(seq: number, offset = 72, fallbackTurn: number | null = null): EventScrollResult {
+    const elements = this.elements
+    if (elements === null) return { status: 'missing' }
+    let row = elements.list.querySelector<HTMLElement>(`[data-chat-event-seq="${seq}"]`)
+    if (row === null && fallbackTurn !== null) {
+      let bestSeq = Number.POSITIVE_INFINITY
+      for (const candidate of elements.list.querySelectorAll<HTMLElement>(`[data-chat-turn="${fallbackTurn}"][data-chat-event-seq]`)) {
+        const candidateSeq = Number(candidate.dataset.chatEventSeq)
+        if (Number.isSafeInteger(candidateSeq) && candidateSeq > seq && candidateSeq < bestSeq) {
+          bestSeq = candidateSeq
+          row = candidate
+        }
+      }
+    }
+    if (row === null) return { status: 'missing' }
+    const hiddenAncestors: HTMLElement[] = []
+    for (let current: HTMLElement | null = row; current !== null && current !== elements.column; current = current.parentElement) {
+      if (current.hasAttribute('hidden')) hiddenAncestors.push(current)
+    }
+    if (hiddenAncestors.length > 0) {
+      this.revealing = true
+      try {
+        for (const ancestor of hiddenAncestors.reverse()) ancestor.dispatchEvent(new Event('beforematch'))
+      } finally {
+        this.revealing = false
+      }
+      return { status: 'revealing' }
+    }
+    if (this.motion.active()) this.motion.clear()
+    const body = row.closest<HTMLElement>('[data-step-process-body]')
+    if (body !== null) {
+      const bodyMetrics = scrollMetrics(body)
+      if (bodyMetrics.floor > 0) {
+        const rowOffset = row.getBoundingClientRect().top - body.getBoundingClientRect().top
+        const innerTarget = Math.max(0, Math.min(bodyMetrics.floor, bodyMetrics.top + rowOffset - 16))
+        if (bodyMetrics.top !== innerTarget) {
+          const follow = ScrollFollow.forElement(body)
+          if (follow === undefined) body.scrollTop = innerTarget
+          else {
+            follow.jump(body, bodyMetrics, innerTarget)
+            follow.setFollowing(false)
+          }
+        }
+      }
+    }
+    const turnValue = row.dataset.chatTurn
+    const parsedTurn = turnValue === undefined ? NaN : Number(turnValue)
+    const turn = Number.isSafeInteger(parsedTurn) ? parsedTurn : null
+    const landing = this.align(row, offset, turn) as ViewportLanding
+    return { status: 'landed', landing }
+  }
+
+  /**
    * Align the nearest available fallback for an unavailable turn anchor.
    * @param turn - minimum turn number for a mounted fallback row.
    * @returns the fallback landing, or null when no eligible row exists.
@@ -1098,8 +1165,9 @@ export class ChatViewport {
   }
 
   private readonly onIntent = (event: Event): void => {
+    if (this.revealing) return
     if (event.type === 'keydown' || event.type === 'pointerdown') {
-      if (event.target instanceof Element && event.target.closest('[data-composer-seat]') !== null) return
+      if (event.target instanceof Element && event.target.closest('[data-composer-seat], [data-chat-search-bar]') !== null) return
       if (event.type === 'keydown' && (!(event instanceof KeyboardEvent) || !SCROLL_KEYS.has(event.key))) return
     }
     this.events?.intent?.()

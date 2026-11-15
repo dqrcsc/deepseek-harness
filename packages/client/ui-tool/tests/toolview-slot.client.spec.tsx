@@ -83,7 +83,12 @@ async function bench(nodes: ToolResultNode[]) {
   const runtime = await SlotTestRuntime.create()
   runtime.ctx.provide('fileDrag', { actions: { prepare: async () => ({ start: () => true, release: () => {} }), reportFailure: () => {} }, read: () => undefined } satisfies import('@deepseek-ai/cordis').Context['fileDrag'])
   const openWorkspacePath = vi.fn(async () => ({ ok: true, value: { opened: true } }))
-  runtime.remote.provideNamespaces({ session: { openWorkspacePath } })
+  runtime.remote.provideNamespaces({
+    session: {
+      openWorkspacePath,
+      searchEvents: vi.fn(async () => ({ ok: true, value: { items: [], hasMore: false } })),
+    },
+  })
   runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
   const layout = { openDetails: vi.fn(), closeDetails: vi.fn() }
   runtime.ctx.provide('connection', { state: createSnapshotStore('connected') } as never)
@@ -95,6 +100,8 @@ async function bench(nodes: ToolResultNode[]) {
       beforeOpen(SID)
     }),
     openSession: vi.fn(),
+    locateRequest: () => createSnapshotStore(null),
+    acknowledgeLocate: () => {},
   } as never)
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
@@ -365,6 +372,7 @@ describe('registrant declaration injection', () => {
     runtime.remote.provideNamespaces({
       session: {
         openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })),
+        searchEvents: vi.fn(async () => ({ ok: true, value: { items: [], hasMore: false } })),
       },
     })
     runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
@@ -376,6 +384,8 @@ describe('registrant declaration injection', () => {
         beforeOpen(SID)
       }),
       openSession: vi.fn(),
+      locateRequest: () => createSnapshotStore(null),
+      acknowledgeLocate: () => {},
     } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)

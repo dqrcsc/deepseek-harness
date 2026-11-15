@@ -69,9 +69,14 @@ async function bench() {
       openSession(SID)
     }),
     openSession,
+    locateRequest: vi.fn(() => createSnapshotStore(null)),
+    acknowledgeLocate: vi.fn(),
   } as never)
   runtime.remote.provideNamespaces({
-    session: { openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })) },
+    session: {
+      openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })),
+      searchEvents: vi.fn(async () => ({ ok: true, value: { items: [], hasMore: false } })),
+    },
   })
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)

@@ -24,6 +24,7 @@ import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
+import { splitSnippetHighlights } from '../search-snippet.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
 import css from './Rows.module.css'
 
@@ -497,13 +498,15 @@ function SessionHoverContent({ node, cwd, now, renderSlot, t }: {
 }
 
 /**
- * One flat search result: title, Workspace context, and optional content
- * excerpt. Search navigation opens the session only; it does not address an
- * event inside the conversation. Archived rows carry a hover unarchive
+ * One flat search result: title, Workspace context, optional match-count badge,
+ * and optional content excerpt with query-token highlights. Clicking a content
+ * hit opens the session and forwards the matched event target to the conversation
+ * view while keeping search expanded. Archived rows carry a hover unarchive
  * button, because search is where the filter surfaces them for recovery.
  * @param props.result - merged local/content search row.
+ * @param props.query - active search query used to highlight snippet terms.
  * @param props.currentId - selected session id.
- * @param props.onOpen - open the selected session.
+ * @param props.onOpen - open the selected search result.
  * @param props.onUnarchive - unarchive an archived result row.
  * @param props.useSessionAccess - the browser root's Session access Hook; the restore control
  * appears only while the snapshot allows `workspace/unarchiveSession` for that Session.
@@ -511,11 +514,12 @@ function SessionHoverContent({ node, cwd, now, renderSlot, t }: {
  * @returns the result row.
  */
 export function SearchResultItem({
-  result, currentId, onOpen, onUnarchive, useSessionAccess, t,
+  result, query = '', currentId, onOpen, onUnarchive, useSessionAccess, t,
 }: {
   result: SearchResultNode
+  query?: string
   currentId: string | undefined
-  onOpen: (id: SearchResultNode['id']) => void
+  onOpen: (result: SearchResultNode) => void
   onUnarchive: (id: SearchResultNode['id']) => void
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useSessionAccess'>) {
@@ -523,13 +527,17 @@ export function SearchResultItem({
   const canUnarchive = useSessionAccess(result.id, 'workspace/unarchiveSession')
   const statuses = sessionStatuses(result, t)
   const primaryStatus = statuses[0]
+  const snippetSegments = useMemo(
+    () => result.snippet === undefined ? undefined : splitSnippetHighlights(result.snippet, query),
+    [result.snippet, query],
+  )
   return (
     <div
       className={clsx(css.searchResultRow, selected && css.selected, result.archived && css.archived)}
       role="treeitem"
       aria-selected={selected}
       aria-description={result.archived ? t('toast.archivedNotOpenable') : undefined}
-      onClick={() => { onOpen(result.id) }}
+      onClick={() => { onOpen(result) }}
     >
       <span className={css.searchResultHeading}>
         {/* Like session rows, the leading slot owns every row marker; on
@@ -541,6 +549,15 @@ export function SearchResultItem({
           )}
         </span>
         <span className={css.searchResultTitle}>{result.title || t('session.untitled')}</span>
+        {result.matchCount !== undefined && result.matchCount > 1 && (
+          <span
+            className={css.searchMatchBadge}
+            title={t('search.matches', { n: result.matchCount })}
+          >
+            <span aria-hidden="true">{t('search.matches.compact', { n: result.matchCount })}</span>
+            <span className={css.visuallyHidden}>{t('search.matches', { n: result.matchCount })}</span>
+          </span>
+        )}
         {result.archived && canUnarchive && (
           <span className={css.rowActions}>
             <Tooltip label={t('actions.unarchive')} side="bottom" align="end" delayMs={500} portal>
@@ -558,8 +575,12 @@ export function SearchResultItem({
       </span>
       <span className={css.searchResultMeta}>
         <span className={css.searchResultWorkspace}>{result.workspace || t('group.ungrouped')}</span>
-        {result.snippet !== undefined && (
-          <span className={css.searchResultSnippet}>{result.snippet}</span>
+        {snippetSegments !== undefined && (
+          <span className={css.searchResultSnippet}>
+            {snippetSegments.map((segment, index) => segment.match
+              ? <mark key={index} className={css.searchSnippetMark}>{segment.text}</mark>
+              : segment.text)}
+          </span>
         )}
       </span>
     </div>

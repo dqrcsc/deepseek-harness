@@ -2,7 +2,12 @@
 import type { RefObject } from 'react'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
-import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
+import type {
+  PendingSubmission,
+  SessionEventSearchResult,
+  SessionSearchMode,
+} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionLocateRequest } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { FileAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { InboxState } from '@deepseek-ai/dsh-agent/types'
 import type {
@@ -333,6 +338,8 @@ export interface ChatViewInjected {
     interactionIds: ObservableSnapshot<readonly string[]>
     /** Live presentation policy derived from the accepted work-details mode. */
     presentation: ObservableSnapshot<ChatPresentationPolicy>
+    /** Pending sidebar search jump request targeting a specific event seq in this Session. */
+    locateRequest: ObservableSnapshot<SessionLocateRequest | null>
   }
   keyedHooks: {
     /** Resolve the stable source for one Chat Node key. */
@@ -353,6 +360,14 @@ export interface ChatViewInjected {
   consumeOlder: () => boolean
   /** Jump loader: page history back through seq; resolves when the window covers it. */
   loadThrough: (seq: SessionSeq) => Promise<void>
+  /** Consume a sidebar search jump request once the Chat view starts locating it. */
+  acknowledgeLocate: (requestId: number) => void
+  /** Search persisted and live events of this Session on the Host index. */
+  searchEvents: (
+    query: string,
+    options?: { readonly mode?: SessionSearchMode },
+    signal?: AbortSignal,
+  ) => Promise<SessionEventSearchResult>
   loadImage: MessageImageLoader
   chatScroll: {
     save: (position: ChatScrollPosition | null) => void

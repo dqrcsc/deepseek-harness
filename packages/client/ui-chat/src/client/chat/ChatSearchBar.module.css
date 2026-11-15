@@ -1,0 +1,164 @@
+/* Floating overlay anchored at the top-right of the Chat frame. */
+.anchor {
+  position: absolute;
+  top: 12px;
+  right: 0;
+  left: 0;
+  z-index: 8;
+  display: flex;
+  justify-content: flex-end;
+  height: 0;
+  padding-inline: 16px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+:global([data-conversation-scroll]) .anchor {
+  position: sticky;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: min(432px, 100%);
+  min-height: 36px;
+  padding: 4px 6px 4px 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-10, 10px);
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: var(--dsw-elevation-panel);
+  pointer-events: auto;
+}
+
+.searchIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.input {
+  flex: 1 1 0;
+  min-width: 72px;
+  height: 26px;
+  padding: 0 4px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.input::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.status {
+  flex: none;
+  max-width: 120px;
+  overflow: hidden;
+  padding: 0 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.modeToggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-6, 6px);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.modeToggleActive {
+  border-color: var(--dsw-alias-state-business-primary);
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.divider {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin-inline: 2px;
+  background: var(--dsw-alias-border-l2);
+}
+
+.iconButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-6, 6px);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.iconButton:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.locatePill {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  box-shadow: var(--dsw-elevation-panel);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  pointer-events: auto;
+  user-select: none;
+}
+
+@media (hover: hover) {
+  .iconButton:not(:disabled):hover,
+  .modeToggle:hover {
+    background: var(--dsw-alias-interactive-hover);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.iconButton:focus-visible,
+.modeToggle:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+@media (max-width: 480px) {
+  .status {
+    max-width: 84px;
+  }
+}

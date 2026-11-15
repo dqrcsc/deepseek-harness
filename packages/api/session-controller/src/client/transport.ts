@@ -30,6 +30,7 @@ import type { SessionRemotes } from './sessions/remotes.ts'
 import { assertSessionWireEvent } from './session-wire-event.ts'
 
 export {
+  SESSION_EVENT_SEARCH_RESULT_LIMIT,
   SESSION_SEARCH_RESULT_LIMIT,
   SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS,
 } from '../types.ts'

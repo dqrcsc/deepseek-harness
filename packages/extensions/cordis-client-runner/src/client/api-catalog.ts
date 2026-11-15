@@ -336,9 +336,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Workspace archive and directory operations consumed by Client UI domains.',
     methods: [
       {
-        signature: 'openSession(target: SessionTarget): void',
+        signature: 'openSession(target: SessionTarget, options?: OpenSessionOptions): void',
         description: 'Select a Session and show its Conversation as one UI navigation action.',
-        parameters: [{ name: 'target', description: 'known Session identity or durable direct-parent subagent address to display.' }],
+        parameters: [{ name: 'target', description: 'known Session identity or durable direct-parent subagent address to display.' }, { name: 'options', description: 'optional in-conversation event target to reveal after opening.' }],
       },
       {
         signature: 'openWorkspace( workspaceId: WorkspaceId, beforeOpen?: (sessionId: SessionId) => void, options?: Pick<StartSessionOptions, \'agentPreset\'>, ): Promise<void>',
@@ -780,6 +780,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ObservableSnapshot<T> {\n    getSnapshot(): T;\n    subscribe(fn: () => void): () => void;\n}',
   },
   {
+    name: 'OpenSessionOptions',
+    declaration: 'export interface OpenSessionOptions {\n    readonly locate?: SessionLocateTarget;\n}',
+  },
+  {
     name: 'OpenState',
     declaration: 'export type OpenState = \'cold\' | \'loading\' | \'open\' | \'error\';',
   },
@@ -948,6 +952,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionListState {\n    ids: SessionId[];\n    byId: Record<SessionId, SessionSummary>;\n    phase: SessionListPhase;\n    projectionsBySession: Readonly<Record<SessionId, SessionProjectionSnapshot>>;\n}',
   },
   {
+    name: 'SessionLocateMode',
+    declaration: 'export type SessionLocateMode = \'phrase\' | \'lexical\' | \'hybrid\';',
+  },
+  {
+    name: 'SessionLocateTarget',
+    declaration: 'export interface SessionLocateTarget {\n    readonly seq: SessionSeq;\n    readonly query?: string;\n    readonly mode?: SessionLocateMode;\n}',
+  },
+  {
     name: 'SessionMaybeStandardProps',
     declaration: 'export interface SessionMaybeStandardProps {\n}',
   },
@@ -984,8 +996,12 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionRetainOptions {\n    readonly source: SessionReferenceSource;\n    readonly signal?: AbortSignal | undefined;\n}',
   },
   {
+    name: 'SessionSearchMessageRole',
+    declaration: 'export type SessionSearchMessageRole = \'user\' | \'assistant\';',
+  },
+  {
     name: 'SessionSearchResultItem',
-    declaration: 'export interface SessionSearchResultItem {\n    sessionId: SessionId;\n    snippet: string;\n}',
+    declaration: 'export interface SessionSearchResultItem {\n    sessionId: SessionId;\n    snippet: string;\n    seq?: number;\n    role?: SessionSearchMessageRole;\n    time?: number;\n    matchCount?: number;\n}',
   },
   {
     name: 'SessionSnapshot',

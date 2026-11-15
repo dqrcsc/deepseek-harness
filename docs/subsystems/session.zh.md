@@ -908,6 +908,15 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
 @Remote('search') async search(request: SessionSearchRequest, signal: AbortSignal): Promise<SessionSearchValue>
 
 /**
+ * Search current message content inside one Session without resuming an Agent.
+ * Authorized per Session through `request.sessionId`.
+ * @param request - target Session, query text, optional ranking mode, and optional result bound.
+ * @param signal - cancellation for index reconciliation and query execution.
+ * @returns bounded chronological event search hits for the Session.
+ */
+@Remote('searchEvents') searchEvents(request: SessionSearchEventsRequest, signal: AbortSignal): Promise<SessionSearchEventsValue>
+
+/**
  * Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.
  * @param request - optional blank Session to reuse, location, and Agent preset.
  * @returns the created or reused Session identity and its preset when configured.

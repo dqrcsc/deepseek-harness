@@ -32,7 +32,7 @@ import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
-import type { ArchivedFilter, GroupNode, SessionNode, SessionOrderBy, SessionRowState } from '../tree.ts'
+import type { ArchivedFilter, GroupNode, SearchResultNode, SessionNode, SessionOrderBy, SessionRowState } from '../tree.ts'
 import {
   deriveFlat, deriveGroups, deriveSearchResults, orderByRecency, owningGroupKey, owningParentFolder,
   pinCurrentBlank, reconcileManualOrder, sessionMemberIds, UNGROUPED_KEY,
@@ -806,7 +806,8 @@ function SearchResults({
   usePanelInfo,
   useSessionAccess,
   t,
-}: Pick<WorkspaceBrowserProps, 'useSessions' | 'useSessionStatus' | 'open' | 't' | 'usePanelInfo' | 'useSessionAccess'> & {
+}: Pick<WorkspaceBrowserProps, 'useSessions' | 'useSessionStatus' | 't' | 'usePanelInfo' | 'useSessionAccess'> & {
+  open: (result: SearchResultNode) => void
   workspaces: readonly WorkspaceView[]
   archivedSessionIds: readonly SessionNode['id'][]
   /** Search matches follow the archived filter selected for the list. */
@@ -849,6 +850,7 @@ function SearchResults({
             <SearchResultItem
               key={result.id}
               result={result}
+              query={query}
               currentId={currentId}
               onOpen={open}
               onUnarchive={onUnarchive}
@@ -1112,21 +1114,32 @@ export function WorkspaceBrowser({
   const wsPlusRef = useRef<HTMLButtonElement>(null)
   const workspaceActionRequest = useWorkspaceActionRequest(value => value)
 
-  const openSearchResult = (sessionId: SessionId): void => {
-    if (archivedSessionIds.includes(sessionId)) {
+  const openSearchResult = (result: SearchResultNode): void => {
+    if (archivedSessionIds.includes(result.id)) {
       notifyArchivedNotOpenable()
       return
     }
-    setRevealSessionId(sessionId)
-    setQuery('')
-    changeSearchExpanded(false)
-    open(sessionId)
+    setRevealSessionId(result.id)
+    if (result.seq === undefined) {
+      open(result.id)
+      return
+    }
+    open(result.id, {
+      locate: {
+        seq: result.seq,
+        query: normalizedQuery,
+        mode: 'hybrid',
+      },
+    })
   }
   const acknowledgeSessionReveal = (sessionId: SessionId): void => {
     setRevealSessionId(current => current === sessionId ? undefined : current)
   }
+  const previousQuery = useRef(normalizedQuery)
   useEffect(() => {
-    if (normalizedQuery !== '') setRevealSessionId(undefined)
+    const prior = previousQuery.current
+    previousQuery.current = normalizedQuery
+    if (normalizedQuery !== '' && normalizedQuery !== prior) setRevealSessionId(undefined)
   }, [normalizedQuery])
 
   // Rail search = expand + land in the search box: the flag arms before the
@@ -1256,7 +1269,11 @@ export function WorkspaceBrowser({
                 maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
                 value={query}
                 tabIndex={searchExpanded ? 0 : -1}
-                onChange={(e) => { setQuery(sanitizeSearchQuery(e.target.value)) }}
+                onChange={(e) => {
+                  const next = sanitizeSearchQuery(e.target.value)
+                  setQuery(next)
+                  if (!searchExpanded && next.trim() !== '') changeSearchExpanded(true)
+                }}
                 onKeyDown={(e) => {
                   if (e.key !== 'Escape') return
                   setQuery('')
