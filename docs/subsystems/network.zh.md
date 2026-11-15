@@ -6,7 +6,7 @@
 
 候选节点选路按地区优先级梯队（如 `美国|新加坡`）与 EWMA 往返延迟对健康节点排序，当首选地区节点延迟超过 `maxPreferredLatencyMs` 时自动降级至更快的备选梯队，并通过指数退避熔断器隔离连续失败节点。本地与私有网段目标（`localhost`、RFC 1918、RFC 6598、IPv6 ULA/链路本地地址）始终直连绕过隧道，所有状态快照与错误报告均自动脱敏原始 URL、节点域名、IP 字面量与凭据密钥。
 
-[网络代理控制器](../../packages/network/network-proxy/README.zh.md)注册 `ctx.networkProxy`（及 `ctx.remote.networkProxy`），在 `network` 存储域中持久化脱敏后的订阅元数据与 `direct`／`smart`／`global` 分流策略，并将机密订阅 URL 与 256 位 AES-256-GCM 节点缓存密钥保存在 `ctx.credentials` 中。它基于调用方 `TrafficContext` 流量归因安装动态 `undici` 代理路由器，在桌面端同步 Electron `<webview>` 会话代理规则，后台自动刷新订阅，执行并发连通性诊断，并在状态变更后发出 `network-proxy/changed`。
+[网络代理控制器](../../packages/network/network-proxy/README.zh.md)注册 `ctx.networkProxy`（及 `ctx.remote.networkProxy`），在 `network` 存储域中持久化脱敏后的订阅元数据与 `direct`／`smart`／`global` 分流策略，并将机密订阅 URL 与 256 位 AES-256-GCM 节点缓存密钥保存在 `ctx.credentials` 中。它基于调用方 `TrafficContext` 流量归因安装动态 `undici` 代理路由器，在桌面端同步 Electron `<webview>` 会话代理规则，后台自动刷新订阅，执行并发连通性诊断，并在状态变更后发出 `network-proxy/changed`。在 Web 与桌面 GUI 中，[`ui-settings-network`](../../packages/client/ui-settings-network/README.zh.md)基于 `ctx.remote.networkProxy` 挂载「网络与代理」设置分区与仅在代理激活时显示的侧栏底部状态切换控件。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
