@@ -1,0 +1,7 @@
+# Bilingual-pair consistency record for network.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/subsystems/network.md
+/network-tunnel-and-smart-routing:
+  en: 5d92829f92842016
+  zh: 751509ac992e871e

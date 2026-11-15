@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "VPN 隧道运行时",
+    "description": "使用纯 TypeScript 解析代理订阅、拨号加密隧道并运行本地回环智能分流网关。"
+  }
+}

@@ -117,7 +117,11 @@ export class HttpFetchProvider implements WebFetchProvider {
     try {
       // Keep the Node-only transport out of browser-worker startup; a real request loads it here.
       const { fetch } = await import('undici')
-      return await fetch(url, { method: 'GET', redirect: 'manual', headers, signal })
+      const { runWithTrafficContext } = await import('@deepseek-ai/dsh-http-proxy')
+      return await runWithTrafficContext(
+        { category: 'web', providerId: LOCAL_FETCH_PROVIDER_ID },
+        () => fetch(url, { method: 'GET', redirect: 'manual', headers, signal }),
+      )
     } catch (error: unknown) {
       throw translateAbortOrNetwork(error, signal)
     }

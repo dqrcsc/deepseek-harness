@@ -1,6 +1,6 @@
 /**
  * Proxy installation: the transport half of this package. It owns undici's global dispatcher and the
- * process-wide record of which policy is active.
+ * process-wide record of which policy or dynamic router is active.
  *
  * `undici` is imported dynamically so the pure {@link ProxyPolicy} half stays loadable where no Node
  * transport exists, matching how `dsh-web-fetch-http` defers its own transport import.
@@ -8,16 +8,18 @@
  */
 
 import type { Dispatcher, Pool } from 'undici'
+import { currentTrafficContext, type TrafficContext } from './context.ts'
 import {
+  isLoopbackHost,
   isSupportedProxyUrl,
   POLICY_ENV_NAMES,
   PROXY_ENV_NAMES,
   proxyForUrl,
   resolveProxyPolicy,
+  withLoopback,
   type EnvLookup,
   type ProxyPolicy,
 } from './policy.ts'
-
 
 /** The active policy, or `undefined` until one is installed. Process-wide, like the dispatcher it tracks. */
 let active: ProxyPolicy | undefined
@@ -36,6 +38,75 @@ let inheritedProxyEnv: Readonly<Record<string, string | undefined>> | undefined
 
 /** The dispatcher installed with {@link active}, so a route can hand back the one already routing. */
 let installed: Dispatcher | undefined
+
+/**
+ * Per-request routing decision returned by a dynamic proxy router.
+ */
+export type DynamicProxyDecision =
+  | { readonly kind: 'fallback' }
+  | { readonly kind: 'direct' }
+  | { readonly kind: 'proxy'; readonly proxyUrl: string }
+
+/**
+ * Configuration for {@link installDynamicProxyRouter}.
+ */
+export interface DynamicProxyRouterSpec extends DispatcherOptions {
+  /**
+   * Decide synchronously how one non-loopback request should egress.
+   * @param url - parsed request URL.
+   * @param context - outbound traffic attribution bound on the current async call tree.
+   * @returns `direct`, `proxy` (with an `http(s)://` proxy URL), or `fallback` (delegate to launch environment policy).
+   */
+  resolve(url: URL, context: TrafficContext | undefined): DynamicProxyDecision
+  /**
+   * Optional child-process HTTP(S) proxy URL supplier when subprocess proxying is enabled.
+   * Returning `undefined` preserves the standard launch-environment child policy.
+   * @returns an `http(s)://` proxy URL for child processes, or `undefined`.
+   */
+  childProxyUrl?(): string | undefined
+}
+
+/**
+ * Live handle returned by {@link installDynamicProxyRouter}.
+ */
+export interface DynamicProxyRouterHandle {
+  /**
+   * Gracefully close and evict one pooled `ProxyAgent` when a loopback gateway port retires.
+   * @param proxyUrl - exact proxy URL to evict from the pool.
+   * @returns a promise that settles once the pooled agent finishes closing.
+   */
+  evictProxy(proxyUrl: string): Promise<void>
+  /**
+   * Uninstall the dynamic router, restore the previous dispatcher, and close owned agents.
+   * @returns a promise that settles once owned dispatchers finish closing.
+   */
+  dispose(): Promise<void>
+}
+
+interface ActiveDynamicRouter {
+  readonly dispatcher: Dispatcher
+  readonly spec: DynamicProxyRouterSpec
+  resolveProxyUrl(url: URL, context: TrafficContext | undefined): string | undefined
+  previousDispatcher: Dispatcher
+  previousDynamic: ActiveDynamicRouter | undefined
+  disposed: boolean
+}
+
+function unwindDisposedDynamic(
+  savedDispatcher: Dispatcher,
+  savedDynamic: ActiveDynamicRouter | undefined,
+): { dispatcher: Dispatcher; dynamic: ActiveDynamicRouter | undefined } {
+  let dispatcher = savedDispatcher
+  let dynamic = savedDynamic
+  while (dynamic?.disposed === true) {
+    dispatcher = dynamic.previousDispatcher
+    dynamic = dynamic.previousDynamic
+  }
+  return { dispatcher, dynamic }
+}
+
+/** Process-wide dynamic router layered over {@link active}, when mounted. */
+let dynamicRouter: ActiveDynamicRouter | undefined
 
 /**
  * How this process must send one request.
@@ -72,12 +143,51 @@ function h2Options(options: DispatcherOptions): { readonly allowH2?: boolean } {
 }
 
 /**
+ * Resolve the effective proxy URL for one request under a dynamic router specification and the
+ * underlying environment policy.
+ */
+function evaluateDynamicProxyUrl(
+  spec: DynamicProxyRouterSpec,
+  fallbackPolicy: ProxyPolicy | undefined,
+  url: URL,
+  context: TrafficContext | undefined,
+): string | undefined {
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
+  if (isLoopbackHost(url.hostname)) return undefined
+  if (context?.bypassProxy === true) return undefined
+  const decision = spec.resolve(url, context)
+  switch (decision.kind) {
+    case 'direct':
+      return undefined
+    case 'proxy':
+      return isSupportedProxyUrl(decision.proxyUrl) ? decision.proxyUrl : undefined
+    case 'fallback':
+      return fallbackPolicy === undefined ? undefined : proxyForUrl(fallbackPolicy, url)
+  }
+}
+
+/**
+ * Parse undici `DispatchOptions` origin and path into a `URL` for routing evaluation.
+ */
+function parseDispatchUrl(origin: Dispatcher.DispatchOptions['origin'], path: string): URL | undefined {
+  if (origin === undefined) return undefined
+  const base = typeof origin === 'string' ? origin : origin.toString()
+  const relativePath = path.startsWith('/') ? path : '/'
+  return URL.parse(relativePath, base) ?? undefined
+}
+
+/**
  * Decide how to send one request, and hand back the transport that decision assumed.
  *
  * @param url - the request URL.
  * @returns the proxied route with its proxy URL and dispatcher, or the direct route.
  */
 export function proxyRouteFor(url: URL): ProxyRoute {
+  const dynamic = dynamicRouter
+  if (dynamic !== undefined) {
+    const proxy = dynamic.resolveProxyUrl(url, currentTrafficContext())
+    return proxy === undefined ? DIRECT_ROUTE : { proxied: true, proxy, dispatcher: dynamic.dispatcher }
+  }
   const policy = active
   const dispatcher = installed
   if (policy === undefined || dispatcher === undefined) return DIRECT_ROUTE
@@ -147,13 +257,7 @@ function writeProxyEnv(values: Readonly<Record<string, string | undefined>>): ()
 }
 
 /**
- * Build the global dispatcher for one policy.
- *
- * Routing runs through {@link proxyForUrl} per origin, so `fetch` and every caller that asks where a
- * URL goes read the same answer from the same matcher. undici's `EnvHttpProxyAgent` cannot express
- * this policy: with no `HTTPS_PROXY` present it reuses the HTTP proxy for `https:`, which would
- * tunnel a scheme this package deliberately keeps direct after refusing the SOCKS or malformed URL
- * the user named for it — the route and the diagnostic would then disagree.
+ * Build the global dispatcher for one static policy.
  *
  * @param policy - the policy to route by; it must proxy at least one scheme.
  * @param options - optional dispatcher overrides; `allowH2` unset keeps undici's own default.
@@ -161,36 +265,153 @@ function writeProxyEnv(values: Readonly<Record<string, string | undefined>>): ()
  */
 async function createPolicyDispatcher(policy: ProxyPolicy, options: DispatcherOptions = {}): Promise<Dispatcher> {
   const { Agent, Pool, ProxyAgent } = await import('undici')
-  // The HTTP/2 choice is the caller's: undici enables it by default, and a caller that cannot
-  // tolerate an idle h2 session's informational `UND_ERR_INFO` error passes `allowH2: false`
-  // instead of changing the process-wide default for every other outbound request.
   const h2 = h2Options(options)
   return new Agent({
     ...h2,
     factory(origin, passedOptions) {
-      // undici declares this parameter as `Object`, discarding the pool options it actually passes.
       const passed = passedOptions as Pool.Options
       const proxy = proxyForUrl(policy, new URL(origin.toString()))
       if (proxy !== undefined) return new ProxyAgent({ ...passed, uri: proxy, ...h2 })
-      // What undici's own default factory builds for these options, which `factory` replaces
-      // wholesale. It reaches for a bare `Client` only at `connections: 1`, an option this
-      // dispatcher never carries: it is constructed with undici's defaults.
       return new Pool(origin, { ...passed, ...h2 })
     },
   })
 }
 
 /**
+ * Build a hot-swappable `Dispatcher` that evaluates {@link DynamicProxyRouterSpec.resolve} on every
+ * request against the current {@link TrafficContext} and pools one `ProxyAgent` per upstream proxy URL.
+ */
+async function createDynamicDispatcher(
+  spec: DynamicProxyRouterSpec,
+  fallbackPolicyReader: () => ProxyPolicy | undefined,
+): Promise<{
+  dispatcher: Dispatcher
+  evictProxy: (proxyUrl: string) => Promise<void>
+  resolveProxyUrl: (url: URL, context: TrafficContext | undefined) => string | undefined
+}> {
+  const { Agent, Dispatcher: UndiciDispatcher, ProxyAgent } = await import('undici')
+  const h2 = h2Options(spec)
+  const directAgent = new Agent(h2)
+  const proxyAgents = new Map<string, Dispatcher>()
+
+  const proxyAgentFor = (proxyUrl: string): Dispatcher => {
+    const existing = proxyAgents.get(proxyUrl)
+    if (existing !== undefined) return existing
+    const created = new ProxyAgent({ uri: proxyUrl, ...h2 })
+    proxyAgents.set(proxyUrl, created)
+    return created
+  }
+
+  const resolveProxyUrl = (url: URL, context: TrafficContext | undefined): string | undefined =>
+    evaluateDynamicProxyUrl(spec, fallbackPolicyReader(), url, context)
+
+  const closeAll = async (): Promise<void> => {
+    const agents = [...proxyAgents.values()]
+    proxyAgents.clear()
+    await Promise.all([directAgent.close(), ...agents.map(agent => agent.close())])
+  }
+
+  const destroyAll = async (err: Error | null): Promise<void> => {
+    const agents = [...proxyAgents.values()]
+    proxyAgents.clear()
+    await Promise.all([
+      err === null ? directAgent.destroy() : directAgent.destroy(err),
+      ...agents.map(agent => (err === null ? agent.destroy() : agent.destroy(err))),
+    ])
+  }
+
+  class DynamicDispatcher extends UndiciDispatcher {
+    override dispatch(options: Dispatcher.DispatchOptions, handler: Dispatcher.DispatchHandler): boolean {
+      const url = parseDispatchUrl(options.origin, options.path)
+      if (url === undefined) return directAgent.dispatch(options, handler)
+      const proxyUrl = resolveProxyUrl(url, currentTrafficContext())
+      const target = proxyUrl === undefined ? directAgent : proxyAgentFor(proxyUrl)
+      return target.dispatch(options, handler)
+    }
+
+    override close(): Promise<void>
+    override close(callback: () => void): void
+    override close(callback?: () => void): Promise<void> | void {
+      const task = closeAll()
+      if (callback !== undefined) {
+        void task.then(() => { callback() })
+        return
+      }
+      return task
+    }
+
+    override destroy(err?: Error | null): Promise<void>
+    override destroy(callback: () => void): void
+    override destroy(err: Error | null, callback: () => void): void
+    override destroy(errOrCallback?: Error | null | (() => void), maybeCallback?: () => void): Promise<void> | void {
+      const callback = typeof errOrCallback === 'function' ? errOrCallback : maybeCallback
+      const err = typeof errOrCallback === 'function' || errOrCallback === undefined ? null : errOrCallback
+      const task = destroyAll(err)
+      if (callback !== undefined) {
+        void task.then(() => { callback() })
+        return
+      }
+      return task
+    }
+  }
+
+  const evictProxy = async (proxyUrl: string): Promise<void> => {
+    const existing = proxyAgents.get(proxyUrl)
+    if (existing === undefined) return
+    proxyAgents.delete(proxyUrl)
+    await existing.close()
+  }
+
+  return { dispatcher: new DynamicDispatcher(), evictProxy, resolveProxyUrl }
+}
+
+/**
+ * Install a hot-swappable dynamic proxy router as undici's global dispatcher.
+ *
+ * Requests whose resolver returns `{ kind: 'fallback' }` continue honoring any outer policy
+ * installed via {@link installProxyFromEnvironment}. Disposing the handle restores the previous
+ * dispatcher and closes every pooled `ProxyAgent` after in-flight requests settle.
+ *
+ * @param spec - synchronous per-request route resolver and optional child-process proxy supplier.
+ * @returns a handle supporting graceful proxy-pool eviction and full teardown.
+ */
+export async function installDynamicProxyRouter(spec: DynamicProxyRouterSpec): Promise<DynamicProxyRouterHandle> {
+  const { getGlobalDispatcher, setGlobalDispatcher } = await import('undici')
+  const { dispatcher, evictProxy, resolveProxyUrl } = await createDynamicDispatcher(spec, () => active)
+  const entry: ActiveDynamicRouter = {
+    dispatcher,
+    spec,
+    resolveProxyUrl,
+    previousDispatcher: getGlobalDispatcher(),
+    previousDynamic: dynamicRouter,
+    disposed: false,
+  }
+  dynamicRouter = entry
+  setGlobalDispatcher(dispatcher)
+  return {
+    evictProxy,
+    async dispose(): Promise<void> {
+      if (entry.disposed) return
+      entry.disposed = true
+      if (dynamicRouter === entry) {
+        dynamicRouter = entry.previousDynamic
+        setGlobalDispatcher(entry.previousDispatcher)
+      } else {
+        for (let cursor = dynamicRouter; cursor !== undefined; cursor = cursor.previousDynamic) {
+          if (cursor.previousDynamic === entry) {
+            cursor.previousDynamic = entry.previousDynamic
+            cursor.previousDispatcher = entry.previousDispatcher
+            break
+          }
+        }
+      }
+      await dispatcher.close()
+    },
+  }
+}
+
+/**
  * Route this process's outbound HTTP through `policy`.
- *
- * Installing replaces undici's global dispatcher, which is what Node's built-in `fetch` resolves, so
- * every caller that issues a plain `fetch()` is covered without knowing this package exists. A policy
- * that proxies nothing installs a direct dispatcher and leaves the environment untouched.
- *
- * A worker thread has its own `globalThis` and so its own dispatcher; installing here does not
- * reach it. No worker installs one today: both this repository ships — the workflow engine and the
- * PTC runtime — evaluate model-authored scripts, which must not receive a proxy URL that may carry
- * credentials. A worker that needs the policy has to be handed one explicitly and install it itself.
  *
  * @param policy - the resolved policy to install.
  * @param options - optional dispatcher overrides; `allowH2` unset keeps undici's own default.
@@ -198,12 +419,9 @@ async function createPolicyDispatcher(policy: ProxyPolicy, options: DispatcherOp
  */
 async function installGlobalProxy(policy: ProxyPolicy, options: DispatcherOptions = {}): Promise<() => Promise<void>> {
   const previousPolicy = active
+  const previousDynamic = dynamicRouter
   if (policy.source === 'none') {
-    // A direct policy mounted over an installed one must actually stop proxying. Recording the policy
-    // alone would leave the previous agent as the global dispatcher, so a plain `fetch()` would keep
-    // tunnelling while `proxyForUrl()` reported a direct connection — and `mode: 'off'` would be a
-    // silent no-op. With nothing installed there is nothing to displace.
-    if (previousPolicy === undefined) {
+    if (previousPolicy === undefined && previousDynamic === undefined) {
       active = policy
       return () => {
         active = previousPolicy
@@ -211,10 +429,6 @@ async function installGlobalProxy(policy: ProxyPolicy, options: DispatcherOption
       }
     }
     const previousInstalled = installed
-    // The install underneath published its normalized policy into `process.env`, which is what a
-    // spawned child copies. With no policy active there is no normalization to stand behind, so the
-    // user's own values return for the window and the outer install's come back when it ends. An
-    // install underneath that proxied nothing published nothing, and there is nothing to put back.
     const restoreEnv = inheritedProxyEnv === undefined ? undefined : writeProxyEnv(inheritedProxyEnv)
     const undici = await import('undici')
     const previous = undici.getGlobalDispatcher()
@@ -222,10 +436,13 @@ async function installGlobalProxy(policy: ProxyPolicy, options: DispatcherOption
     undici.setGlobalDispatcher(direct)
     active = policy
     installed = undefined
+    dynamicRouter = undefined
     return async () => {
-      undici.setGlobalDispatcher(previous)
+      const unwound = unwindDisposedDynamic(previous, previousDynamic)
+      undici.setGlobalDispatcher(unwound.dispatcher)
       active = previousPolicy
       installed = previousInstalled
+      dynamicRouter = unwound.dynamic
       restoreEnv?.()
       await direct.close()
     }
@@ -238,61 +455,54 @@ async function installGlobalProxy(policy: ProxyPolicy, options: DispatcherOption
   setGlobalDispatcher(agent)
   active = policy
   installed = agent
+  dynamicRouter = undefined
   return async () => {
-    setGlobalDispatcher(previousDispatcher)
+    const unwound = unwindDisposedDynamic(previousDispatcher, previousDynamic)
+    setGlobalDispatcher(unwound.dispatcher)
     active = previousPolicy
     installed = previousInstalled
+    dynamicRouter = unwound.dynamic
     restoreEnv()
     await agent.close()
   }
 }
 
-
-
-
 /**
  * The proxy environment a spawned child needs.
  *
- * A child inherits the parent environment, which this process rewrote to its own resolved policy.
- * Handing that normalization straight through would replace values the user set for other tools, so
- * each proxy name the user exported is restored to what they wrote: a SOCKS proxy `curl` uses is
- * not swapped for the HTTP one this package fell back to for that scheme.
- *
- * A scheme the user named in neither casing carries the resolved value instead of being removed.
- * Without that the child's routing silently diverges from its parent's: `NODE_USE_ENV_PROXY` does
- * not read `ALL_PROXY`, so a child of a parent that resolved its proxy from that name would connect
- * directly while the parent proxies.
- *
- * The bypass list is always the resolved one. It only ever adds the loopback entries to what
- * the user wrote, so nothing is lost, and the child stops sending its own localhost traffic to a
- * proxy that cannot route it.
- *
- * The flag reaches only Node 22.21+ and 24+; an older runtime keeps that child direct. Such a child
- * also matches bypass entries with Node's own `NO_PROXY` rules, which differ from this package's in
- * their separators and IPv4-range support. Non-Node children (curl, git, pnpm) ignore the flag and
- * read the variables themselves.
- *
- * The flag is withheld when a proxy value the child receives is one this package refused. Node
- * parses `HTTP_PROXY` and `HTTPS_PROXY` under that flag before running the program, and exits on a
- * scheme other than `http:` or `https:` — so a SOCKS value kept for `curl` would stop every Node
- * child from starting. Without the flag such a child connects directly, as this process already
- * reported for that scheme, and `curl` still reads the value it was kept for.
- *
- * A worker thread is deliberately NOT served here — see the workflow engine, which runs
- * model-authored scripts and must not receive a proxy URL that may carry credentials.
+ * When an active dynamic router supplies a `childProxyUrl()`, spawned tool subprocesses receive
+ * that loopback gateway URL together with `NODE_USE_ENV_PROXY=1` and the loopback-merged `NO_PROXY`.
+ * Otherwise the child inherits the user's own launch-environment proxy variables and resolved bypass list.
  *
  * @returns names to apply to the child environment, where `undefined` means remove, or an empty
  *   object when no proxy is active.
  */
 export function proxyEnvironmentForChild(): Readonly<Record<string, string | undefined>> {
+  const dynamicChildProxy = dynamicRouter?.spec.childProxyUrl?.()
+  if (dynamicChildProxy !== undefined && isSupportedProxyUrl(dynamicChildProxy)) {
+    const rawNoProxy = inheritedProxyEnv?.no_proxy
+      ?? inheritedProxyEnv?.NO_PROXY
+      ?? process.env.no_proxy
+      ?? process.env.NO_PROXY
+    const noProxy = withLoopback(rawNoProxy)
+    return {
+      NODE_USE_ENV_PROXY: '1',
+      http_proxy: dynamicChildProxy,
+      HTTP_PROXY: dynamicChildProxy,
+      https_proxy: dynamicChildProxy,
+      HTTPS_PROXY: dynamicChildProxy,
+      all_proxy: dynamicChildProxy,
+      ALL_PROXY: dynamicChildProxy,
+      no_proxy: noProxy,
+      NO_PROXY: noProxy,
+    }
+  }
   const policy = active
   const inherited = inheritedProxyEnv
   if (policy === undefined || policy.source === 'none' || inherited === undefined) return {}
   const overlay: Record<string, string | undefined> = { NODE_USE_ENV_PROXY: '1' }
   for (const [field, names] of Object.entries(POLICY_ENV_NAMES)) {
     const resolved = policy[field as keyof typeof POLICY_ENV_NAMES]
-    // Naming a scheme in either casing claims that scheme: the child then gets exactly what the
-    // user wrote, in the casing they wrote it, rather than a value derived for this process.
     const named = field !== 'noProxy' && names.some(name => inherited[name] !== undefined)
     for (const name of names) overlay[name] = named ? inherited[name] : resolved
   }
@@ -305,14 +515,6 @@ export function proxyEnvironmentForChild(): Readonly<Record<string, string | und
 
 /**
  * Resolve this process's proxy policy from `env` and install it.
- *
- * Resolution, reporting, and installation are one operation because no caller needs them apart: the
- * launcher does all three in sequence before the first plugin mounts, and a policy resolved but not
- * installed routes nothing.
- *
- * A value the environment supplies but this package cannot use is reported and skipped rather than
- * thrown: the variable may have been exported for another tool, and a proxy the harness cannot use
- * must not stop the agent from starting.
  *
  * @param env - the launch environment, whose own layering already prefers real variables over `.env` files.
  * @param report - receives one message per rejected value, in the order the values were considered.
@@ -331,13 +533,10 @@ export async function installProxyFromEnvironment(
 
 /**
  * Build a dispatcher for callers that need their own transport choices without replacing the
- * process-wide dispatcher. It routes by the environment's resolved policy and carries the same
- * matcher the global install does, so a per-call dispatcher never disagrees with the launcher.
+ * process-wide dispatcher. When a dynamic proxy router is active, the returned dispatcher honors
+ * live routing changes under the caller's `options`; otherwise it routes by `env`'s static policy.
  *
- * The caller owns the dispatcher and closes it once its last request finishes; one dispatcher
- * shared across a caller's requests keeps its connection pools.
- *
- * @param env - the launch environment the policy resolves from.
+ * @param env - the launch environment the fallback policy resolves from.
  * @param options - optional dispatcher overrides; `allowH2: false` pins the transport to HTTP/1.1.
  * @returns a dispatcher the caller closes.
  */
@@ -346,6 +545,14 @@ export async function createRouteDispatcher(
   options: DispatcherOptions = {},
 ): Promise<Dispatcher> {
   const { policy } = resolveProxyPolicy(env)
+  const currentDynamic = dynamicRouter
+  if (currentDynamic !== undefined) {
+    const { dispatcher } = await createDynamicDispatcher(
+      { ...currentDynamic.spec, ...options },
+      () => (policy.source === 'none' ? undefined : policy),
+    )
+    return dispatcher
+  }
   const dispatcher = policy.source === 'none'
     ? await (async () => {
       const { Agent } = await import('undici')
@@ -357,9 +564,6 @@ export async function createRouteDispatcher(
 
 /**
  * The environment overlay that removes every proxy name from a spawned child.
- *
- * A harness that replays a recorded session must reach its own fixture server, not the proxy a
- * developer or a CI runner exported; `undefined` is how a spawn removes a name it inherits.
  *
  * @returns one entry per proxy name, each `undefined`.
  */

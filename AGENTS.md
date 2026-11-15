@@ -24,6 +24,7 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   shell/                command execution
   subprocess/           child-process management
   ssh/                  SSH execution providers
+  network/              VPN tunnels and smart routing
   terminal/             persistent terminals
   ptc-runtime/          PTC execution
   sandbox/              process confinement

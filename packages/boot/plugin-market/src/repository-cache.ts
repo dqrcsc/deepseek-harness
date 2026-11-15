@@ -11,6 +11,7 @@ import { mkdir, mkdtemp, readdir, rename, rm, stat, utimes } from 'node:fs/promi
 import { join } from 'node:path'
 import { execa } from 'execa'
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
+import { runWithTrafficContext } from '@deepseek-ai/dsh-http-proxy'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import { DetailFailure, readmeName, type FoundFile } from '@deepseek-ai/dsh-plugin-detail'
 
@@ -151,7 +152,10 @@ export class RepositoryCache {
     const endpoint = `${url}/info/refs?service=git-upload-pack`
     let response: Response
     try {
-      response = await fetch(endpoint, { redirect: 'manual', signal: AbortSignal.any([this.options.lifetime, AbortSignal.timeout(this.options.timeoutMs)]) })
+      response = await runWithTrafficContext(
+        { category: 'plugin' },
+        () => fetch(endpoint, { redirect: 'manual', signal: AbortSignal.any([this.options.lifetime, AbortSignal.timeout(this.options.timeoutMs)]) }),
+      )
     } catch (error) {
       throw new DetailFailure('network', `Could not reach ${endpoint}: ${(error as Error).message}`, { cause: error })
     }

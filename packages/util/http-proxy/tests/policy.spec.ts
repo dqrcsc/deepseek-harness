@@ -3,8 +3,10 @@ import type { EnvLookup } from '../src/policy.ts'
 import {
   bypassesProxy,
   isLoopbackHost,
+  isPrivateNetworkHost,
   proxyForUrl,
   resolveProxyPolicy,
+  withLoopback,
   DIRECT_POLICY,
 } from '../src/policy.ts'
 
@@ -62,6 +64,52 @@ describe('loopback routing', () => {
     expect(isLoopbackHost('::ffff:7f00:1')).toBe(true)
     expect(isLoopbackHost('::ffff:10.0.0.1')).toBe(false)
     expect(isLoopbackHost('::ffff:a00:1')).toBe(false)
+  })
+})
+
+describe('isPrivateNetworkHost and withLoopback', () => {
+  it.each([
+    '127.0.0.1',
+    'localhost',
+    'local',
+    'nas.local',
+    'printer.local.',
+    '10.0.0.1',
+    '172.16.0.1',
+    '172.31.255.254',
+    '192.168.1.1',
+    '169.254.10.20',
+    '::ffff:192.168.1.1',
+    '::ffff:a00:1',
+    '::ffff:ac10:1',
+    '::ffff:c0a8:1',
+    '::ffff:a9fe:1',
+    '[fd00::1]',
+    '[fc12::abcd]',
+    '[fe80::1]',
+    '[febf::1]',
+  ])('classifies %s as private or local network space', (host) => {
+    expect(isPrivateNetworkHost(host)).toBe(true)
+  })
+
+  it.each([
+    '8.8.8.8',
+    '1.1.1.1',
+    '172.15.255.254',
+    '172.32.0.1',
+    '192.169.1.1',
+    '169.255.1.1',
+    '::ffff:808:808',
+    '[2606:4700:4700::1111]',
+    'api.deepseek.com',
+    'notlocal',
+  ])('classifies %s as public address space', (host) => {
+    expect(isPrivateNetworkHost(host)).toBe(false)
+  })
+
+  it('merges loopback entries when undefined or wildcarded', () => {
+    expect(withLoopback(undefined)).toBe('localhost,127.0.0.1,::1,[::1]')
+    expect(withLoopback('*')).toBe('*')
   })
 })
 

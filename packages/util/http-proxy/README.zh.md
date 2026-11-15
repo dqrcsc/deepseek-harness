@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-使用本包可为采用 Node 内置 `fetch` 的 Harness 请求应用一份出站 HTTP 代理策略，包括 LLM（大语言模型）、web 搜索与 HTTP MCP 流量。启动器只读取一次标准代理环境变量，普通 `fetch` 调用方无需额外引入或改动。loopback 流量保持直连；不受支持的代理 URL 会被报告，并针对受影响的协议跳过。公共辅助函数可让调用方路由采用自有代理设置的传输、准备子进程环境，或为隔离回放清除代理变量。
+使用本包可为采用 Node 内置 `fetch` 的 Harness 请求应用启动期 HTTP 代理策略或运行时动态代理路由器，覆盖 LLM（大语言模型）、embedding、web 搜索、插件市场与 HTTP MCP 流量。普通 `fetch` 调用方无需额外引入，而 `runWithTrafficContext` 与 `streamWithTrafficContext` 可标记异步调用树，无需重启进程即可按能力与提供商分流。loopback 流量保持直连；公共辅助函数支持识别私网主机、路由 HTTP/2 传输，以及清理或注入子进程代理环境变量。
 
 ## 目录
 
@@ -34,9 +34,12 @@ kind: "package-reference"
 | 你要写的东西 | 使用 |
 |---|---|
 | 普通请求，或最终落到 `globalThis.fetch` 的 SDK | 什么都不用——全局 dispatcher 已经在路由它 |
+| 参与智能分流的出站能力或提供商调用 | 用 `runWithTrafficContext({ category, providerId }, fn)` 或 `streamWithTrafficContext({ category, providerId }, source)` 包裹调用 |
+| 运行时免重启切换路由的内置 VPN/代理服务 | `installDynamicProxyRouter({ resolve, childProxyUrl })`、`evictProxy(url)` 与 `dispose()` |
 | 需要自带传输选择的调用，例如只走 HTTP/1.1 | `createRouteDispatcher(env, { allowH2: false })`，作为 `dispatcher` 传入，用完关闭 |
 | 需要按“这次请求是否走代理”分支的调用 | `proxyRouteFor(url)` |
 | 接受自有代理 URL 的 SDK | `proxyRouteFor(url)`，把 `route.proxy` 传进去 |
+| 私网/局域网直连判定（`localhost`、RFC1918、运营商级 NAT、IPv6 链路本地/ULA） | `isPrivateNetworkHost(host)` |
 | 由你自己构造环境的 spawn | 把 `proxyEnvironmentForChild()` 应用到该 spawn（`undefined` 表示删除） |
 | 必须连到自带 fixture（测试前置数据）服务器的 harness | 把 `clearedProxyEnv()` 应用到该 spawn |
 
@@ -73,9 +76,10 @@ loopback 始终被绕过——`localhost`、整个 `127.0.0.0/8` 段、`::1`、`
 
 | 文件 | 承载 |
 |---|---|
-| `src/policy.ts` | 解析与绕过匹配；诊断只点名变量，从不带出它的值。不引入任何传输实现，因此在没有 undici 的环境中仍可加载。 |
-| `src/install.ts` | 全局 dispatcher、生效策略记录、路由与子进程环境。动态引入 undici。 |
-| `src/index.ts` | 本包的对外接口：五个函数与两个类型。 |
+| `src/context.ts` | 基于 `AsyncLocalStorage` 的 `TrafficContext` 流量归属标注（`currentTrafficContext`、`runWithTrafficContext`、`streamWithTrafficContext`），支撑按能力与按提供商的智能分流。 |
+| `src/policy.ts` | 环境策略解析、loopback/私网主机分类（`isPrivateNetworkHost`）与绕过匹配；诊断只点名变量，从不带出它的值。不引入任何传输实现，因此在没有 undici 的环境中仍可加载。 |
+| `src/install.ts` | 全局 dispatcher、支持按代理池化驱逐 `ProxyAgent` 的 `installDynamicProxyRouter`、生效策略记录、`proxyRouteFor` 与子进程代理环境。动态引入 undici。 |
+| `src/index.ts` | 公共包导出：策略/动态路由器安装、逐请求路由查询、流量上下文打标、私网主机判定与子进程环境辅助函数。 |
 
 ### 绕过匹配
 

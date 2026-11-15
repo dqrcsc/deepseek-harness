@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Tiempo de ejecución de túnel VPN",
+    "description": "Marca suscripciones de proxy cifradas y ejecuta una puerta de enlace local de enrutamiento inteligente en TypeScript puro."
+  }
+}

@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/network/README.md
+/:
+  en: 733edbca22c41c8f
+  zh: a40b5fd3a02fd25b
+/network-encrypted-tunnel-and-smart-proxy-routing:
+  en: faa1eda1e7fb05f8
+  zh: 93e405be3f512efd
+/network-encrypted-tunnel-and-smart-proxy-routing/summary:
+  en: 7b230e0ab0b8b4fa
+  zh: b2465533dae55f36
+/network-encrypted-tunnel-and-smart-proxy-routing/table-of-contents:
+  en: 09848f4d056e4fc1
+  zh: 8df6139cff0288f6
+/network-encrypted-tunnel-and-smart-proxy-routing/packages:
+  en: fa3c83ce77fe1b28
+  zh: 62126fa3a3798e1f
+/network-encrypted-tunnel-and-smart-proxy-routing/related-documentation:
+  en: c2284a949bc2dca3
+  zh: 7b219aaadca3b86a
+/network-encrypted-tunnel-and-smart-proxy-routing/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269

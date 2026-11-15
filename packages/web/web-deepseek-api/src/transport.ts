@@ -5,6 +5,7 @@
  * @module @deepseek-ai/dsh-web-deepseek-api/transport
  */
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
+import { runWithTrafficContext } from '@deepseek-ai/dsh-http-proxy'
 import { WebError } from '@deepseek-ai/dsh-web'
 
 const USER_AGENT = 'deepseek-harness/0.0.1'
@@ -191,7 +192,7 @@ export async function dispatchDeepSeekWeb<T>(
   let response: Response
   /* jscpd:ignore-start */
   try {
-    response = await fetch(endpoint, {
+    response = await runWithTrafficContext({ category: 'web', providerId: 'deepseek' }, () => fetch(endpoint, {
       method: 'POST',
       redirect: 'error',
       headers: {
@@ -203,7 +204,7 @@ export async function dispatchDeepSeekWeb<T>(
       },
       body: JSON.stringify(body),
       ...signal !== undefined ? { signal } : {},
-    })
+    }))
   } catch (error: unknown) {
     if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
     throw searchEndpointError(

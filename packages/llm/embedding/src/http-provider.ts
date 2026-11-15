@@ -4,6 +4,7 @@
  * @module @deepseek-ai/dsh-embedding/http-provider
  */
 
+import { runWithTrafficContext } from '@deepseek-ai/dsh-http-proxy'
 import { EmbeddingError, type EmbedOptions, type EmbeddingProvider } from './types.ts'
 
 /** Validated parameters for an OpenAI-compatible `/embeddings` endpoint. */
@@ -88,12 +89,12 @@ export function createHttpEmbeddingProvider(options: HttpEmbeddingProviderOption
 
       let response: Response
       try {
-        response = await fetchFn(endpoint, {
+        response = await runWithTrafficContext({ category: 'embedding' }, () => fetchFn(endpoint, {
           method: 'POST',
           headers,
           body: JSON.stringify(body),
           signal: combinedSignal,
-        })
+        }))
       } catch (error: unknown) {
         if (callerSignal?.aborted) {
           throw new EmbeddingError('embedding request aborted', 'EMBEDDING_ABORTED', { cause: error })

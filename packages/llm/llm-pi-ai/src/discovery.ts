@@ -23,6 +23,7 @@
  * @module dsh-llm-pi-ai/discovery
  */
 
+import { runWithTrafficContext } from '@deepseek-ai/dsh-http-proxy'
 import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@deepseek-ai/dsh-llm'
 import type { LlmDiscoveredModel, LlmModelDiscoveryOperation } from '@deepseek-ai/dsh-llm'
 import { attributionHeaders } from '@deepseek-ai/dsh-llm'
@@ -379,11 +380,14 @@ export async function discoverModels(
       headers.set('authorization', `Bearer ${apiKey}`)
     }
     for (const [name, value] of Object.entries(attributionHeaders())) headers.set(name, value)
-    response = await fetch(url, {
+    const traffic = request.provider === undefined
+      ? { category: 'llm' as const }
+      : { category: 'llm' as const, providerId: request.provider }
+    response = await runWithTrafficContext(traffic, () => fetch(url, {
       method: 'GET',
       headers,
       ...request.signal === undefined ? {} : { signal: request.signal },
-    })
+    }))
   } catch (error: unknown) {
     if (request.signal?.aborted) {
       throw new LlmError('model discovery aborted by caller', 'ABORTED', { cause: error })
