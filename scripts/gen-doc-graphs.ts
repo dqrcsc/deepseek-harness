@@ -497,7 +497,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Credential seam',
     mode: 'seam',
     implementations: ['credentials-local'],
-    consumers: ['api-settings-controller', 'llm-deepseek', 'llm-pi-ai'],
+    consumers: ['api-settings-controller', 'llm-deepseek', 'llm-pi-ai', 'network-proxy'],
     note: 'Configuration carries references to secrets; providers own the values. Consumers resolve per operation, so a rotated credential reaches the very next request; the settings controller exposes value-free views and write-only storage.',
   },
   {
@@ -538,7 +538,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'vpn-tunnel',
     title: 'Pure-TypeScript VPN tunnel runtime',
     mode: 'service',
+    consumers: ['network-proxy'],
     note: 'Parses subscription payloads, dials outbound proxy protocols in pure Node.js, ranks regional node candidates with circuit breaking, and runs the authenticated loopback HTTP and CONNECT gateway.',
+  },
+  {
+    key: 'networkProxy',
+    pkg: 'network-proxy',
+    title: 'VPN subscription and smart-routing controller',
+    mode: 'core',
+    note: 'Persists redacted subscription metadata and smart-routing policy over the network storage domain, stores secret subscription URLs and cache keys in credentials, drives dynamic per-request undici and Desktop guest routing, and runs connectivity diagnostics.',
   },
   {
     key: 'productTelemetry',
@@ -571,7 +579,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'storage-domain',
     title: 'Domain data facility',
     mode: 'core',
-    consumers: ['workspace', 'memory'],
+    consumers: ['workspace', 'memory', 'network-proxy'],
     note: 'Waits for every configured backend, then publishes the domain form as one lifecycle-bound service for typed durable state.',
   },
   {

@@ -232,6 +232,17 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'memory/setPreferences': 'owner-only', // owner persistent memory
   'memory/setSessionPolicy': 'owner-only', // owner persistent memory
   'memory/update': 'owner-only', // owner persistent memory
+  'networkProxy/addSubscription': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/importEnvSubscriptions': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/probeNodes': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/refreshSubscriptions': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/removeSubscription': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/runDiagnostics': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/selectNode': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/setMode': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/status': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/updateRouting': 'owner-only', // owner network proxy and VPN subscriptions
+  'networkProxy/updateSubscription': 'owner-only', // owner network proxy and VPN subscriptions
   'schedule/catalog': 'owner-only', // owner schedules
   'schedule/create': 'owner-only', // owner schedules
   'schedule/deliveryLimits': 'owner-only', // owner schedules

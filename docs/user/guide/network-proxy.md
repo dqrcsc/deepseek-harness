@@ -2,7 +2,15 @@
 
 English | [中文](network-proxy.zh.md)
 
-DSH routes its outbound requests — model calls, web search, page fetches, and MCP servers over HTTP — through the proxy named by the standard proxy environment variables. It reads them at launch; nothing else needs configuring. A few paths stay direct by design or by runtime limit, listed under "What stays direct" below.
+DSH routes its outbound requests — model calls, web search, page fetches, and MCP servers over HTTP — either through its built-in pure-TypeScript VPN subscription & smart-routing engine or through standard proxy environment variables (`HTTPS_PROXY` / `HTTP_PROXY`). A few paths stay direct by design or by runtime limit, listed under "What stays direct" below.
+
+## Built-in VPN subscriptions and smart routing
+
+If you have a Clash YAML or Base64/URI proxy subscription (`ss2022`, `ss`, `trojan`, `vless`, `vmess`, `socks5`, or `http`), DSH can dial it directly in Node.js without external binaries (`mihomo`, `sing-box`, or `v2ray`) and without modifying your operating system's network proxy:
+
+1. **Add or import a subscription.** Open **Settings → Network & Smart Routing** in Web or Desktop to paste a subscription URL, or put `SUB_VPN_1=https://...` in `~/.env` or `$DSH_HOME/.env` and click **Import from `.env`**. Secret URLs are stored in DSH's local credential store, cached node lists are encrypted on disk with AES-256-GCM, and `SUB_VPN_*` / `VPN_SUB_*` variables are scrubbed before child tool processes spawn.
+2. **Pick a routing mode.** `Direct` leaves the built-in tunnel idle (`0` open sockets) and falls back to `HTTP_PROXY` / `HTTPS_PROXY`. `Smart` sends domestic endpoints (such as `api.deepseek.com`) and private networks directly while routing overseas model providers, web fetches, and plugin registries through the healthiest preferred-region node (for example `美国|新加坡`, automatically demoting slow nodes above your latency ceiling). `Global` sends all non-private traffic through the tunnel unless overridden by a custom `DIRECT` rule.
+3. **Verify reachability.** Click **Run connectivity diagnostics** to test domestic and overseas endpoints side by side and inspect each target's route (`direct` vs `proxy`), HTTP status, and round-trip latency.
 
 ## Export the variables
 

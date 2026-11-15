@@ -50,6 +50,12 @@
       "path": "../../memory/memory"
     },
     {
+      "path": "../../network/vpn-tunnel"
+    },
+    {
+      "path": "../../network/network-proxy"
+    },
+    {
       "path": "../../feedback/message-feedback"
     },
     {

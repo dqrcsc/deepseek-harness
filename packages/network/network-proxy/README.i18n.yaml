@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/network/network-proxy/README.md
+/:
+  en: 86269c392e187481
+  zh: 2e358db529b81313
+/deepseek-ai-dsh-network-proxy:
+  en: 28387ddecc44750d
+  zh: ca1f6b3abec7a9f3
+/deepseek-ai-dsh-network-proxy/summary:
+  en: edd1fc867de550ad
+  zh: d2abc51e1dbf0011
+/deepseek-ai-dsh-network-proxy/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-network-proxy/use-this-package:
+  en: 21d90eabbf726929
+  zh: eb403407a9b81b1e
+/deepseek-ai-dsh-network-proxy/use-this-package/configuration:
+  en: 075b60c7890fdf02
+  zh: 068c297dde41211c
+/deepseek-ai-dsh-network-proxy/use-this-package/routing-modes-overrides-and-credential-separation:
+  en: bdf75f732984ab41
+  zh: 3251557316af1277
+/deepseek-ai-dsh-network-proxy/understand-the-implementation:
+  en: 165a21dacd073c79
+  zh: d238340b9c996bdb
+/deepseek-ai-dsh-network-proxy/understand-the-implementation/source-map:
+  en: a4d61b6939313bba
+  zh: 711247ea85def89d
+/deepseek-ai-dsh-network-proxy/further-exploration:
+  en: ed37151f15ea3ad2
+  zh: 08d15ef5db647414
+/deepseek-ai-dsh-network-proxy/model-experience:
+  en: 788fba6a2397f281
+  zh: b3b59a642565dd81
+/deepseek-ai-dsh-network-proxy/model-experience/kv-cache-effect:
+  en: 12b4926520979c86
+  zh: 0b9e4e40a74a7f94
+/deepseek-ai-dsh-network-proxy/known-limitations-and-deferred-work:
+  en: c116e32f6c60ac46
+  zh: 97254536cb493e47
+/deepseek-ai-dsh-network-proxy/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

@@ -195,6 +195,15 @@
     - id: memory-extractor
       name: '@deepseek-ai/dsh-memory-extractor'
 
+    # Pure-TypeScript VPN tunnel runtime and smart-routing proxy controller.
+    # Stays zero-socket dormant in `direct` mode until the user activates
+    # `smart` or `global` routing.
+    - id: vpn-tunnel
+      name: '@deepseek-ai/dsh-vpn-tunnel'
+
+    - id: network-proxy
+      name: '@deepseek-ai/dsh-network-proxy'
+
     # Persisted projection cache: throttled write-behind over the
     # session_projcache domain (per-record layout — one version-stamped
     # checkpoint document per session), serving the session listing's

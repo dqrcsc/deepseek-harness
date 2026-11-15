@@ -26,6 +26,20 @@ const HTTP_200_ESTABLISHED = Buffer.from('HTTP/1.1 200 Connection Established\r\
 const HTTP_400_BAD_REQUEST = Buffer.from('HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n', 'ascii')
 const HTTP_403_FORBIDDEN = Buffer.from('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n', 'ascii')
 const HTTP_502_BAD_GATEWAY = Buffer.from('HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n', 'ascii')
+const FORCE_PROXY_TOKEN = Buffer.from('force-proxy:1', 'utf8').toString('base64')
+
+function hasForceProxyHeader(headerLines: readonly string[]): boolean {
+  for (const line of headerLines.slice(1)) {
+    const colon = line.indexOf(':')
+    if (colon <= 0) continue
+    if (line.slice(0, colon).trim().toLowerCase() !== 'proxy-authorization') continue
+    const parts = line.slice(colon + 1).trim().split(/\s+/)
+    if (parts[0]?.toLowerCase() === 'basic' && parts[1] === FORCE_PROXY_TOKEN) {
+      return true
+    }
+  }
+  return false
+}
 
 /** Per-connection routing plan returned to {@link LoopbackProxyGateway} for a target `host:port`. */
 export type LoopbackGatewayRoutePlan =
@@ -41,8 +55,8 @@ export interface LoopbackProxyGatewayOptions {
   readonly connectTimeoutMs?: number
   /** Anti-FakeIP DNS resolver for direct and proxy dials. */
   readonly dnsResolver: RealDnsResolver
-  /** Compute the routing plan and ordered candidate nodes for a target `host:port`. */
-  readonly decideTarget: (host: string, port: number) => LoopbackGatewayRoutePlan
+  /** Compute the routing plan and ordered proxy nodes for `host:port` (`forceProxy` bypasses smart `DIRECT` rules). */
+  readonly decideTarget: (host: string, port: number, forceProxy?: boolean) => LoopbackGatewayRoutePlan
   /** Invoked when a proxied stream receives its first verified upstream response byte. */
   readonly onNodeDialSuccess?: (nodeId: VpnNodeId, rttMs: number) => void
   /** Invoked when dialing or first-byte verification fails on a candidate proxy node. */
@@ -297,6 +311,8 @@ export class LoopbackProxyGateway {
       return
     }
 
+    const forceProxy = hasForceProxyHeader(lines)
+
     if (method === 'CONNECT') {
       const parsedAuthority = parseConnectAuthority(target)
       if (parsedAuthority === null) {
@@ -304,7 +320,7 @@ export class LoopbackProxyGateway {
         client.destroy()
         return
       }
-      const plan = this.options.decideTarget(parsedAuthority.host, parsedAuthority.port)
+      const plan = this.options.decideTarget(parsedAuthority.host, parsedAuthority.port, forceProxy)
       if (plan.action === 'reject') {
         await writeAll(client, HTTP_403_FORBIDDEN)
         client.destroy()
@@ -393,7 +409,7 @@ export class LoopbackProxyGateway {
     const host = parsedUrl.hostname
     const port = Number(parsedUrl.port || 80)
     const originPath = `${parsedUrl.pathname}${parsedUrl.search}`
-    const plan = this.options.decideTarget(host, port)
+    const plan = this.options.decideTarget(host, port, forceProxy)
     if (plan.action === 'reject') {
       await writeAll(client, HTTP_403_FORBIDDEN)
       client.destroy()

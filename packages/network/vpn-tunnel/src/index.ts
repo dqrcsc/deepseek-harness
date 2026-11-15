@@ -252,7 +252,13 @@ export default class VpnTunnelRuntime extends Service {
     this.ruleMatcher = new RuleMatcher([...this.customRules, ...baseRules])
   }
 
-  private decideGatewayTarget(host: string): LoopbackGatewayRoutePlan {
+  private decideGatewayTarget(host: string, forceProxy = false): LoopbackGatewayRoutePlan {
+    if (forceProxy) {
+      return {
+        action: 'proxy',
+        candidates: this.healthTracker.rankCandidates(),
+      }
+    }
     const decision = this.decideRoute(host, this.gatewayMode)
     if (decision.action === 'reject') {
       return { action: 'reject' }
@@ -292,7 +298,7 @@ export default class VpnTunnelRuntime extends Service {
         bindPort: this.resolvedConfig.bindPort,
         connectTimeoutMs: this.resolvedConfig.connectTimeoutMs,
         dnsResolver: this.dnsResolver,
-        decideTarget: host => this.decideGatewayTarget(host),
+        decideTarget: (host, _port, forceProxy) => this.decideGatewayTarget(host, forceProxy),
         onNodeDialSuccess: (nodeId, rttMs) => { this.healthTracker.recordSuccess(nodeId, rttMs) },
         onNodeDialFailure: (nodeId, reason) => { this.healthTracker.recordFailure(nodeId, reason) },
         onConnectionOpen: (nodeId) => { this.healthTracker.markConnectionStart(nodeId) },
