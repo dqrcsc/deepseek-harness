@@ -43,6 +43,25 @@ export const remoteDefaultResponses: RemoteTable = {
     'account/getNotifications': ok(null),
     'account/getNotificationContent': ok(null),
     'account/reportNotificationEvent': ok(true),
+    // ui-settings-network sidebar footer status pill on first mount and on `connection/reset`.
+    'networkProxy/status': ok({
+      mode: 'direct',
+      routing: {
+        preferRegion: '美国|新加坡',
+        maxPreferredLatencyMs: 4_000,
+        proxySubprocesses: true,
+        proxyBrowserGuests: true,
+        providerOverrides: {},
+        capabilityOverrides: {},
+        customRules: [],
+      },
+      subscriptions: [],
+      gateway: null,
+      nodes: [],
+      selectedNodeId: null,
+      pinnedNodeId: null,
+      ambientEnvCandidates: [],
+    }),
   },
   // Stream endpoints the roster opens later than boot; declared so a spec that forgets the script gets a stream miss.
   streams: [

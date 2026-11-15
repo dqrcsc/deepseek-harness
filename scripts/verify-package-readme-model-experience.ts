@@ -70,6 +70,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/telemetry/otel': { kind: 'none', reason: 'The service delivers caller-selected records without changing model context.' },
   'packages/network/vpn-tunnel': { kind: 'none', reason: 'The service tunnels outbound bytes without changing model context.' },
   'packages/network/network-proxy': { kind: 'none', reason: 'The Host VPN subscription, smart-routing policy, and connectivity diagnostics service routes outbound transport without registering any prompt section, message, schema, or tool.' },
+  'packages/client/ui-settings-network': { kind: 'none', reason: 'Browser settings and sidebar proxy controls configure Host outbound transport without registering prompts, tools, or Session events.' },
   'packages/host/product-telemetry-otel': { kind: 'none', reason: 'The plugin exports explicit analytics records without contributing model context.' },
   'packages/api/terminal-controller': { kind: 'indirect', reason: 'Working-directory recovery owns directory context; user terminal screens never enter model requests.' },
   'packages/client/ui-sidebar-terminal': { kind: 'none', reason: 'The browser renders user terminal screens without exposing them to the model.' },
