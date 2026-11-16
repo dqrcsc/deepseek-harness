@@ -4805,6 +4805,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'nodeId', description: 'target node identifier, or `null` for automatic mode.' }],
       },
       {
+        signature: 'penalizeNode(nodeId: VpnNodeId, reason: string, cooldownMs?: number): void',
+        description: 'Quarantine `nodeId` immediately when an upstream service rejects its exit IP or region despite transport reachability.',
+        parameters: [{ name: 'nodeId', description: 'node identifier to quarantine.' }, { name: 'reason', description: 'redacted quarantine reason recorded on the node snapshot.' }, { name: 'cooldownMs', description: 'quarantine duration in milliseconds (defaults to `1_800_000`, 30 minutes).' }],
+      },
+      {
         signature: 'decideRoute(host: string, mode: \'direct\' | \'smart\' | \'global\' = this.gatewayMode): VpnRouteDecision',
         description: 'Evaluate the routing disposition (`proxy`, `direct`, or `reject`) for `host` under `mode`.',
         parameters: [{ name: 'host', description: 'destination hostname or IP literal.' }, { name: 'mode', description: 'routing mode (`direct`, `smart`, or `global`; defaults to the active gateway mode).' }],
@@ -8694,7 +8699,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ProbeNodesOptions',
-    declaration: 'export interface ProbeNodesOptions {\n    readonly nodeIds?: readonly VpnNodeId[];\n    readonly limit?: number;\n    readonly probeUrl?: string;\n    readonly timeoutMs?: number;\n    readonly concurrency?: number;\n    readonly signal?: AbortSignal;\n    readonly skipTargetCertVerify?: boolean;\n}',
+    declaration: 'export interface ProbeNodesOptions {\n    readonly nodeIds?: readonly VpnNodeId[];\n    readonly subscriptionId?: VpnSubscriptionId;\n    readonly limit?: number;\n    readonly probeUrl?: string;\n    readonly timeoutMs?: number;\n    readonly concurrency?: number;\n    readonly signal?: AbortSignal;\n    readonly skipTargetCertVerify?: boolean;\n}',
   },
   {
     name: 'ProbeUrlOptions',
@@ -11162,7 +11167,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'VpnTunnelStateSnapshot',
-    declaration: 'export interface VpnTunnelStateSnapshot {\n    readonly gateway: VpnGatewayEndpoint | null;\n    readonly nodes: readonly NodeHealthSnapshot[];\n    readonly selectedNodeId: VpnNodeId | null;\n    readonly pinnedNodeId: VpnNodeId | null;\n    readonly preferRegion: string;\n    readonly maxPreferredLatencyMs: number;\n}',
+    declaration: 'export interface VpnTunnelStateSnapshot {\n    readonly gateway: VpnGatewayEndpoint | null;\n    readonly nodes: readonly NodeHealthSnapshot[];\n    readonly selectedNodeId: VpnNodeId | null;\n    readonly lastRoutedNodeId: VpnNodeId | null;\n    readonly pinnedNodeId: VpnNodeId | null;\n    readonly preferRegion: string;\n    readonly maxPreferredLatencyMs: number;\n}',
   },
   {
     name: 'WebBootBatch',

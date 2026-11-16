@@ -116,6 +116,7 @@ export async function probeNodeThroughTunnel(
       dnsResolver: options.dnsResolver,
       timeoutMs: options.timeoutMs,
       signal: combinedSignal,
+      deferHandshakeWrite: true,
     })
 
     activeStream = isHttps

@@ -328,7 +328,7 @@ export class LoopbackProxyGateway {
       }
       let dialed: DialedUpstream
       try {
-        dialed = await this.openUpstreamForPlan(plan, parsedAuthority.host, parsedAuthority.port, bufferedPayload)
+        dialed = await this.openUpstreamForPlan(plan, parsedAuthority.host, parsedAuthority.port, bufferedPayload, true)
       } catch {
         await writeAll(client, HTTP_502_BAD_GATEWAY)
         client.destroy()
@@ -375,6 +375,7 @@ export class LoopbackProxyGateway {
               parsedAuthority.host,
               parsedAuthority.port,
               firstClientPayload,
+              true,
             )
           } catch {
             client.destroy()
@@ -423,7 +424,7 @@ export class LoopbackProxyGateway {
 
     let dialed: DialedUpstream
     try {
-      dialed = await this.openUpstreamForPlan(plan, host, port, initialUpstreamPayload)
+      dialed = await this.openUpstreamForPlan(plan, host, port, initialUpstreamPayload, true)
     } catch {
       await writeAll(client, HTTP_502_BAD_GATEWAY)
       client.destroy()
@@ -462,6 +463,7 @@ export class LoopbackProxyGateway {
     host: string,
     port: number,
     initialPayload?: Buffer,
+    deferHandshakeWrite = false,
   ): Promise<DialedUpstream> {
     if (plan.action === 'direct') {
       const startedAtMs = performance.now()
@@ -478,7 +480,7 @@ export class LoopbackProxyGateway {
       throw new VpnTunnelError('VPN_NO_HEALTHY_NODE', 'No proxy nodes available for tunnel routing')
     }
 
-    const maxAttempts = Math.min(3, plan.candidates.length)
+    const maxAttempts = Math.min(4, plan.candidates.length)
     let lastError: unknown
     for (let i = 0; i < maxAttempts; i += 1) {
       const candidate = plan.candidates[i] as ProxyNodeConfig
@@ -488,6 +490,7 @@ export class LoopbackProxyGateway {
         upstream = await dialProxyNode(candidate, host, port, {
           dnsResolver: this.options.dnsResolver,
           timeoutMs: this.connectTimeoutMs,
+          deferHandshakeWrite,
         })
         if (initialPayload !== undefined && initialPayload.length > 0) {
           const firstReply = await this.sendAndReadFirstUpstreamChunk(upstream, initialPayload)

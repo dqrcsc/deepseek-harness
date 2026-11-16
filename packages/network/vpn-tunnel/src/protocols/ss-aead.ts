@@ -64,13 +64,20 @@ export function deriveSsSubkey(masterKey: Uint8Array, salt: Uint8Array, keySize:
   return Buffer.from(hkdfSync('sha1', masterKey, salt, SS_SUBKEY_INFO, keySize))
 }
 
+/** Handshake options for {@link dialShadowsocksAead}. */
+export interface DialShadowsocksAeadOptions {
+  /** Defer emitting the salt and encrypted target header until the first outbound plaintext write. */
+  readonly deferHandshakeWrite?: boolean
+}
+
 /**
- * Send the classic Shadowsocks AEAD salt and encrypted SOCKS5 target-address chunk over `transport`
- * and return an authenticated `Duplex` stream.
+ * Send (or defer onto the first outbound write) the classic Shadowsocks AEAD salt and encrypted SOCKS5
+ * target-address chunk over `transport` and return an authenticated `Duplex` stream.
  * @param transport - underlying TCP, TLS, `simple-obfs`, or WebSocket duplex.
  * @param node - classic Shadowsocks AEAD node configuration.
  * @param targetHost - destination hostname or IP literal.
  * @param targetPort - destination TCP port.
+ * @param options - optional deferred handshake coalescing configuration.
  * @returns plaintext `Duplex` tunnel stream.
  */
 export async function dialShadowsocksAead(
@@ -78,6 +85,7 @@ export async function dialShadowsocksAead(
   node: ProxyNodeConfig,
   targetHost: string,
   targetPort: number,
+  options?: DialShadowsocksAeadOptions,
 ): Promise<Duplex> {
   const rawCipher = node.cipher ?? ''
   const spec = SS_AEAD_CIPHERS[rawCipher.toLowerCase()]
@@ -97,8 +105,12 @@ export async function dialShadowsocksAead(
   lenBuf.writeUInt16BE(addrBytes.length, 0)
   const encAddrLen = aeadSeal(spec.algorithm, c2sKey, nonce12LittleEndian(0n), lenBuf)
   const encAddr = aeadSeal(spec.algorithm, c2sKey, nonce12LittleEndian(1n), addrBytes)
+  const headerPrefix = Buffer.concat([reqSalt, encAddrLen, encAddr])
 
-  await writeAll(transport, Buffer.concat([reqSalt, encAddrLen, encAddr]))
+  const deferWrite = options?.deferHandshakeWrite ?? false
+  if (!deferWrite) {
+    await writeAll(transport, headerPrefix)
+  }
 
   return createShadowsocksAeadDuplex({
     transport,
@@ -107,6 +119,7 @@ export async function dialShadowsocksAead(
     initialEncodeCounter: 2n,
     maxChunkPayload: 0x3fff,
     lengthMask: 0x3fff,
+    ...(deferWrite ? { firstWritePrefix: headerPrefix } : {}),
     initDecoder(buffered: Buffer) {
       if (buffered.length < spec.saltSize) return null
       const respSalt = buffered.subarray(0, spec.saltSize)

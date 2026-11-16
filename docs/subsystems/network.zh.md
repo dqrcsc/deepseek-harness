@@ -4,7 +4,7 @@
 
 [VPN 隧道插件](../../packages/network/vpn-tunnel/README.zh.md)注册 `ctx.vpnTunnel`，提供纯 TypeScript 出站代理引擎与绑定在 `127.0.0.1` 上的混合 HTTP/CONNECT + SOCKS5 回环网关。它负责解析 Clash YAML 与 Base64/纯文本代理 URI 订阅、通过 HTTP `Date` 响应头校准服务器时钟偏移、在遭遇 `198.18.0.0/15` FakeIP 劫持时通过纯净 UDP DNS 查询真实代理节点 IP，并在 TCP、TLS、`simple-obfs` 或 WebSocket 传输层之上拨号 `ss2022`（含 SIP023 多 PSK EIH）、`ss`、`trojan`、`vless`、`vmess`、`socks5` 与 `http` 隧道。
 
-候选节点选路按地区优先级梯队（如 `美国|新加坡`）与 EWMA 往返延迟对健康节点排序，当首选地区节点延迟超过 `maxPreferredLatencyMs` 时自动降级至更快的备选梯队，并通过指数退避熔断器隔离连续失败节点。本地与私有网段目标（`localhost`、RFC 1918、RFC 6598、IPv6 ULA/链路本地地址）始终直连绕过隧道，所有状态快照与错误报告均自动脱敏原始 URL、节点域名、IP 字面量与凭据密钥。
+候选节点选路按地区优先级梯队（如 `新加坡|日本|美国, 台湾`）与 EWMA 往返延迟对健康节点排序，当首选地区节点延迟超过 `maxPreferredLatencyMs` 时自动降级至更快的备选梯队，并通过指数退避熔断器与应用层隔离冷却机制剔除故障节点及被上游地区封锁的节点。本地与私有网段目标（`localhost`、RFC 1918、RFC 6598、IPv6 ULA/链路本地地址）始终直连绕过隧道，所有状态快照与错误报告均自动脱敏原始 URL、节点域名、IP 字面量与凭据密钥。
 
 [网络代理控制器](../../packages/network/network-proxy/README.zh.md)注册 `ctx.networkProxy`（及 `ctx.remote.networkProxy`），在 `network` 存储域中持久化脱敏后的订阅元数据与 `direct`／`smart`／`global` 分流策略，并将机密订阅 URL 与 256 位 AES-256-GCM 节点缓存密钥保存在 `ctx.credentials` 中。它基于调用方 `TrafficContext` 流量归因安装动态 `undici` 代理路由器，在桌面端同步 Electron `<webview>` 会话代理规则，后台自动刷新订阅，执行并发连通性诊断，并在状态变更后发出 `network-proxy/changed`。在 Web 与桌面 GUI 中，[`ui-settings-network`](../../packages/client/ui-settings-network/README.zh.md)基于 `ctx.remote.networkProxy` 挂载「网络与代理」设置分区与仅在代理激活时显示的侧栏底部状态切换控件。
 
@@ -159,6 +159,14 @@ setRoutingPolicy(policy: VpnRoutingPolicyInput): void
  * @param nodeId - target node identifier, or `null` for automatic mode.
  */
 selectNode(nodeId: VpnNodeId | null): void
+
+/**
+ * Quarantine `nodeId` immediately when an upstream service rejects its exit IP or region despite transport reachability.
+ * @param nodeId - node identifier to quarantine.
+ * @param reason - redacted quarantine reason recorded on the node snapshot.
+ * @param cooldownMs - quarantine duration in milliseconds (defaults to `1_800_000`, 30 minutes).
+ */
+penalizeNode(nodeId: VpnNodeId, reason: string, cooldownMs?: number): void
 
 /**
  * Evaluate the routing disposition (`proxy`, `direct`, or `reject`) for `host` under `mode`.

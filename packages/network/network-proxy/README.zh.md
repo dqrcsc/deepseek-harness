@@ -35,14 +35,15 @@ kind: "package-reference"
   config:
     autoRefreshCheckIntervalMs: 60000
     diagnosticTimeoutMs: 8000
-    defaultProbeLimit: 24
+    defaultProbeLimit: 64
+    autoProbeOnActivate: true
 ```
 
-所有字段均具备经过校验的默认值。`dshHome` 与 `userEnvPath` 用于在隔离测试中覆盖路径发现；`diagnosticTargets` 可替换默认的六个国内外诊断端点（`deepseek`、`openai`、`anthropic`、`gemini`、`github`、`google`）。
+所有字段均具备经过校验的默认值。`dshHome` 与 `userEnvPath` 用于在隔离测试中覆盖路径发现；`autoProbeOnActivate` 在代理模式激活时于后台自动测速未探测节点，使地区梯队选路立即收敛到实测最低延迟节点；`diagnosticTargets` 可替换默认的六个国内外诊断端点（`deepseek`、`openai`、`anthropic`、`gemini`、`github`、`google`）。
 
 ### 分流模式、覆盖策略与凭据隔离
 
-在 `direct` 模式下，回环网关保持停止，出站请求回退至环境中的 `HTTP_PROXY`／`HTTPS_PROXY` 变量。在 `smart` 模式下，私有／回环地址始终直连，显式的按模型提供商覆盖（`providerOverrides`）与按能力覆盖（面向 `web`、`mcp`、`plugin`、`embedding` 的 `capabilityOverrides`）最先求值，用户自定义规则（`customRules`）与内置国内基线规则（`deepseek.com`、`aliyuncs.com`、`volces.com`、`minimaxi.com`、`npmmirror.com`、`cn`）次之，订阅自带的 Clash 规则最后求值。在 `global` 模式下，所有非私网目标均经由当前选中的隧道节点转发，除非命中用户自定义的 `DIRECT` 或 `REJECT` 规则。
+在 `direct` 模式下，回环网关保持停止，出站请求回退至环境中的 `HTTP_PROXY`／`HTTPS_PROXY` 变量。在 `smart` 模式下，私有／回环地址始终直连，显式的按模型提供商覆盖（`providerOverrides`）与按能力覆盖（面向 `web`、`mcp`、`plugin`、`embedding` 的 `capabilityOverrides`）最先求值，用户自定义规则（`customRules`）与内置国内基线规则（`deepseek.com`、`aliyuncs.com`、`volces.com`、`minimaxi.com`、`npmmirror.com`、`cn`）次之，订阅自带的 Clash 规则最后求值。在 `global` 模式下，所有非私网目标均经由当前选中的隧道节点转发，除非命中用户自定义的 `DIRECT` 或 `REJECT` 规则。每当选中节点发生切换，或未手动固定节点的 LLM 请求在输出内容前遭遇上游地区限制错误时，`NetworkProxyService` 会立即驱逐 `ProxyAgent` 连接池中的旧长连接隧道，并在地区受限场景下隔离问题节点后自动在下一健康候选节点上重试。
 
 `importEnvSubscriptions` 扫描 `process.env`、`$DSH_HOME/.env` 与 `~/.env` 中的 `SUB_VPN_*` 与 `VPN_SUB_*` 条目，按 SHA-256 URL 摘要去重，仅将机密 URL 写入 `ctx.credentials`（`network-proxy/<id>`），并通过远程 RPC 仅暴露掩码预览（`https://host/***`）与不透明节点哈希。
 

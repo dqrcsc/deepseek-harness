@@ -24,7 +24,7 @@ import type {
 } from '@deepseek-ai/dsh-network-proxy/client'
 
 const DEFAULT_ROUTING_SNAPSHOT: NetworkProxyStatus['routing'] = Object.freeze({
-  preferRegion: '美国|新加坡',
+  preferRegion: '新加坡|日本|美国, 台湾',
   maxPreferredLatencyMs: 4_000,
   proxySubprocesses: true,
   proxyBrowserGuests: true,

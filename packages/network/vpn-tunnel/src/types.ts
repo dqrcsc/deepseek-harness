@@ -229,6 +229,8 @@ export interface VpnTunnelStateSnapshot {
   readonly nodes: readonly NodeHealthSnapshot[]
   /** Currently best auto-selected or pinned node identifier, or `null` when no node is available. */
   readonly selectedNodeId: VpnNodeId | null
+  /** Most recent node identifier opened by the loopback tunnel gateway, or `null` when none has routed yet. */
+  readonly lastRoutedNodeId: VpnNodeId | null
   /** Explicitly pinned node identifier, or `null` when automatic tier/latency selection is active. */
   readonly pinnedNodeId: VpnNodeId | null
   /** Active region-tier preference expression (for example `美国|新加坡`). */

@@ -580,11 +580,15 @@ describe('LoopbackProxyGateway, probeNodeThroughTunnel, and VpnTunnelRuntime ser
         expect(ctx.vpnTunnel.decideRoute('vip.example.com', 'global').action).toBe('proxy')
         expect(ctx.vpnTunnel.decideRoute('anything.else.example', 'global').matchedRule).toBe('MODE-GLOBAL')
 
-        // Probe nodes (ranked & explicit subset & HTTP 503 failure without error field) + probeUrl
+        // Probe nodes (ranked & subscription-filtered & explicit subset & HTTP 503 failure without error field) + probeUrl
         const batchResults = await ctx.vpnTunnel.probeNodes({ limit: 2, signal: new AbortController().signal })
         expect(batchResults.length).toBe(2)
+        const subFilteredResults = await ctx.vpnTunnel.probeNodes({ subscriptionId: SUB_ID, limit: 1 })
+        expect(subFilteredResults.length).toBe(1)
         const liveNodeId = (fetched.nodes[0] as ProxyNodeConfig).id
         const deadNodeId = (fetched.nodes[1] as ProxyNodeConfig).id
+        ctx.vpnTunnel.penalizeNode(deadNodeId, 'geo-restricted', 60_000)
+        expect(ctx.vpnTunnel.state().nodes.find(n => n.nodeId === deadNodeId)?.lastError).toBe('geo-restricted')
         const subsetResults = await ctx.vpnTunnel.probeNodes({
           nodeIds: [liveNodeId],
           skipTargetCertVerify: true,

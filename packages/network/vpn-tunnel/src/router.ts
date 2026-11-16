@@ -87,7 +87,7 @@ export interface NodeHealthTrackerOptions {
   readonly maxCooldownMs?: number
   /** Latency ceiling in milliseconds above which preferred-region nodes yield to faster fallback tiers (defaults to `4000`). */
   readonly maxPreferredLatencyMs?: number
-  /** Initial region preference string (defaults to `'美国|新加坡'`). */
+  /** Initial region preference string (defaults to `'新加坡|日本|美国, 台湾'`). */
   readonly preferRegion?: string
 }
 
@@ -95,10 +95,20 @@ interface MutableNodeStats {
   latencyMs: number | null
   consecutiveFailures: number
   circuitOpenUntilMs: number | null
+  quarantinedUntilMs: number | null
   activeConnections: number
   totalSuccesses: number
   totalFailures: number
   lastError: string | null
+}
+
+function effectiveCircuitOpenUntil(st: MutableNodeStats, nowMs: number): number | null {
+  const circuitUntil = st.circuitOpenUntilMs !== null && st.circuitOpenUntilMs > nowMs ? st.circuitOpenUntilMs : null
+  const quarantineUntil = st.quarantinedUntilMs !== null && st.quarantinedUntilMs > nowMs ? st.quarantinedUntilMs : null
+  if (circuitUntil !== null && quarantineUntil !== null) {
+    return Math.max(circuitUntil, quarantineUntil)
+  }
+  return circuitUntil ?? quarantineUntil
 }
 
 /** Tracks EWMA latency, active connections, exponential-backoff circuit state, and region-tier node ranking. */
@@ -110,6 +120,7 @@ export class NodeHealthTracker {
   private tiers: readonly RegionTier[]
   private maxPreferredLatencyMs: number
   private pinnedNodeId: VpnNodeId | null = null
+  private lastRoutedNodeId: VpnNodeId | null = null
   private readonly failureThreshold: number
   private readonly baseCooldownMs: number
   private readonly maxCooldownMs: number
@@ -119,7 +130,7 @@ export class NodeHealthTracker {
     this.baseCooldownMs = options.baseCooldownMs ?? 15_000
     this.maxCooldownMs = options.maxCooldownMs ?? 180_000
     this.maxPreferredLatencyMs = options.maxPreferredLatencyMs ?? 4000
-    this.preferRegion = options.preferRegion ?? '美国|新加坡'
+    this.preferRegion = options.preferRegion ?? '新加坡|日本|美国, 台湾'
     this.tiers = compileRegionTiers(this.preferRegion)
   }
 
@@ -139,6 +150,7 @@ export class NodeHealthTracker {
           latencyMs: null,
           consecutiveFailures: 0,
           circuitOpenUntilMs: null,
+          quarantinedUntilMs: null,
           activeConnections: 0,
           totalSuccesses: 0,
           totalFailures: 0,
@@ -151,6 +163,9 @@ export class NodeHealthTracker {
     }
     if (this.pinnedNodeId !== null && !validIds.has(this.pinnedNodeId)) {
       this.pinnedNodeId = null
+    }
+    if (this.lastRoutedNodeId !== null && !validIds.has(this.lastRoutedNodeId)) {
+      this.lastRoutedNodeId = null
     }
   }
 
@@ -215,12 +230,23 @@ export class NodeHealthTracker {
   }
 
   /**
-   * Increment active stream count on `nodeId`.
+   * Return the most recent `nodeId` opened by the loopback tunnel gateway, or `null` when none has routed yet.
+   * @returns most recently routed node identifier, or `null`.
+   */
+  getLastRoutedNodeId(): VpnNodeId | null {
+    return this.lastRoutedNodeId
+  }
+
+  /**
+   * Increment active stream count on `nodeId` and record it as the most recently routed tunnel node.
    * @param nodeId - node identifier whose active connection count increases.
    */
   markConnectionStart(nodeId: VpnNodeId): void {
     const entry = this.stats.get(nodeId)
-    if (entry !== undefined) entry.activeConnections += 1
+    if (entry !== undefined) {
+      entry.activeConnections += 1
+      this.lastRoutedNodeId = nodeId
+    }
   }
 
   /**
@@ -235,11 +261,13 @@ export class NodeHealthTracker {
   }
 
   /**
-   * Record a successful dial or probe round-trip time in milliseconds, closing any open circuit.
+   * Record a successful dial or probe round-trip time in milliseconds, closing any transient transport circuit.
+   * Active application-layer quarantines from {@link penalizeNode} remain in effect until their cooldown expires.
    * @param nodeId - node identifier that succeeded.
    * @param rttMs - measured round-trip latency in milliseconds.
+   * @param nowMs - current epoch timestamp in milliseconds.
    */
-  recordSuccess(nodeId: VpnNodeId, rttMs: number): void {
+  recordSuccess(nodeId: VpnNodeId, rttMs: number, nowMs = Date.now()): void {
     const entry = this.stats.get(nodeId)
     if (entry === undefined) return
     const clamped = Math.max(1, Math.round(rttMs))
@@ -249,7 +277,10 @@ export class NodeHealthTracker {
     entry.consecutiveFailures = 0
     entry.circuitOpenUntilMs = null
     entry.totalSuccesses += 1
-    entry.lastError = null
+    if (entry.quarantinedUntilMs === null || entry.quarantinedUntilMs <= nowMs) {
+      entry.quarantinedUntilMs = null
+      entry.lastError = null
+    }
   }
 
   /**
@@ -268,6 +299,28 @@ export class NodeHealthTracker {
       const exp = Math.min(6, entry.consecutiveFailures - this.failureThreshold)
       const cooldown = Math.min(this.maxCooldownMs, this.baseCooldownMs * (2 ** exp))
       entry.circuitOpenUntilMs = nowMs + cooldown
+    }
+  }
+
+  /**
+   * Quarantine `nodeId` immediately for `cooldownMs` when an upstream service rejects its exit IP or region
+   * despite transport reachability. Generic reachability probes update `latencyMs` without lifting an active quarantine.
+   * @param nodeId - node identifier to quarantine.
+   * @param reason - redacted quarantine reason recorded in `lastError`.
+   * @param cooldownMs - quarantine duration in milliseconds (defaults to `1_800_000`, 30 minutes).
+   * @param nowMs - current epoch timestamp in milliseconds.
+   */
+  penalizeNode(nodeId: VpnNodeId, reason: string, cooldownMs = 30 * 60_000, nowMs = Date.now()): void {
+    const entry = this.stats.get(nodeId)
+    if (entry === undefined) return
+    entry.totalFailures += 1
+    entry.lastError = reason
+    const until = nowMs + Math.max(1, Math.round(cooldownMs))
+    entry.quarantinedUntilMs = entry.quarantinedUntilMs !== null
+      ? Math.max(entry.quarantinedUntilMs, until)
+      : until
+    if (this.lastRoutedNodeId === nodeId) {
+      this.lastRoutedNodeId = null
     }
   }
 
@@ -291,7 +344,7 @@ export class NodeHealthTracker {
       readonly score: number
     } => {
       const st = this.stats.get(node.id) as MutableNodeStats
-      const isOpen = st.circuitOpenUntilMs !== null && st.circuitOpenUntilMs > nowMs ? 1 : 0
+      const isOpen = effectiveCircuitOpenUntil(st, nowMs) !== null ? 1 : 0
       const exceeds = st.latencyMs !== null && st.latencyMs > this.maxPreferredLatencyMs ? 1 : 0
       const tier = nodeRegionTierIndex(node.name, this.tiers)
       const baseLatency = st.latencyMs ?? (this.maxPreferredLatencyMs + 500)
@@ -317,7 +370,7 @@ export class NodeHealthTracker {
     const closedOnly = sorted.filter((node) => {
       if (this.pinnedNodeId !== null && node.id === this.pinnedNodeId) return true
       const st = this.stats.get(node.id) as MutableNodeStats
-      return st.circuitOpenUntilMs === null || st.circuitOpenUntilMs <= nowMs
+      return effectiveCircuitOpenUntil(st, nowMs) === null
     })
     return closedOnly.length > 0 ? closedOnly : sorted
   }
@@ -330,9 +383,7 @@ export class NodeHealthTracker {
   snapshots(nowMs = Date.now()): NodeHealthSnapshot[] {
     return this.nodes.map((node) => {
       const st = this.stats.get(node.id) as MutableNodeStats
-      const openUntil = st.circuitOpenUntilMs !== null && st.circuitOpenUntilMs > nowMs
-        ? st.circuitOpenUntilMs
-        : null
+      const openUntil = effectiveCircuitOpenUntil(st, nowMs)
       return {
         nodeId: node.id,
         subscriptionId: node.subscriptionId,

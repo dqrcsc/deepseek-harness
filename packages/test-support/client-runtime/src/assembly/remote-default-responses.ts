@@ -47,7 +47,7 @@ export const remoteDefaultResponses: RemoteTable = {
     'networkProxy/status': ok({
       mode: 'direct',
       routing: {
-        preferRegion: '美国|新加坡',
+        preferRegion: '新加坡|日本|美国, 台湾',
         maxPreferredLatencyMs: 4_000,
         proxySubprocesses: true,
         proxyBrowserGuests: true,

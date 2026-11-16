@@ -272,6 +272,34 @@ describe('AEAD primitives and Shadowsocks AEAD duplex', () => {
     await new Promise<void>(resolve => tunnel.end(() => { resolve() }))
     tunnel.destroy()
 
+    // encodeFirstChunk coalescing (inline prefix + overflow AEAD chunks + subsequent normal writes)
+    const coalescedChunks: Buffer[] = []
+    const coalescedTransport = new Duplex({
+      read() {},
+      write(chunk: Buffer, _enc, cb) {
+        coalescedChunks.push(chunk)
+        cb()
+      },
+    })
+    const coalescedTunnel = createShadowsocksAeadDuplex({
+      transport: coalescedTransport,
+      algorithm: 'aes-128-gcm',
+      encodeKey: key,
+      initialEncodeCounter: 2n,
+      maxChunkPayload: 8,
+      lengthMask: 0xffff,
+      encodeFirstChunk: chunk => ({
+        prefixWire: Buffer.concat([Buffer.from('GREET:', 'ascii'), chunk.subarray(0, 4)]),
+        remainingPlaintext: chunk.subarray(4),
+      }),
+      initDecoder: () => null,
+    })
+    await writeAll(coalescedTunnel, Buffer.from('ABCD0123456789', 'ascii'))
+    await writeAll(coalescedTunnel, Buffer.from('NEXT', 'ascii'))
+    expect(coalescedChunks.length).toBe(2)
+    expect(coalescedChunks[0]?.subarray(0, 10).toString('ascii')).toBe('GREET:ABCD')
+    coalescedTunnel.destroy()
+
     // Invalid key triggers write callback error; tampered incoming triggers tunnel error; transport error/close propagate
     const badTransport = new PassThrough()
     const badTunnel = createShadowsocksAeadDuplex({

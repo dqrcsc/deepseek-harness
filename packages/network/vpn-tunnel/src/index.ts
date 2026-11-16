@@ -26,6 +26,8 @@ import {
 } from './gateway.ts'
 import { probeNodeThroughTunnel, type ProbeNodeOptions } from './probe.ts'
 import type { DialProxyNodeOptions } from './protocols/dial.ts'
+import type { DialShadowsocksAeadOptions } from './protocols/ss-aead.ts'
+import type { DialShadowsocks2022Options } from './protocols/ss2022.ts'
 import {
   NodeHealthTracker,
   type NodeHealthTrackerOptions,
@@ -74,6 +76,8 @@ export { VpnTunnelError }
 
 export type {
   DialProxyNodeOptions,
+  DialShadowsocks2022Options,
+  DialShadowsocksAeadOptions,
   EnvSubscriptionCandidate,
   EnvSubscriptionSource,
   FetchSubscriptionOptions,
@@ -132,6 +136,8 @@ export interface VpnRoutingPolicyInput {
 export interface ProbeNodesOptions {
   /** Explicit subset of node IDs to probe; defaults to ranked candidates. */
   readonly nodeIds?: readonly VpnNodeId[]
+  /** Optional subscription ID filter applied to ranked candidates when `nodeIds` is omitted. */
+  readonly subscriptionId?: VpnSubscriptionId
   /** Maximum number of nodes to probe when `nodeIds` is omitted. */
   readonly limit?: number
   /** Target HTTP(S) URL requested through each probed tunnel. */
@@ -178,7 +184,7 @@ export interface Config {
   dnsServers?: string[]
   /** Per-server UDP DNS query timeout in milliseconds. */
   dnsTimeoutMs?: number
-  /** Initial region-tier preference expression (`美国|新加坡`). */
+  /** Initial region-tier preference expression (`新加坡|日本|美国, 台湾`). */
   preferRegion?: string
   /** Initial preferred-region latency ceiling in milliseconds. */
   maxPreferredLatencyMs?: number
@@ -199,13 +205,13 @@ export default class VpnTunnelRuntime extends Service {
     bindPort: z.natural().max(65_535).default(0),
     connectTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(10_000),
     probeTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(8_000),
-    probeConcurrency: z.natural().min(1).max(32).default(6),
+    probeConcurrency: z.natural().min(1).max(32).default(12),
     defaultProbeUrl: z.string().default('https://www.gstatic.com/generate_204'),
     subscriptionFetchTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(15_000),
     subscriptionMaxBytes: z.natural().min(1024).default(16 * 1024 * 1024),
     dnsServers: z.array(z.string()).min(1).default([...DEFAULT_CLEAN_DNS_SERVERS]),
     dnsTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(2_000),
-    preferRegion: z.string().default('美国|新加坡'),
+    preferRegion: z.string().default('新加坡|日本|美国, 台湾'),
     maxPreferredLatencyMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(4_000),
     circuitFailureThreshold: z.natural().min(1).max(20).default(2),
     circuitBaseCooldownMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(15_000),
@@ -282,6 +288,7 @@ export default class VpnTunnelRuntime extends Service {
       gateway: this.gateway?.endpoint() ?? null,
       nodes: this.healthTracker.snapshots(),
       selectedNodeId: best?.id ?? null,
+      lastRoutedNodeId: this.healthTracker.getLastRoutedNodeId(),
       pinnedNodeId: this.healthTracker.getPinnedNodeId(),
       preferRegion: this.healthTracker.getPreferRegion(),
       maxPreferredLatencyMs: this.healthTracker.getMaxPreferredLatencyMs(),
@@ -364,6 +371,16 @@ export default class VpnTunnelRuntime extends Service {
   }
 
   /**
+   * Quarantine `nodeId` immediately when an upstream service rejects its exit IP or region despite transport reachability.
+   * @param nodeId - node identifier to quarantine.
+   * @param reason - redacted quarantine reason recorded on the node snapshot.
+   * @param cooldownMs - quarantine duration in milliseconds (defaults to `1_800_000`, 30 minutes).
+   */
+  penalizeNode(nodeId: VpnNodeId, reason: string, cooldownMs?: number): void {
+    this.healthTracker.penalizeNode(nodeId, reason, cooldownMs)
+  }
+
+  /**
    * Evaluate the routing disposition (`proxy`, `direct`, or `reject`) for `host` under `mode`.
    * @param host - destination hostname or IP literal.
    * @param mode - routing mode (`direct`, `smart`, or `global`; defaults to the active gateway mode).
@@ -441,11 +458,14 @@ export default class VpnTunnelRuntime extends Service {
    * @returns per-node {@link VpnProbeResult} list in input/candidate order.
    */
   async probeNodes(options: ProbeNodesOptions = {}): Promise<VpnProbeResult[]> {
+    const rankedCandidates = options.subscriptionId !== undefined
+      ? this.healthTracker.rankCandidates().filter(node => node.subscriptionId === options.subscriptionId)
+      : this.healthTracker.rankCandidates()
     const targetNodes: ProxyNodeConfig[] = options.nodeIds !== undefined
       ? options.nodeIds
         .map(id => this.healthTracker.getNode(id))
         .filter((node): node is ProxyNodeConfig => node !== undefined)
-      : this.healthTracker.rankCandidates().slice(0, options.limit ?? this.healthTracker.listNodes().length)
+      : rankedCandidates.slice(0, options.limit ?? rankedCandidates.length)
 
     if (targetNodes.length === 0) return []
 

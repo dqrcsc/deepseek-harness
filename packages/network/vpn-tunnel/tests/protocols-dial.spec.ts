@@ -109,7 +109,7 @@ describe('SS-2022, SS-AEAD, Trojan, VLESS, VMess, SOCKS5, HTTP CONNECT, and dial
         }),
         'api.openai.com',
         443,
-        { dnsResolver, timeoutMs: 2000 },
+        { dnsResolver, timeoutMs: 2000, deferHandshakeWrite: false },
       )
       await writeAll(stream, Buffer.from('PING'))
       const chunks: Buffer[] = []
@@ -117,6 +117,65 @@ describe('SS-2022, SS-AEAD, Trojan, VLESS, VMess, SOCKS5, HTTP CONNECT, and dial
       expect(Buffer.concat(chunks).toString()).toBe('INLINE:PING:TAIL')
     } finally {
       srv.close()
+    }
+
+    // Deferred SS-2022 greeting coalesces initial payload (<= 32KiB inside varPlain + > 32KiB overflow chunk) in one write
+    const deferredKey = randomBytes(16)
+    const deferredSrv = net.createServer((sock) => {
+      void (async () => {
+        const r = new BufferedStreamReader(sock)
+        const reqSalt = await r.readExact(16)
+        const c2sKey = blake3DeriveKey('shadowsocks 2022 session subkey', Buffer.concat([deferredKey, reqSalt]), 16)
+        const fixedHdr = aeadOpen('aes-128-gcm', c2sKey, nonce12LittleEndian(0n), await r.readExact(11 + 16))
+        const varLen = fixedHdr.readUInt16BE(9)
+        const varPlain = aeadOpen('aes-128-gcm', c2sKey, nonce12LittleEndian(1n), await r.readExact(varLen + 16))
+        const target = parseSocks5TargetAddress(varPlain)
+        expect(target?.host).toBe('generativelanguage.googleapis.com')
+        const padOffset = target?.bytesRead ?? 0
+        const padLen = varPlain.readUInt16BE(padOffset)
+        const inlinePayload = varPlain.subarray(padOffset + 2 + padLen)
+        expect(inlinePayload.length).toBe(0x8000)
+
+        const overflowLen = aeadOpen('aes-128-gcm', c2sKey, nonce12LittleEndian(2n), await r.readExact(2 + 16)).readUInt16BE(0)
+        const overflowPlain = aeadOpen('aes-128-gcm', c2sKey, nonce12LittleEndian(3n), await r.readExact(overflowLen + 16))
+        expect(overflowPlain.toString('utf8')).toBe('OVERFLOW-TAIL')
+        r.detach()
+
+        const respSalt = randomBytes(16)
+        const s2cKey = blake3DeriveKey('shadowsocks 2022 session subkey', Buffer.concat([deferredKey, respSalt]), 16)
+        const reply = Buffer.from('DEFERRED-2022-OK')
+        const respFixed = Buffer.allocUnsafe(1 + 8 + 16 + 2)
+        respFixed[0] = 0x01
+        respFixed.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000)), 1)
+        reqSalt.copy(respFixed, 9)
+        respFixed.writeUInt16BE(reply.length, 25)
+        sock.end(Buffer.concat([
+          respSalt,
+          aeadSeal('aes-128-gcm', s2cKey, nonce12LittleEndian(0n), respFixed),
+          aeadSeal('aes-128-gcm', s2cKey, nonce12LittleEndian(1n), reply),
+        ]))
+      })()
+    })
+    await new Promise<void>(resolve => deferredSrv.listen(0, '127.0.0.1', resolve))
+    const deferredPort = (deferredSrv.address() as net.AddressInfo).port
+    try {
+      const deferredStream = await dialProxyNode(
+        baseNode({
+          protocol: 'ss2022',
+          port: deferredPort,
+          cipher: '2022-blake3-aes-128-gcm',
+          password: deferredKey.toString('base64'),
+        }),
+        'generativelanguage.googleapis.com',
+        443,
+        { dnsResolver, timeoutMs: 2000, deferHandshakeWrite: true },
+      )
+      await writeAll(deferredStream, Buffer.concat([Buffer.alloc(0x8000, 0x41), Buffer.from('OVERFLOW-TAIL', 'utf8')]))
+      const out: Buffer[] = []
+      for await (const c of deferredStream) out.push(c as Buffer)
+      expect(Buffer.concat(out).toString('utf8')).toBe('DEFERRED-2022-OK')
+    } finally {
+      deferredSrv.close()
     }
 
     // Also test firstChunkLen === 0, wrong salt rejection, clock-skew > 30s rejection, and config errors
@@ -226,6 +285,17 @@ describe('SS-2022, SS-AEAD, Trojan, VLESS, VMess, SOCKS5, HTTP CONNECT, and dial
       const out: Buffer[] = []
       for await (const c of s) out.push(c as Buffer)
       expect(Buffer.concat(out).toString()).toBe('SS-OK')
+
+      const sDeferred = await dialProxyNode(
+        baseNode({ protocol: 'ss', port: ssPort, cipher: 'aes-128-gcm', password: 'my-ss-pass' }),
+        'github.com',
+        443,
+        { dnsResolver, timeoutMs: 2000, deferHandshakeWrite: true },
+      )
+      await writeAll(sDeferred, Buffer.from('CLIENT-HELLO'))
+      const outDeferred: Buffer[] = []
+      for await (const c of sDeferred) outDeferred.push(c as Buffer)
+      expect(Buffer.concat(outDeferred).toString()).toBe('SS-OK')
     } finally {
       ssSrv.close()
     }

@@ -23,9 +23,9 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-调用方注入 `vpnTunnel` 即可驱动出站隧道分流，无需拉起外部代理二进制进程，也不会修改操作系统代理设置。调用 `ctx.vpnTunnel.fetchSubscription(url, subscriptionId)` 可直接下载并解析 Clash YAML 或 Base64/纯文本代理 URI，同时根据 HTTP `Date` 响应头校准时钟偏移。将解析结果传入 `ctx.vpnTunnel.setSubscriptions(subscriptions)`，通过 `setRoutingPolicy(policy)` 配置地区梯队（如 `美国|新加坡`）与延迟上限，再调用 `ensureGateway()` 获取 `127.0.0.1` 的 HTTP 与 SOCKS5 代理地址。
+调用方注入 `vpnTunnel` 即可驱动出站隧道分流，无需拉起外部代理二进制进程，也不会修改操作系统代理设置。调用 `ctx.vpnTunnel.fetchSubscription(url, subscriptionId)` 可直接下载并解析 Clash YAML 或 Base64/纯文本代理 URI，同时根据 HTTP `Date` 响应头校准时钟偏移。将解析结果传入 `ctx.vpnTunnel.setSubscriptions(subscriptions)`，通过 `setRoutingPolicy(policy)` 配置地区梯队（如 `新加坡|日本|美国, 台湾`）与延迟上限，再调用 `ensureGateway()` 获取 `127.0.0.1` 的 HTTP 与 SOCKS5 代理地址。
 
-`ctx.vpnTunnel.probeNodes(options)` 以受控并发批量探测候选节点，并更新 EWMA 延迟与指数退避熔断状态。`ctx.vpnTunnel.decideRoute(host, mode)` 在不建立连接的前提下评估内网直连保护、自定义规则、Clash 规则或内置智能分流规则。销毁所属 Cordis fiber 时会中止进行中的探测，并关闭回环监听端口与活动隧道连接。
+`ctx.vpnTunnel.probeNodes(options)` 以受控并发批量探测候选节点，并更新 EWMA 延迟与指数退避熔断状态；当上游服务拒绝某个节点的出口 IP 或地区时，`ctx.vpnTunnel.penalizeNode(nodeId, reason, cooldownMs)` 会将该节点立即加入隔离冷却期，避免通用连通性探针过早恢复该节点。`ctx.vpnTunnel.decideRoute(host, mode)` 在不建立连接的前提下评估内网直连保护、自定义规则、Clash 规则或内置智能分流规则。销毁所属 Cordis fiber 时会中止进行中的探测，并关闭回环监听端口与活动隧道连接。
 
 <a id="understand-the-implementation"></a>
 ## 理解实现

@@ -24,6 +24,8 @@ export interface DialProxyNodeOptions {
   readonly timeoutMs: number
   /** Optional caller cancellation signal. */
   readonly signal?: AbortSignal
+  /** Coalesce client-first Shadowsocks (`ss2022`/`ss`) greetings into the first outbound payload write. */
+  readonly deferHandshakeWrite?: boolean
 }
 
 /**
@@ -66,9 +68,13 @@ export async function dialProxyNode(
 
     switch (node.protocol) {
       case 'ss2022':
-        return await dialShadowsocks2022(carrier, node, targetHost, targetPort)
+        return await dialShadowsocks2022(carrier, node, targetHost, targetPort, {
+          deferGreeting: Boolean(options.deferHandshakeWrite),
+        })
       case 'ss':
-        return await dialShadowsocksAead(carrier, node, targetHost, targetPort)
+        return await dialShadowsocksAead(carrier, node, targetHost, targetPort, {
+          deferHandshakeWrite: Boolean(options.deferHandshakeWrite),
+        })
       case 'trojan':
         return await dialTrojan(carrier, node, targetHost, targetPort)
       case 'vless':

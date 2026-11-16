@@ -15,7 +15,7 @@ import Storage from '@deepseek-ai/dsh-storage'
 import * as storageDomainPlugin from '@deepseek-ai/dsh-storage-domain'
 import * as storageSqlitePlugin from '@deepseek-ai/dsh-storage-sqlite'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import VpnTunnelRuntime from '@deepseek-ai/dsh-vpn-tunnel'
+import VpnTunnelRuntime, { type Config as VpnTunnelConfig } from '@deepseek-ai/dsh-vpn-tunnel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import NetworkProxyService, { type Config as NetworkProxyConfig } from '../src/index.ts'
 import {
@@ -153,15 +153,30 @@ function buildClashYaml(socksPort: number, extraNodeName?: string): string {
   ].join('\n')
 }
 
+let stubLlmDispatch: (
+  options: { readonly provider: string; readonly signal?: AbortSignal },
+) => AsyncIterable<Record<string, unknown>> = async function* () {
+  yield { type: 'finish', reason: { kind: 'stop' } }
+}
+
 class StubLlmService extends Service {
   constructor(ctx: Context) {
     super(ctx, 'llm')
+  }
+
+  stream(options: { readonly provider: string; readonly signal?: AbortSignal }): AsyncIterable<Record<string, unknown>> {
+    return this.ctx.waterfall(
+      'llm/stream',
+      options as never,
+      (() => stubLlmDispatch(options)) as never,
+    ) as AsyncIterable<Record<string, unknown>>
   }
 }
 
 async function bootHarness(options: {
   readonly rootDir: string
   readonly proxyConfig?: NetworkProxyConfig
+  readonly vpnTunnelConfig?: VpnTunnelConfig
   readonly withLlm?: boolean
   readonly directInstantiate?: boolean
 }): Promise<Context> {
@@ -177,7 +192,7 @@ async function bootHarness(options: {
     dshHome: options.rootDir,
     watch: false,
   })
-  await ctx.plugin(VpnTunnelRuntime)
+  await ctx.plugin(VpnTunnelRuntime, options.vpnTunnelConfig)
   if (options.withLlm === true) {
     await ctx.plugin(StubLlmService)
   }
@@ -189,6 +204,7 @@ async function bootHarness(options: {
     await ctx.plugin(NetworkProxyService, {
       dshHome: options.rootDir,
       userEnvPath: join(options.rootDir, 'user.env'),
+      autoProbeOnActivate: false,
       ...options.proxyConfig,
     })
   }
@@ -256,8 +272,8 @@ describe('NetworkProxyService lifecycle, subscriptions, smart routing, and diagn
 
     // Partial routing updates leave omitted fields unchanged
     const partialRouting = await ctx.networkProxy.updateRouting({ proxySubprocesses: true })
-    expect(partialRouting.routing.preferRegion).toBe('美国|新加坡')
-    const partialRouting2 = await ctx.networkProxy.updateRouting({ preferRegion: '美国|新加坡' })
+    expect(partialRouting.routing.preferRegion).toBe('新加坡|日本|美国, 台湾')
+    const partialRouting2 = await ctx.networkProxy.updateRouting({ preferRegion: '新加坡|日本|美国, 台湾' })
     expect(partialRouting2.routing.proxySubprocesses).toBe(true)
 
     // Smart mode BEFORE any subscriptions exist: gateway stays null, diagnostics & child proxy degrade safely
@@ -419,7 +435,7 @@ describe('NetworkProxyService lifecycle, subscriptions, smart routing, and diagn
       rootDir,
       withLlm: true,
       proxyConfig: {
-        diagnosticTimeoutMs: 3_000,
+        diagnosticTimeoutMs: 250,
         defaultProbeLimit: 4,
         diagnosticTargets: [
           {
@@ -583,12 +599,16 @@ describe('NetworkProxyService lifecycle, subscriptions, smart routing, and diagn
     expect(
       runWithTrafficContext({ category: 'web' }, () => proxyRouteFor(new URL('http://overseas.example/web')).proxied),
     ).toBe(true)
-    await expect(fetch('http://portal.direct-custom.invalid/unattributed')).rejects.toThrow()
     await expect(
-      runWithTrafficContext({ category: 'general' }, () => fetch('http://portal.direct-custom.invalid/general')),
+      fetch('http://portal.direct-custom.invalid/unattributed', { signal: AbortSignal.timeout(250) }),
     ).rejects.toThrow()
     await expect(
-      runWithTrafficContext({ category: 'plugin' }, () => fetch('http://portal.direct-custom.invalid/plugin-auto')),
+      runWithTrafficContext({ category: 'general' }, () =>
+        fetch('http://portal.direct-custom.invalid/general', { signal: AbortSignal.timeout(250) })),
+    ).rejects.toThrow()
+    await expect(
+      runWithTrafficContext({ category: 'plugin' }, () =>
+        fetch('http://portal.direct-custom.invalid/plugin-auto', { signal: AbortSignal.timeout(250) })),
     ).rejects.toThrow()
 
     // Probe without explicit probeUrl (filtering to an empty subscription ID so no external network call occurs)
@@ -791,5 +811,340 @@ describe('NetworkProxyService lifecycle, subscriptions, smart routing, and diagn
       id: recId,
       url: `${subServer.url}/other`,
     })).rejects.toThrow('disk full')
+  })
+
+  it('auto-probes unprobed nodes on activation, evicts pooled agents on node rotation, and retries LLM geo-restrictions', async () => {
+    const rootDir = await makeTempDir()
+    const slowOrigin = await startHttpServer((_req, res) => {
+      setTimeout(() => {
+        res.writeHead(204)
+        res.end()
+      }, 65)
+    })
+    const fastOrigin = await startHttpServer((_req, res) => {
+      res.writeHead(204)
+      res.end()
+    })
+    const socksUsSlow = await startFixedTargetSocks5Server(slowOrigin.port)
+    const socksSgFast = await startFixedTargetSocks5Server(fastOrigin.port)
+    const socksJpFast = await startFixedTargetSocks5Server(fastOrigin.port)
+
+    const multiNodeYaml = [
+      'proxies:',
+      `  - { name: "美国 US-04", type: socks5, server: 127.0.0.1, port: ${String(socksUsSlow.port)} }`,
+      `  - { name: "新加坡 SG-01", type: socks5, server: 127.0.0.1, port: ${String(socksSgFast.port)} }`,
+      `  - { name: "台湾 TW-01", type: socks5, server: 127.0.0.1, port: ${String(socksJpFast.port)} }`,
+      `  - { name: "台湾 TW-02", type: socks5, server: 127.0.0.1, port: ${String(socksJpFast.port)} }`,
+      'rules:',
+      '  - DOMAIN-SUFFIX,googleapis.com,PROXY',
+      '  - MATCH,PROXY',
+      '',
+    ].join('\n')
+
+    let serveSingleNode = false
+    const subServer = await startHttpServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/yaml' })
+      if (serveSingleNode) {
+        res.end([
+          'proxies:',
+          `  - { name: "美国 US-Only", type: socks5, server: 127.0.0.1, port: ${String(socksSgFast.port)} }`,
+          'rules:',
+          '  - MATCH,PROXY',
+          '',
+        ].join('\n'))
+        return
+      }
+      res.end(multiNodeYaml)
+    })
+
+    const ctx = await bootHarness({
+      rootDir,
+      withLlm: true,
+      vpnTunnelConfig: {
+        defaultProbeUrl: 'http://probe.example/generate_204',
+      },
+      proxyConfig: {
+        autoProbeOnActivate: true,
+      },
+    })
+
+    const added = await ctx.networkProxy.addSubscription({
+      name: 'AutoProbe Sub',
+      url: `${subServer.url}/sub.yaml`,
+    })
+    const subId = added.outcomes[0]?.id
+    if (subId === undefined) throw new Error('missing subId')
+    const initialUsNode = added.status.nodes.find(n => n.name.includes('US-04'))
+    const sgNode = added.status.nodes.find(n => n.name.includes('SG-01'))
+    if (initialUsNode === undefined || sgNode === undefined) throw new Error('missing nodes')
+    // Before probing, all Tier-0 nodes tie at unprobed score and index 0 (US-04) leads
+    expect(added.status.selectedNodeId).toBe(initialUsNode.nodeId)
+
+    // Activate smart mode -> schedules background initial probe; calling updateRouting mid-probe skips duplicate probe
+    await ctx.networkProxy.setMode({ mode: 'smart' })
+    await ctx.networkProxy.updateRouting({ maxPreferredLatencyMs: 3_900 })
+
+    // Background probe completes -> SG-01 (~1ms) beats US-04 (~65ms) and becomes selectedNodeId
+    await expect.poll(
+      async () => (await ctx.networkProxy.status()).nodes.every(n => n.latencyMs !== null),
+      { timeout: 3_000 },
+    ).toBe(true)
+    const afterProbe = await ctx.networkProxy.status()
+    expect(afterProbe.selectedNodeId).toBe(sgNode.nodeId)
+
+    // Subsequent updateRouting when all nodes are already probed hits unprobedIds.length === 0 cleanly
+    await ctx.networkProxy.updateRouting({ maxPreferredLatencyMs: 4_000 })
+
+    const collectWaterfall = async (
+      opts: { readonly provider: string; readonly signal?: AbortSignal },
+      factory: () => AsyncIterable<Record<string, unknown>>,
+    ): Promise<unknown[]> => {
+      stubLlmDispatch = () => factory()
+      const out: unknown[] = []
+      const stream = ctx.llm.stream({
+        provider: opts.provider,
+        model: 'test-model',
+        messages: [],
+        ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
+      })
+      for await (const item of stream) out.push(item)
+      return out
+    }
+
+    // 1. Two consecutive geo-restricted nodes (including pi-ai pre-finish usage chunks & real routed tunnel tracking)
+    //    quarantine automatically, evict pooled sockets, and succeed on 3rd node!
+    let dispatchCalls = 0
+    const failoverChunks = await collectWaterfall(
+      { provider: 'google', signal: new AbortController().signal },
+      async function* () {
+        dispatchCalls += 1
+        if (dispatchCalls === 1) {
+          const r = await fetch('http://googleapis.com/generate_204')
+          expect(r.status).toBe(204)
+          yield { type: 'usage', usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 } }
+          yield {
+            type: 'finish',
+            reason: {
+              kind: 'error',
+              failure: { message: 'User location is not supported for the API use.', code: 'INVALID_REQUEST', status: 400 },
+            },
+          }
+          return
+        }
+        if (dispatchCalls === 2) {
+          yield {
+            type: 'finish',
+            reason: {
+              kind: 'error',
+              failure: { message: 'Country, region, or territory not supported', code: 'INVALID_REQUEST', status: 403 },
+            },
+          }
+          return
+        }
+        yield { type: 'text-delta', index: 0, text: 'Gemini OK' }
+        yield { type: 'usage', usage: { inputTokens: 4, outputTokens: 2, totalTokens: 6 } }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      },
+    )
+    expect(dispatchCalls).toBe(3)
+    expect(failoverChunks).toEqual([
+      { type: 'text-delta', index: 0, text: 'Gemini OK' },
+      { type: 'usage', usage: { inputTokens: 4, outputTokens: 2, totalTokens: 6 } },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ])
+    const postFailover = await ctx.networkProxy.status()
+    expect(postFailover.nodes.find(n => n.nodeId === sgNode.nodeId)?.circuitOpenUntilMs).not.toBeNull()
+    expect(postFailover.nodes.find(n => n.nodeId === initialUsNode.nodeId)?.circuitOpenUntilMs).not.toBeNull()
+
+    // 2. Refresh fresh nodes and exhaust all 3 attempts on geo-restriction -> flushes buffered usage + terminal error on 3rd attempt
+    await ctx.networkProxy.removeSubscription({ id: subId })
+    const readded = await ctx.networkProxy.addSubscription({
+      name: 'Fresh 4 Nodes',
+      url: `${subServer.url}/sub2.yaml`,
+    })
+    const sub2Id = readded.outcomes[0]?.id
+    if (sub2Id === undefined) throw new Error('missing sub2Id')
+    await expect.poll(
+      async () => (await ctx.networkProxy.status()).nodes.every(n => n.latencyMs !== null),
+      { timeout: 3_000 },
+    ).toBe(true)
+
+    let exhaustedCalls = 0
+    const exhaustedChunks = await collectWaterfall(
+      { provider: 'openai' },
+      async function* () {
+        exhaustedCalls += 1
+        yield { type: 'usage', usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 } }
+        yield {
+          type: 'finish',
+          reason: {
+            kind: 'error',
+            failure: { message: 'unsupported_country_region_territory', code: 'INVALID_REQUEST', status: 403 },
+          },
+        }
+      },
+    )
+    expect(exhaustedCalls).toBe(3)
+    expect(exhaustedChunks).toHaveLength(2)
+
+    // 3. Guard checks: aborted signal, non-geo error, mid-stream error after text-delta, pinned node, direct override, stopped gateway
+    let guardCalls = 0
+    await collectWaterfall(
+      { provider: 'google', signal: AbortSignal.abort() },
+      async function* () {
+        guardCalls += 1
+        yield {
+          type: 'finish',
+          reason: { kind: 'error', failure: { message: 'User location is not supported', code: 'ABORTED' } },
+        }
+      },
+    )
+    expect(guardCalls).toBe(1)
+
+    await collectWaterfall(
+      { provider: 'google' },
+      async function* () {
+        guardCalls += 1
+        yield {
+          type: 'finish',
+          reason: { kind: 'error', failure: { message: 'API key not valid', code: 'AUTH_FAILED', status: 401 } },
+        }
+      },
+    )
+    expect(guardCalls).toBe(2)
+
+    await collectWaterfall(
+      { provider: 'google' },
+      async function* () {
+        guardCalls += 1
+        yield { type: 'text-delta', index: 0, text: 'partial' }
+        yield {
+          type: 'finish',
+          reason: { kind: 'error', failure: { message: 'User location is not supported', code: 'INVALID_REQUEST' } },
+        }
+      },
+    )
+    expect(guardCalls).toBe(3)
+
+    const anyNodeId = (await ctx.networkProxy.status()).nodes[0]?.nodeId
+    if (anyNodeId === undefined) throw new Error('missing anyNodeId')
+    await ctx.networkProxy.selectNode({ nodeId: anyNodeId })
+    await collectWaterfall(
+      { provider: 'google' },
+      async function* () {
+        guardCalls += 1
+        yield {
+          type: 'finish',
+          reason: { kind: 'error', failure: { message: 'User location is not supported', code: 'INVALID_REQUEST' } },
+        }
+      },
+    )
+    expect(guardCalls).toBe(4)
+    await ctx.networkProxy.selectNode({ nodeId: null })
+
+    await ctx.networkProxy.updateRouting({ providerOverrides: { anthropic: 'direct' } })
+    await collectWaterfall(
+      { provider: 'anthropic' },
+      async function* () {
+        guardCalls += 1
+        yield {
+          type: 'finish',
+          reason: { kind: 'error', failure: { message: 'region is not supported', code: 'INVALID_REQUEST' } },
+        }
+      },
+    )
+    expect(guardCalls).toBe(5)
+
+    // Single-node subscription: penalizeNode runs, nextSelected === candidateBefore -> stops after 1 attempt
+    await ctx.networkProxy.removeSubscription({ id: sub2Id })
+    serveSingleNode = true
+    await ctx.networkProxy.addSubscription({
+      name: 'Single Node Sub',
+      url: `${subServer.url}/single.yaml`,
+    })
+    let singleCalls = 0
+    await collectWaterfall(
+      { provider: 'google' },
+      async function* () {
+        singleCalls += 1
+        yield {
+          type: 'finish',
+          reason: { kind: 'error', failure: { message: 'region is not supported', code: 'INVALID_REQUEST' } },
+        }
+      },
+    )
+    expect(singleCalls).toBe(1)
+
+    // Stopped gateway while smart mode is active -> canAutoRotateLlmNode returns false
+    await ctx.vpnTunnel.stopGateway()
+    await collectWaterfall(
+      { provider: 'google' },
+      async function* () {
+        singleCalls += 1
+        yield {
+          type: 'finish',
+          reason: { kind: 'error', failure: { message: 'region is not supported', code: 'INVALID_REQUEST' } },
+        }
+      },
+    )
+    expect(singleCalls).toBe(2)
+
+    // Pre-open waterfall call (while storageDomain.open is still pending and liveDomain === undefined) hits fallback safely
+    await ctx.fiber.dispose()
+    const rootDirEarly = await makeTempDir()
+    const ctxEarly = new Context()
+    cleanups.push(async () => {
+      await ctxEarly.fiber.dispose()
+    })
+    await ctxEarly.plugin(Storage)
+    await ctxEarly.plugin(storageSqlitePlugin, { path: join(rootDirEarly, 'storage.sqlite') })
+    await ctxEarly.plugin(storageDomainPlugin, { backend: 'sqlite' })
+    await ctxEarly.plugin(LocalCredentialProvider, {
+      path: join(rootDirEarly, '.credentials.yaml'),
+      dshHome: rootDirEarly,
+      watch: false,
+    })
+    await ctxEarly.plugin(VpnTunnelRuntime)
+    await ctxEarly.plugin(StubLlmService)
+    stubLlmDispatch = async function* () {
+      singleCalls += 1
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    }
+    let releaseDomainOpen = () => {}
+    const domainOpenGate = new Promise<void>((resolve) => {
+      releaseDomainOpen = resolve
+    })
+    const realOpen = ctxEarly.storageDomain.open.bind(ctxEarly.storageDomain)
+    vi.spyOn(ctxEarly.storageDomain, 'open').mockImplementationOnce(async (definition) => {
+      await domainOpenGate
+      return realOpen(definition)
+    })
+    const initPromise = ctxEarly.plugin(NetworkProxyService, { dshHome: rootDirEarly, autoProbeOnActivate: false })
+    await new Promise(resolve => setTimeout(resolve, 10))
+    for await (const _chunk of ctxEarly.llm.stream({ provider: 'google', model: 'test-model', messages: [] })) {
+      // drain while liveDomain is still undefined
+    }
+    releaseDomainOpen()
+    await initPromise
+    expect(singleCalls).toBe(3)
+
+    // Disposing while an initial background probe is in flight aborts cleanly without post-stop emission
+    const rootDirDispose = await makeTempDir()
+    const ctxDispose = await bootHarness({
+      rootDir: rootDirDispose,
+      vpnTunnelConfig: {
+        defaultProbeUrl: 'http://probe.example/generate_204',
+      },
+      proxyConfig: {
+        autoProbeOnActivate: true,
+      },
+    })
+    serveSingleNode = false
+    await ctxDispose.networkProxy.addSubscription({
+      name: 'Dispose Mid-Probe',
+      url: `${subServer.url}/dispose.yaml`,
+    })
+    await ctxDispose.networkProxy.setMode({ mode: 'smart' })
+    await ctxDispose.fiber.dispose()
   })
 })

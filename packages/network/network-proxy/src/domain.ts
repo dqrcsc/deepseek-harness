@@ -27,8 +27,8 @@ export const NETWORK_CREDENTIALS_SCOPE = 'network-proxy'
 /** Credential record identifier holding the 256-bit AES-GCM cache encryption key. */
 export const CACHE_KEY_RECORD_ID = 'cache-key'
 
-/** Default preferred region-tier expression matching the user's US/SG equal-priority routing tier. */
-export const DEFAULT_PREFER_REGION = '美国|新加坡'
+/** Default preferred region-tier expression prioritizing AI-supported US/SG nodes first and Japan second. */
+export const DEFAULT_PREFER_REGION = '新加坡|日本|美国, 台湾'
 
 /** Default preferred-region latency ceiling in milliseconds before yielding to faster fallback regions. */
 export const DEFAULT_MAX_PREFERRED_LATENCY_MS = 4_000

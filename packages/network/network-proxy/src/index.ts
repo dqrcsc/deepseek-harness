@@ -19,7 +19,7 @@ import {
   type DynamicProxyRouterHandle,
   type TrafficContext,
 } from '@deepseek-ai/dsh-http-proxy'
-import type {} from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { Domain } from '@deepseek-ai/dsh-storage-domain'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
@@ -71,6 +71,7 @@ import type {
   SubscriptionRefreshOutcome,
   UpdateNetworkRoutingRequest,
   UpdateSubscriptionRequest,
+  VpnNodeId,
   VpnSubscriptionId,
 } from './types.ts'
 
@@ -108,8 +109,10 @@ export interface Config {
   diagnosticTimeoutMs?: number
   /** Background timer interval in milliseconds checking subscriptions due for `autoRefreshMinutes`; defaults to `60000`. */
   autoRefreshCheckIntervalMs?: number
-  /** Default node-probe limit when `probeNodes` omits `limit`; defaults to `12`. */
+  /** Default node-probe limit when `probeNodes` omits `limit`; defaults to `64`. */
   defaultProbeLimit?: number
+  /** Automatically benchmark unprobed subscription nodes in the background when proxy routing activates; defaults to `true`. */
+  autoProbeOnActivate?: boolean
   /** Optional custom diagnostic target list overriding built-in domestic/overseas targets. */
   diagnosticTargets?: ConfiguredDiagnosticTarget[]
 }
@@ -149,6 +152,22 @@ async function readOptionalTextFile(filePath: string): Promise<string | null> {
   }
 }
 
+const UPSTREAM_GEO_RESTRICTION_PATTERN = new RegExp(
+  [
+    'user location is not supported',
+    'unsupported_country_region_territory',
+    String.raw`country,\s*region,\s*or\s*territory\s+not\s+supported`,
+    'region is not supported',
+  ].join('|'),
+  'iu',
+)
+
+function isUpstreamGeoRestrictionChunk(chunk: StreamChunk): boolean {
+  return chunk.type === 'finish'
+    && chunk.reason.kind === 'error'
+    && UPSTREAM_GEO_RESTRICTION_PATTERN.test(chunk.reason.failure.message)
+}
+
 function throwRemoteInputIfInvalid(error: unknown): never {
   if (error instanceof NetworkProxyInputError) {
     throw new RemoteError('network-proxy/input-invalid', error.message, { code: error.reason })
@@ -167,7 +186,8 @@ export class NetworkProxyService extends TypertRemoteService {
     userEnvPath: z.string(),
     diagnosticTimeoutMs: z.natural().min(100).max(MAX_TIMER_DELAY_MS).default(8_000),
     autoRefreshCheckIntervalMs: z.natural().min(50).max(MAX_TIMER_DELAY_MS).default(60_000),
-    defaultProbeLimit: z.natural().min(1).max(64).default(12),
+    defaultProbeLimit: z.natural().min(1).max(64).default(64),
+    autoProbeOnActivate: z.boolean().default(true),
     diagnosticTargets: z.array(ConfiguredDiagnosticTargetSchema),
   })
 
@@ -176,15 +196,19 @@ export class NetworkProxyService extends TypertRemoteService {
   private readonly diagnosticTimeoutMs: number
   private readonly autoRefreshCheckIntervalMs: number
   private readonly defaultProbeLimit: number
+  private readonly autoProbeOnActivate: boolean
   private readonly diagnosticTargets: readonly DiagnosticTargetSpec[]
   private readonly cache: EncryptedSubscriptionCache
   private readonly parsedBySubscription = new Map<VpnSubscriptionId, ParsedSubscription>()
+  private readonly llmGeoRetryDepths = new WeakMap<GenerateOptions, number>()
   private readonly lifetime = new AbortController()
   private readonly ready: Promise<Domain<typeof networkDomain>>
   private readonly initialized: PromiseLike<unknown>
   private liveDomain: Domain<typeof networkDomain> | undefined
-  private routerHandle: DynamicProxyRouterHandle | null = null
+  private routerHandle!: DynamicProxyRouterHandle
   private activeGatewayUrl: string | null = null
+  private activeSelectedNodeId: VpnNodeId | null = null
+  private backgroundProbePromise: Promise<void> | null = null
   private parsedUserCustomRules: readonly RoutingRule[] = []
   private autoRefreshTimer: ReturnType<typeof setInterval> | null = null
   private autoRefreshRunning = false
@@ -203,7 +227,8 @@ export class NetworkProxyService extends TypertRemoteService {
       : join(homedir(), '.env')
     this.diagnosticTimeoutMs = config.diagnosticTimeoutMs ?? 8_000
     this.autoRefreshCheckIntervalMs = config.autoRefreshCheckIntervalMs ?? 60_000
-    this.defaultProbeLimit = config.defaultProbeLimit ?? 12
+    this.defaultProbeLimit = config.defaultProbeLimit ?? 64
+    this.autoProbeOnActivate = config.autoProbeOnActivate ?? true
     this.diagnosticTargets = toDiagnosticSpecs(config.diagnosticTargets)
 
     this.cache = new EncryptedSubscriptionCache({
@@ -213,7 +238,7 @@ export class NetworkProxyService extends TypertRemoteService {
 
     ctx.inject(['llm'], (llmCtx) => {
       llmCtx.on('llm/stream', (options, next) =>
-        streamWithTrafficContext({ category: 'llm', providerId: options.provider }, () => next()))
+        this.streamLlmWithRouting(options, next, retryOptions => llmCtx.llm.stream(retryOptions)))
     })
 
     this.ready = ctx.storageDomain.open(networkDomain).then((domain) => {
@@ -223,14 +248,14 @@ export class NetworkProxyService extends TypertRemoteService {
 
     this.initialized = ctx.effect(async () => {
       const domain = await this.ready
-      await this.restoreCachedSubscriptions(domain)
-      await this.applyStateToRuntime(domain)
-
       const routerHandle = await installDynamicProxyRouter({
         resolve: (url, trafficContext) => this.resolveDynamicRoute(domain, url, trafficContext),
         childProxyUrl: () => this.resolveChildProxyUrl(domain),
       })
       this.routerHandle = routerHandle
+
+      await this.restoreCachedSubscriptions(domain)
+      await this.applyStateToRuntime(domain)
 
       this.startAutoRefreshLoop()
 
@@ -239,7 +264,7 @@ export class NetworkProxyService extends TypertRemoteService {
         this.lifetime.abort(new Error('NetworkProxyService disposed'))
         this.stopAutoRefreshLoop()
         await this.chain
-        this.routerHandle = null
+        await this.backgroundProbePromise
         await routerHandle.dispose()
         await this.ctx.vpnTunnel.stopGateway()
         this.liveDomain = undefined
@@ -686,6 +711,7 @@ export class NetworkProxyService extends TypertRemoteService {
           pinnedNodeId: request.nodeId,
         })
         this.ctx.vpnTunnel.selectNode(request.nodeId)
+        await this.syncSelectedNodePool()
         this.emitChanged()
         return this.buildStatusSnapshot(domain)
       })
@@ -710,19 +736,14 @@ export class NetworkProxyService extends TypertRemoteService {
         normalizeSubscriptionUrl(request.probeUrl)
       }
       const domain = await this.getDomain()
-      const stateNodes = this.ctx.vpnTunnel.state().nodes
-      const filteredIds = request.subscriptionId !== undefined
-        ? stateNodes
-          .filter(node => node.subscriptionId === request.subscriptionId)
-          .map(node => node.nodeId)
-        : undefined
-
       const limit = request.limit ?? this.defaultProbeLimit
       const results = await this.ctx.vpnTunnel.probeNodes({
-        ...(filteredIds !== undefined ? { nodeIds: filteredIds.slice(0, limit) } : { limit }),
+        ...(request.subscriptionId !== undefined ? { subscriptionId: request.subscriptionId } : {}),
+        limit,
         ...(request.probeUrl !== undefined ? { probeUrl: request.probeUrl } : {}),
         ...(signal !== undefined ? { signal } : {}),
       })
+      await this.syncSelectedNodePool()
       this.emitChanged()
       return {
         results,
@@ -897,16 +918,152 @@ export class NetworkProxyService extends TypertRemoteService {
     const hasNodes = orderedSubscriptions.some(sub => sub.nodes.length > 0)
     if (globalState.mode !== 'direct' && hasNodes) {
       const endpoint = await this.ctx.vpnTunnel.ensureGateway()
-      if (this.activeGatewayUrl !== null && this.activeGatewayUrl !== endpoint.httpProxyUrl && this.routerHandle !== null) {
-        await this.routerHandle.evictProxy(this.activeGatewayUrl)
+      if (this.activeGatewayUrl !== null && this.activeGatewayUrl !== endpoint.httpProxyUrl) {
+        await this.evictGatewayAgents(this.activeGatewayUrl)
       }
       this.activeGatewayUrl = endpoint.httpProxyUrl
+      await this.syncSelectedNodePool()
+      this.scheduleInitialNodeProbe()
     } else {
       const previousUrl = this.activeGatewayUrl
       this.activeGatewayUrl = null
+      this.activeSelectedNodeId = null
       await this.ctx.vpnTunnel.stopGateway()
-      if (previousUrl !== null && this.routerHandle !== null) {
-        await this.routerHandle.evictProxy(previousUrl)
+      if (previousUrl !== null) {
+        await this.evictGatewayAgents(previousUrl)
+      }
+    }
+  }
+
+  private async evictGatewayAgents(gatewayHttpUrl: string): Promise<void> {
+    const forcedUrl = gatewayHttpUrl.replace('http://', 'http://force-proxy:1@')
+    await Promise.all([
+      this.routerHandle.evictProxy(gatewayHttpUrl),
+      this.routerHandle.evictProxy(forcedUrl),
+    ])
+  }
+
+  private async syncSelectedNodePool(): Promise<void> {
+    const nextSelectedNodeId = this.ctx.vpnTunnel.state().selectedNodeId
+    const changed = this.activeSelectedNodeId !== null && this.activeSelectedNodeId !== nextSelectedNodeId
+    this.activeSelectedNodeId = nextSelectedNodeId
+    if (changed && this.activeGatewayUrl !== null) {
+      await this.evictGatewayAgents(this.activeGatewayUrl)
+    }
+  }
+
+  private scheduleInitialNodeProbe(): void {
+    if (!this.autoProbeOnActivate || this.backgroundProbePromise !== null) {
+      return
+    }
+    const unprobedIds = this.ctx.vpnTunnel
+      .state()
+      .nodes
+      .filter(node => node.latencyMs === null && node.totalSuccesses === 0 && node.totalFailures === 0)
+      .map(node => node.nodeId)
+      .slice(0, this.defaultProbeLimit)
+    if (unprobedIds.length === 0) {
+      return
+    }
+    const task = (async () => {
+      try {
+        await this.ctx.vpnTunnel.probeNodes({
+          nodeIds: unprobedIds,
+          signal: this.lifetime.signal,
+        })
+        if (!this.stopping) {
+          await this.syncSelectedNodePool()
+          this.emitChanged()
+        }
+      } finally {
+        this.backgroundProbePromise = null
+      }
+    })()
+    this.backgroundProbePromise = task
+  }
+
+  private streamLlmWithRouting(
+    options: GenerateOptions,
+    next: () => AsyncIterable<StreamChunk>,
+    retryStream: (options: GenerateOptions) => AsyncIterable<StreamChunk>,
+  ): AsyncIterable<StreamChunk> {
+    return streamWithTrafficContext(
+      { category: 'llm', providerId: options.provider },
+      () => this.streamLlmWithGeoFailover(options, next, retryStream),
+    )
+  }
+
+  private resolveAutoRotateGatewayUrl(providerId: string): string | null {
+    const globalState = this.liveDomain?.global.get() ?? DEFAULT_NETWORK_GLOBAL
+    if (globalState.mode === 'direct' || globalState.pinnedNodeId !== null) {
+      return null
+    }
+    if (globalState.mode === 'smart' && globalState.providerOverrides[providerId] === 'direct') {
+      return null
+    }
+    return this.ctx.vpnTunnel.state().gateway?.httpProxyUrl ?? null
+  }
+
+  private async * streamLlmWithGeoFailover(
+    options: GenerateOptions,
+    next: () => AsyncIterable<StreamChunk>,
+    retryStream: (options: GenerateOptions) => AsyncIterable<StreamChunk>,
+  ): AsyncGenerator<StreamChunk, void, undefined> {
+    const maxRetries = 2
+    const depth = this.llmGeoRetryDepths.get(options) ?? 0
+    const gatewayUrl = this.resolveAutoRotateGatewayUrl(options.provider)
+    const candidateBefore = gatewayUrl !== null
+      ? this.ctx.vpnTunnel.state().selectedNodeId
+      : null
+    let emittedContent = false
+    let rotated = false
+    const bufferedUsage: StreamChunk[] = []
+
+    for await (const chunk of next()) {
+      if (!emittedContent && chunk.type === 'usage') {
+        bufferedUsage.push(chunk)
+        continue
+      }
+      if (
+        !emittedContent
+        && depth < maxRetries
+        && gatewayUrl !== null
+        && candidateBefore !== null
+        && !options.signal?.aborted
+        && isUpstreamGeoRestrictionChunk(chunk)
+      ) {
+        const rejectedNodeId = this.ctx.vpnTunnel.state().lastRoutedNodeId ?? candidateBefore
+        this.ctx.vpnTunnel.penalizeNode(
+          rejectedNodeId,
+          'Upstream API rejected node region; switched node automatically',
+        )
+        const nextSelected = this.ctx.vpnTunnel.state().selectedNodeId
+        this.activeSelectedNodeId = nextSelected
+        await this.evictGatewayAgents(gatewayUrl)
+        this.emitChanged()
+        if (nextSelected !== null && nextSelected !== rejectedNodeId) {
+          rotated = true
+          break
+        }
+      }
+      for (const usageChunk of bufferedUsage) {
+        yield usageChunk
+      }
+      bufferedUsage.length = 0
+      if (chunk.type !== 'finish') {
+        emittedContent = true
+      }
+      yield chunk
+    }
+
+    if (rotated) {
+      this.llmGeoRetryDepths.set(options, depth + 1)
+      try {
+        yield* retryStream(options)
+      } finally {
+        if (depth === 0) {
+          this.llmGeoRetryDepths.delete(options)
+        }
       }
     }
   }

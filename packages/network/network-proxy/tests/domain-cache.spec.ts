@@ -169,7 +169,7 @@ describe('network-proxy domain & storage schemas', () => {
       ...DEFAULT_NETWORK_GLOBAL,
       pinnedNodeId: asNodeId('node-123456'),
     })
-    expect(toRoutingSettings(globalParsed).preferRegion).toBe('美国|新加坡')
+    expect(toRoutingSettings(globalParsed).preferRegion).toBe('新加坡|日本|美国, 台湾')
     expect(networkDomain.name).toBe('network')
   })
 })

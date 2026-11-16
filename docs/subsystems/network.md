@@ -4,7 +4,7 @@ English | [中文](network.zh.md)
 
 The [VPN tunnel plugin](../../packages/network/vpn-tunnel/README.md) registers `ctx.vpnTunnel`, a pure-TypeScript outbound proxy engine and loopback HTTP/CONNECT + SOCKS5 gateway bound on `127.0.0.1`. It parses Clash YAML and Base64/plain proxy URI subscriptions, calibrates server clock skew from HTTP `Date` headers, resolves real proxy server IPs around `198.18.0.0/15` FakeIP intercepts via direct UDP DNS queries, and dials `ss2022` (including SIP023 Multi-PSK EIH), `ss`, `trojan`, `vless`, `vmess`, `socks5`, and `http` over TCP, TLS, `simple-obfs`, or WebSocket transports.
 
-Candidate selection ranks healthy nodes by region-preference tiers (such as `美国|新加坡`) and EWMA round-trip latency while demoting preferred-region nodes whose RTT exceeds `maxPreferredLatencyMs` and isolating failing nodes behind an exponential-backoff circuit breaker. Private and loopback destinations (`localhost`, RFC 1918, RFC 6598, IPv6 ULA/link-local) always bypass proxy tunnels, and all snapshots and error reports redact raw URLs, server hostnames, IP literals, and credentials.
+Candidate selection ranks healthy nodes by region-preference tiers (such as `新加坡|日本|美国, 台湾`) and EWMA round-trip latency while demoting preferred-region nodes whose RTT exceeds `maxPreferredLatencyMs` and isolating failing or upstream-geo-rejected nodes behind exponential-backoff and quarantine cooldowns. Private and loopback destinations (`localhost`, RFC 1918, RFC 6598, IPv6 ULA/link-local) always bypass proxy tunnels, and all snapshots and error reports redact raw URLs, server hostnames, IP literals, and credentials.
 
 The [network proxy controller](../../packages/network/network-proxy/README.md) registers `ctx.networkProxy` (and `ctx.remote.networkProxy`), persisting redacted subscription metadata and `direct` / `smart` / `global` routing policy in the `network` storage domain while storing secret subscription URLs and the 256-bit AES-256-GCM node-cache key in `ctx.credentials`. It installs the dynamic `undici` proxy router over caller `TrafficContext` attribution, synchronizes Electron `<webview>` session proxy rules in Desktop, refreshes subscriptions in the background, runs concurrent connectivity diagnostics, and emits `network-proxy/changed` after state transitions. In the Web and Desktop GUI, [`ui-settings-network`](../../packages/client/ui-settings-network/README.md) mounts the Network and proxy Settings section and the active-only sidebar footer status switcher over `ctx.remote.networkProxy`.
 
@@ -159,6 +159,14 @@ setRoutingPolicy(policy: VpnRoutingPolicyInput): void
  * @param nodeId - target node identifier, or `null` for automatic mode.
  */
 selectNode(nodeId: VpnNodeId | null): void
+
+/**
+ * Quarantine `nodeId` immediately when an upstream service rejects its exit IP or region despite transport reachability.
+ * @param nodeId - node identifier to quarantine.
+ * @param reason - redacted quarantine reason recorded on the node snapshot.
+ * @param cooldownMs - quarantine duration in milliseconds (defaults to `1_800_000`, 30 minutes).
+ */
+penalizeNode(nodeId: VpnNodeId, reason: string, cooldownMs?: number): void
 
 /**
  * Evaluate the routing disposition (`proxy`, `direct`, or `reject`) for `host` under `mode`.

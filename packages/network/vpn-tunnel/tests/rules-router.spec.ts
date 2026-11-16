@@ -105,9 +105,9 @@ describe('compileRegionTiers, nodeRegionTierIndex, and NodeHealthTracker', () =>
       baseCooldownMs: 10_000,
       maxCooldownMs: 30_000,
       maxPreferredLatencyMs: 4000,
-      preferRegion: '美国|新加坡, 日本',
+      preferRegion: '新加坡|美国, 日本',
     })
-    expect(tracker.getPreferRegion()).toBe('美国|新加坡, 日本')
+    expect(tracker.getPreferRegion()).toBe('新加坡|美国, 日本')
     expect(tracker.getMaxPreferredLatencyMs()).toBe(4000)
     expect(tracker.rankCandidates()).toEqual([])
 
@@ -173,17 +173,49 @@ describe('compileRegionTiers, nodeRegionTierIndex, and NodeHealthTracker', () =>
     expect(tracker.rankCandidates(undefined, t0 + 1000).length).toBe(5)
     expect(tracker.rankCandidates(new Set([usSlow.id, sgMedium.id, sgFast.id, jpFast.id, other.id]), t0 + 1000)).toEqual([])
 
-    // Updating routing preferences and pruning removed nodes/pins in setNodes
+    // Application-layer quarantine (penalizeNode) survives generic probes until cooldown expires
+    tracker.penalizeNode(ghostId, 'ignored')
+    const defaultQuarantineTracker = new NodeHealthTracker()
+    defaultQuarantineTracker.setNodes([sgMedium, jpFast])
+    defaultQuarantineTracker.penalizeNode(sgMedium.id, 'geo-blocked')
+    expect(defaultQuarantineTracker.rankCandidates().map(n => n.id)).toEqual([jpFast.id])
+    const qTime = Date.now()
+    // Open transport circuit AND quarantine simultaneously to exercise combined ceiling selection
+    defaultQuarantineTracker.recordFailure(sgMedium.id, 'dial-err-1', qTime)
+    defaultQuarantineTracker.recordFailure(sgMedium.id, 'dial-err-2', qTime)
+    defaultQuarantineTracker.penalizeNode(sgMedium.id, 'geo-blocked-extended', 3_600_000, qTime)
+    expect(defaultQuarantineTracker.snapshots(qTime).find(s => s.nodeId === sgMedium.id)?.circuitOpenUntilMs)
+      .toBe(qTime + 3_600_000)
+    // Generic probe success updates latencyMs and clears transient circuit, but preserves active quarantine & lastError
+    defaultQuarantineTracker.recordSuccess(sgMedium.id, 95, qTime + 1_000)
+    const duringQuarantine = defaultQuarantineTracker.snapshots(qTime + 1_000).find(s => s.nodeId === sgMedium.id)
+    expect(duringQuarantine?.latencyMs).toBe(95)
+    expect(duringQuarantine?.circuitOpenUntilMs).toBe(qTime + 3_600_000)
+    expect(duringQuarantine?.lastError).toBe('geo-blocked-extended')
+    // Once quarantine expires, recordSuccess clears quarantine state and lastError
+    defaultQuarantineTracker.recordSuccess(sgMedium.id, 90, qTime + 3_600_001)
+    const afterQuarantine = defaultQuarantineTracker.snapshots(qTime + 3_600_001).find(s => s.nodeId === sgMedium.id)
+    expect(afterQuarantine?.circuitOpenUntilMs).toBeNull()
+    expect(afterQuarantine?.lastError).toBeUndefined()
+
+    // Updating routing preferences and pruning removed nodes/pins/lastRouted in setNodes
     tracker.setRoutingPreferences('日本', 2000)
     expect(tracker.getPreferRegion()).toBe('日本')
     expect(tracker.getMaxPreferredLatencyMs()).toBe(2000)
     tracker.setPinnedNode(other.id)
+    tracker.markConnectionStart(other.id)
+    expect(tracker.getLastRoutedNodeId()).toBe(other.id)
     tracker.setNodes([jpFast])
     expect(tracker.getPinnedNodeId()).toBeNull()
+    expect(tracker.getLastRoutedNodeId()).toBeNull()
+    tracker.markConnectionStart(jpFast.id)
+    expect(tracker.getLastRoutedNodeId()).toBe(jpFast.id)
+    tracker.penalizeNode(jpFast.id, 'geo-rejected')
+    expect(tracker.getLastRoutedNodeId()).toBeNull()
     expect(tracker.snapshots().length).toBe(1)
 
     // Default constructor options
     const defaultTracker = new NodeHealthTracker()
-    expect(defaultTracker.getPreferRegion()).toBe('美国|新加坡')
+    expect(defaultTracker.getPreferRegion()).toBe('新加坡|日本|美国, 台湾')
   })
 })

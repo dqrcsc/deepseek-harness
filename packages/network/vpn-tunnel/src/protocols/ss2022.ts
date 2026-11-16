@@ -44,6 +44,13 @@ const SS2022_CIPHERS: Readonly<Record<string, Ss2022CipherSpec>> = {
 }
 
 const SS2022_MAX_TIME_SKEW_SECONDS = 30
+const SS2022_MAX_INLINE_INITIAL_PAYLOAD = 0x8000
+
+/** Handshake options for {@link dialShadowsocks2022}. */
+export interface DialShadowsocks2022Options {
+  /** Defer emitting the SS-2022 greeting until the first outbound plaintext write so initial payload packs into `varPlain`. */
+  readonly deferGreeting?: boolean
+}
 
 function decodeBase64PskList(password: string, keySize: number): Buffer[] {
   const parts = password.split(':').map(part => part.trim()).filter(part => part.length > 0)
@@ -91,12 +98,13 @@ function buildEihHeaders(
 }
 
 /**
- * Send the Shadowsocks 2022 client stream greeting (including optional SIP023 Multi-PSK EIH) over `transport`
- * and return an authenticated AEAD-2022 `Duplex` stream.
+ * Send (or defer onto the first outbound write) the Shadowsocks 2022 client stream greeting
+ * (including optional SIP023 Multi-PSK EIH) over `transport` and return an authenticated AEAD-2022 `Duplex` stream.
  * @param transport - underlying TCP, TLS, `simple-obfs`, or WebSocket duplex.
  * @param node - SS-2022 proxy node configuration.
  * @param targetHost - destination hostname or IP literal.
  * @param targetPort - destination TCP port.
+ * @param options - optional deferred greeting coalescing configuration.
  * @returns plaintext `Duplex` tunnel stream.
  */
 export async function dialShadowsocks2022(
@@ -104,6 +112,7 @@ export async function dialShadowsocks2022(
   node: ProxyNodeConfig,
   targetHost: string,
   targetPort: number,
+  options?: DialShadowsocks2022Options,
 ): Promise<Duplex> {
   const rawCipher = node.cipher ?? ''
   const spec = SS2022_CIPHERS[rawCipher.toLowerCase()]
@@ -122,23 +131,29 @@ export async function dialShadowsocks2022(
 
   const eihBytes = buildEihHeaders(psks, reqSalt, spec.keySize, spec.eihCipher)
   const addrBytes = encodeSocks5TargetAddress(targetHost, targetPort)
-  const padLen = randomInt(32, 97)
-  const padHeader = Buffer.allocUnsafe(2)
-  padHeader.writeUInt16BE(padLen, 0)
-  const varPlain = Buffer.concat([addrBytes, padHeader, randomBytes(padLen)])
-
   const clockOffset = node.clockOffsetSeconds ?? 0
-  const nowSec = Math.floor(Date.now() / 1000) + clockOffset
-  const fixedPlain = Buffer.allocUnsafe(11)
-  fixedPlain[0] = 0x00
-  fixedPlain.writeBigUInt64BE(BigInt(nowSec), 1)
-  fixedPlain.writeUInt16BE(varPlain.length, 9)
 
-  const encFixed = aeadSeal(spec.algorithm, c2sKey, nonce12LittleEndian(0n), fixedPlain)
-  const encVar = aeadSeal(spec.algorithm, c2sKey, nonce12LittleEndian(1n), varPlain)
-  const greeting = Buffer.concat([reqSalt, eihBytes, encFixed, encVar])
+  const buildGreetingFrame = (initialHead: Buffer): Buffer => {
+    const padLen = initialHead.length > 0 ? randomInt(0, 33) : randomInt(32, 97)
+    const padHeader = Buffer.allocUnsafe(2)
+    padHeader.writeUInt16BE(padLen, 0)
+    const varPlain = Buffer.concat([addrBytes, padHeader, randomBytes(padLen), initialHead])
 
-  await writeAll(transport, greeting)
+    const nowSec = Math.floor(Date.now() / 1000) + clockOffset
+    const fixedPlain = Buffer.allocUnsafe(11)
+    fixedPlain[0] = 0x00
+    fixedPlain.writeBigUInt64BE(BigInt(nowSec), 1)
+    fixedPlain.writeUInt16BE(varPlain.length, 9)
+
+    const encFixed = aeadSeal(spec.algorithm, c2sKey, nonce12LittleEndian(0n), fixedPlain)
+    const encVar = aeadSeal(spec.algorithm, c2sKey, nonce12LittleEndian(1n), varPlain)
+    return Buffer.concat([reqSalt, eihBytes, encFixed, encVar])
+  }
+
+  const deferGreeting = options?.deferGreeting ?? false
+  if (!deferGreeting) {
+    await writeAll(transport, buildGreetingFrame(Buffer.alloc(0)))
+  }
 
   const fixedRespPlainLen = 1 + 8 + spec.keySize + 2
   const minRespHeaderBytes = spec.keySize + fixedRespPlainLen + AEAD_TAG_LEN
@@ -150,6 +165,14 @@ export async function dialShadowsocks2022(
     initialEncodeCounter: 2n,
     maxChunkPayload: 0xffff,
     lengthMask: 0xffff,
+    ...(deferGreeting
+      ? {
+        encodeFirstChunk: chunk => ({
+          prefixWire: buildGreetingFrame(chunk.subarray(0, SS2022_MAX_INLINE_INITIAL_PAYLOAD)),
+          remainingPlaintext: chunk.subarray(SS2022_MAX_INLINE_INITIAL_PAYLOAD),
+        }),
+      }
+      : {}),
     initDecoder(buffered: Buffer) {
       if (buffered.length < minRespHeaderBytes) return null
       const respSalt = buffered.subarray(0, spec.keySize)

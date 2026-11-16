@@ -35,14 +35,15 @@ Mount `@deepseek-ai/dsh-network-proxy` alongside `@deepseek-ai/dsh-vpn-tunnel`, 
   config:
     autoRefreshCheckIntervalMs: 60000
     diagnosticTimeoutMs: 8000
-    defaultProbeLimit: 24
+    defaultProbeLimit: 64
+    autoProbeOnActivate: true
 ```
 
-All fields have validated defaults. `dshHome` and `userEnvPath` override path discovery in isolated tests; `diagnosticTargets` replaces the default six-endpoint domestic and overseas diagnostic suite (`deepseek`, `openai`, `anthropic`, `gemini`, `github`, `google`).
+All fields have validated defaults. `dshHome` and `userEnvPath` override path discovery in isolated tests; `autoProbeOnActivate` benchmarks unprobed nodes in the background when proxy routing activates so region-tier selection locks onto measured RTT immediately; `diagnosticTargets` replaces the default six-endpoint domestic and overseas diagnostic suite (`deepseek`, `openai`, `anthropic`, `gemini`, `github`, `google`).
 
 ### Routing modes, overrides, and credential separation
 
-In `direct` mode, the loopback gateway stays stopped and outbound calls fall back to ambient `HTTP_PROXY` / `HTTPS_PROXY` environment variables. In `smart` mode, private/loopback addresses bypass the proxy, explicit per-provider (`providerOverrides`) and per-capability (`capabilityOverrides` for `web`, `mcp`, `plugin`, and `embedding`) overrides run first, user `customRules` and built-in domestic baseline rules (`deepseek.com`, `aliyuncs.com`, `volces.com`, `minimaxi.com`, `npmmirror.com`, `cn`) run next, and subscription Clash rules run last. In `global` mode, all non-private destinations route through the selected tunnel node unless matched by a user `DIRECT` or `REJECT` custom rule.
+In `direct` mode, the loopback gateway stays stopped and outbound calls fall back to ambient `HTTP_PROXY` / `HTTPS_PROXY` environment variables. In `smart` mode, private/loopback addresses bypass the proxy, explicit per-provider (`providerOverrides`) and per-capability (`capabilityOverrides` for `web`, `mcp`, `plugin`, and `embedding`) overrides run first, user `customRules` and built-in domestic baseline rules (`deepseek.com`, `aliyuncs.com`, `volces.com`, `minimaxi.com`, `npmmirror.com`, `cn`) run next, and subscription Clash rules run last. In `global` mode, all non-private destinations route through the selected tunnel node unless matched by a user `DIRECT` or `REJECT` custom rule. Whenever the selected node changes or an unpinned LLM request fails before emitting output with an upstream region-restriction error, `NetworkProxyService` evicts pooled keep-alive `ProxyAgent` tunnels and, on LLM geo-rejection, quarantines the offending node and retries on the next healthy candidate.
 
 `importEnvSubscriptions` scans `process.env`, `$DSH_HOME/.env`, and `~/.env` for `SUB_VPN_*` and `VPN_SUB_*` entries, deduplicates them by SHA-256 URL digest, writes secret URLs only to `ctx.credentials` (`network-proxy/<id>`), and exposes only masked previews (`https://host/***`) and opaque node hashes over Remote RPC.
 

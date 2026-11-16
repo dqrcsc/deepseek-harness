@@ -2730,7 +2730,7 @@ export interface Config {
 ## `@deepseek-ai/dsh-network-proxy`
 
 - `inject`: `vpnTunnel` · `storageDomain` · `credentials`
-- `source`: [`packages/network/network-proxy/src/index.ts:102`](../packages/network/network-proxy/src/index.ts)
+- `source`: [`packages/network/network-proxy/src/index.ts:103`](../packages/network/network-proxy/src/index.ts)
 
 ```ts config-catalog
 /** Validated configuration for {@link NetworkProxyService}. */
@@ -2743,8 +2743,10 @@ export interface Config {
   diagnosticTimeoutMs?: number
   /** Background timer interval in milliseconds checking subscriptions due for `autoRefreshMinutes`; defaults to `60000`. */
   autoRefreshCheckIntervalMs?: number
-  /** Default node-probe limit when `probeNodes` omits `limit`; defaults to `12`. */
+  /** Default node-probe limit when `probeNodes` omits `limit`; defaults to `64`. */
   defaultProbeLimit?: number
+  /** Automatically benchmark unprobed subscription nodes in the background when proxy routing activates; defaults to `true`. */
+  autoProbeOnActivate?: boolean
   /** Optional custom diagnostic target list overriding built-in domestic/overseas targets. */
   diagnosticTargets?: ConfiguredDiagnosticTarget[]
 }
@@ -4977,7 +4979,7 @@ export type ApprovalPolicy = 'ask' | 'never'
 
 ## `@deepseek-ai/dsh-vpn-tunnel`
 
-- `source`: [`packages/network/vpn-tunnel/src/index.ts:162`](../packages/network/vpn-tunnel/src/index.ts)
+- `source`: [`packages/network/vpn-tunnel/src/index.ts:168`](../packages/network/vpn-tunnel/src/index.ts)
 
 ```ts config-catalog
 /** Validated configuration for {@link VpnTunnelRuntime}. */
@@ -5000,7 +5002,7 @@ export interface Config {
   dnsServers?: string[]
   /** Per-server UDP DNS query timeout in milliseconds. */
   dnsTimeoutMs?: number
-  /** Initial region-tier preference expression (`美国|新加坡`). */
+  /** Initial region-tier preference expression (`新加坡|日本|美国, 台湾`). */
   preferRegion?: string
   /** Initial preferred-region latency ceiling in milliseconds. */
   maxPreferredLatencyMs?: number

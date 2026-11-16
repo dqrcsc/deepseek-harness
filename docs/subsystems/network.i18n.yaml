@@ -3,5 +3,5 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/network.md
 /network-tunnel-and-smart-routing:
-  en: dcae7d7590d5baf9
-  zh: cea6955f5e62ec07
+  en: 9cfc4a1ac047a5b2
+  zh: 8f212edfc8547baa

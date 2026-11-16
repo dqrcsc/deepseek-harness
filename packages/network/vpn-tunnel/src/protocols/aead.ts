@@ -109,6 +109,11 @@ export interface ShadowsocksAeadStreamSpec {
   readonly lengthMask: number
   /** Optional prefix bytes prepended to the very first client write (used by classic SS-AEAD salt emission). */
   readonly firstWritePrefix?: Buffer
+  /** Optional hook packing part or all of the first plaintext write into a protocol greeting frame (used by SS-2022 `varPlain`). */
+  readonly encodeFirstChunk?: (chunk: Buffer) => {
+    readonly prefixWire: Buffer
+    readonly remainingPlaintext: Buffer
+  }
   /** Callback deriving the server-to-client subkey and starting nonce once the response salt/header arrives. */
   readonly initDecoder: (buffered: Buffer) => {
     readonly decodeKey: Uint8Array
@@ -129,17 +134,24 @@ export function createShadowsocksAeadDuplex(spec: ShadowsocksAeadStreamSpec): Du
   let decodeKey: Uint8Array | null = null
   let pendingRead: Buffer = Buffer.alloc(0)
   let expectedPayloadLen: number | null = null
+  let firstChunkEncoded = spec.encodeFirstChunk === undefined
   let prefixSent = spec.firstWritePrefix === undefined
 
   const encodePlaintext = (chunk: Buffer): Buffer => {
     const frames: Buffer[] = []
-    if (!prefixSent && spec.firstWritePrefix !== undefined) {
+    let remaining = chunk
+    if (!firstChunkEncoded && spec.encodeFirstChunk !== undefined) {
+      firstChunkEncoded = true
+      const packed = spec.encodeFirstChunk(chunk)
+      frames.push(packed.prefixWire)
+      remaining = packed.remainingPlaintext
+    } else if (!prefixSent && spec.firstWritePrefix !== undefined) {
       prefixSent = true
       frames.push(spec.firstWritePrefix)
     }
     let offset = 0
-    while (offset < chunk.length) {
-      const slice = chunk.subarray(offset, Math.min(offset + spec.maxChunkPayload, chunk.length))
+    while (offset < remaining.length) {
+      const slice = remaining.subarray(offset, Math.min(offset + spec.maxChunkPayload, remaining.length))
       const lenBuf = Buffer.allocUnsafe(2)
       lenBuf.writeUInt16BE(slice.length, 0)
       const encLen = aeadSeal(spec.algorithm, spec.encodeKey, nonce12LittleEndian(encodeCounter), lenBuf)
