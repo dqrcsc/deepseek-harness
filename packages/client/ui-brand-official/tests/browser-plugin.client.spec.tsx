@@ -11,7 +11,7 @@ import { createBrandSnapshot } from '@deepseek-ai/dsh-client-ui-theme/src/theme-
 import {
   AboutBrandSection, BRAND_SETTINGS_NS, BrandSculptureMark, CUSTOM_EDITION_VERSION,
   HeroBrandHeadline, HeroBrandMark, OfficialBrandMark, OfficialBrandName,
-  apply, inject, resolveBrandMottoKey, resolveHeroHeadlineText, resolveTimeGreetingKey,
+  apply, inject, resolveBrandMottoKey, resolveEditionVersion, resolveHeroHeadlineText, resolveTimeGreetingKey,
   type AboutBrandSectionInjected, type BrandSlotInjected,
 } from '../src/client/index.ts'
 import { zh, type BrandLocaleKey } from '../src/client/locales.ts'
@@ -96,6 +96,10 @@ describe('brand customization and attribution plugin', () => {
     expect(hostApply).not.toThrow()
     expect(inject).toEqual(['slots', 'theme', 'locale'])
     expect(CUSTOM_EDITION_VERSION).toBe('v1.0.0')
+    expect(resolveEditionVersion(undefined)).toBe('v1.0.0')
+    expect(resolveEditionVersion('   ')).toBe('v1.0.0')
+    expect(resolveEditionVersion('v1.2.3')).toBe('v1.2.3')
+    expect(resolveEditionVersion('1.2.3')).toBe('v1.2.3')
   })
 
   it('fills sidebar, Hero, and Settings slots across local and official builds and tears down cleanly', async () => {

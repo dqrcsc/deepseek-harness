@@ -11,6 +11,12 @@
 /deepseek-harness/run:
   en: 4e0248e4c6474fc6
   zh: eb2fb8d78c7d6bc0
+/deepseek-harness/run/one-line-install-reins-distribution-macos-windows:
+  en: e576e69a9efcb52c
+  zh: d9c33c5257fae596
+/deepseek-harness/run/install-and-verify-with-an-ai-agent:
+  en: 615c3eaeb9f9ad30
+  zh: 31fa60318fc9e20b
 /deepseek-harness/run/run-from-npm:
   en: e22005cd42e6cbad
   zh: 0f536f4208df1d60

@@ -14,7 +14,9 @@ import {
 import { AboutBrandSection, type AboutBrandSectionInjected } from './AboutBrandSection.tsx'
 import { de, en, es, fr, ja, pt, ru, zh, type BrandLocaleKey } from './locales.ts'
 
-export { CUSTOM_EDITION_VERSION, BrandSculptureMark, type BrandSculptureMarkProps } from './BrandArtwork.tsx'
+export {
+  CUSTOM_EDITION_VERSION, BrandSculptureMark, resolveEditionVersion, type BrandSculptureMarkProps,
+} from './BrandArtwork.tsx'
 export {
   HeroBrandHeadline, HeroBrandMark, OfficialBrandMark, OfficialBrandName,
   resolveBrandMottoKey, resolveHeroHeadlineText, resolveTimeGreetingKey,

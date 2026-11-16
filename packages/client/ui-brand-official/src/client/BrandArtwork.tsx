@@ -4,8 +4,19 @@ import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { BrandPreset } from '@deepseek-ai/dsh-client-ui-theme/client'
 import css from './BrandArtwork.module.css'
 
+/**
+ * Normalize an optional build-time edition version, falling back to `'v1.0.0'`.
+ * @param configured - Optional `DSH_CLIENT_EDITION_VERSION` build value.
+ * @returns Non-empty edition version string prefixed with `v`, or `'v1.0.0'`.
+ */
+export function resolveEditionVersion(configured: string | undefined): string {
+  const trimmed = configured?.trim()
+  if (trimmed === undefined || trimmed === '') return 'v1.0.0'
+  return trimmed.startsWith('v') ? trimmed : `v${trimmed}`
+}
+
 /** Version string of this customized edition shown in Settings attribution. */
-export const CUSTOM_EDITION_VERSION = 'v1.0.0'
+export const CUSTOM_EDITION_VERSION: string = resolveEditionVersion(process.env.DSH_CLIENT_EDITION_VERSION)
 
 /** Props accepted by {@link BrandSculptureMark}. */
 export interface BrandSculptureMarkProps {

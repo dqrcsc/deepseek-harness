@@ -18,6 +18,53 @@ DeepSeek Harness 处于 _开发者预览_ 阶段，正在快速迭代。**未来
 
 ## 运行
 
+### 一行免管理员安装（Reins 发行版，macOS 与 Windows）
+
+预构建的 Reins 发行版直接安装至当前用户目录（macOS 为 `~/.reins`，Windows 为 `%LOCALAPPDATA%\Reins`），内置独立 Node.js 24 运行时，全程无需管理员权限，按需在后台常驻提供 `http://127.0.0.1:3180` Web 服务，并将数据独立隔离在 `<root>/data` 下，与 `npm` 或源码运行模式（`3080` 端口与 `~/.dsh`）完全互不干扰。
+
+在 macOS（`arm64` 与 `x64`）终端运行：
+
+```sh
+curl -fsSL https://github.com/dqrcsc/deepseek-harness/releases/latest/download/install.sh | bash
+```
+
+在 Windows（`x64` PowerShell，普通非管理员用户即可）运行：
+
+```powershell
+irm https://github.com/dqrcsc/deepseek-harness/releases/latest/download/install.ps1 | iex
+```
+
+在 Windows 上，安装脚本还会在桌面与开始菜单创建 **Reins** 快捷图标，双击即可无黑框拉起后台服务并打开默认浏览器。日常也可通过终端 CLI（命令行界面）命令 `reins`（或可选同构品牌别名 `loom`、`lumen`）管理服务：
+
+- `reins`（或 `reins open`、`loom`、`lumen`）：按需拉起后台服务并在默认浏览器打开 `http://127.0.0.1:3180`。
+- `reins start` / `reins stop` / `reins restart` / `reins status` / `reins logs -f`：启停后台守护进程并查看滚动日志。
+- `reins upgrade`（`--check` 仅检查更新）/ `reins rollback`：从 GitHub Releases 无损热升级（健康检查失败自动回滚），或秒级切回本地保留的上一版本。
+- `reins config set port <port>` / `reins config set mirror <url>`：修改本地监听端口或配置 GitHub Release 加速镜像。
+- `reins alias list` / `reins alias enable|disable <loom|lumen>`：查看或开关品牌命令别名。
+- `reins doctor` / `reins uninstall`：执行环境自检，或卸载程序与快捷方式（未显式传入 `--purge-data --yes` 时默认安全保留 `data/` 会话数据）。
+
+### 通过 AI agent 自动安装与自检
+
+将安装任务交给 AI（人工智能）agent 执行时，建议设置 `REINS_NO_OPEN=1` 让安装器在后台静默启动并完成就绪校验而不自动弹出浏览器窗口，随后直接通过垫片绝对路径调用自检命令（无需等待新终端重新加载 `PATH`）。
+
+macOS：
+
+```sh
+curl -fsSL https://github.com/dqrcsc/deepseek-harness/releases/latest/download/install.sh | REINS_NO_OPEN=1 bash
+~/.reins/bin/reins status
+~/.reins/bin/reins doctor
+```
+
+Windows PowerShell：
+
+```powershell
+$env:REINS_NO_OPEN = '1'; irm https://github.com/dqrcsc/deepseek-harness/releases/latest/download/install.ps1 | iex
+& "$env:LOCALAPPDATA\Reins\bin\reins.cmd" status
+& "$env:LOCALAPPDATA\Reins\bin\reins.cmd" doctor
+```
+
+安装脚本还支持可选环境变量 `REINS_PORT`（自定义监听端口）、`REINS_GITHUB_MIRROR`（配置发布包镜像前缀）、`REINS_VERSION`（固定安装如 `reins-v1.0.0` 版本）与 `REINS_NO_START=1`（仅安装不启动后台服务）。当 `doctor` 自检通过后，可执行 `~/.reins/bin/reins open`（macOS）或 `& "$env:LOCALAPPDATA\Reins\bin\reins.cmd" open`（Windows）为用户打开带鉴权令牌的 Web UI。
+
 ### 通过 `npm` 运行
 
 安装 `Node.js`，然后运行：
