@@ -141,6 +141,7 @@ jobs:
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: reins-target-${{ matrix.target }}
+          include-hidden-files: true
           path: |
             .reins-dist/reins-${{ needs.plan.outputs.edition_version }}-${{ matrix.target }}.*
           if-no-files-found: error
@@ -187,6 +188,7 @@ jobs:
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: reins-release-bundle
+          include-hidden-files: true
           path: |
             .reins-dist/*.tar.gz
             .reins-dist/*.zip
@@ -232,20 +234,27 @@ jobs:
             printf '### 已安装用户一键热升级 / In-Place Upgrade\n```sh\nreins upgrade\n```\n'
           } > "$NOTES_FILE"
 
-          PRERELEASE_FLAG=()
-          case "$EDITION_VERSION" in
-            *-*) PRERELEASE_FLAG=(--prerelease) ;;
-          esac
-
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" \
-              --target "$TARGET_COMMIT" \
-              --title "执辔 Reins ${EDITION_VERSION}" \
-              --notes-file "$NOTES_FILE" \
-              "${PRERELEASE_FLAG[@]}"
+          if ! gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            case "$EDITION_VERSION" in
+              *-*)
+                gh release create "$RELEASE_TAG" \
+                  --repo "$GH_REPO" \
+                  --target "$TARGET_COMMIT" \
+                  --title "执辔 Reins ${EDITION_VERSION}" \
+                  --notes-file "$NOTES_FILE" \
+                  --prerelease
+                ;;
+              *)
+                gh release create "$RELEASE_TAG" \
+                  --repo "$GH_REPO" \
+                  --target "$TARGET_COMMIT" \
+                  --title "执辔 Reins ${EDITION_VERSION}" \
+                  --notes-file "$NOTES_FILE"
+                ;;
+            esac
           fi
 
-          gh release upload "$RELEASE_TAG" --clobber \
+          gh release upload "$RELEASE_TAG" --repo "$GH_REPO" --clobber \
             .reins-dist/*.tar.gz \
             .reins-dist/*.zip \
             .reins-dist/latest.json \
