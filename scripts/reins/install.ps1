@@ -38,7 +38,7 @@ function ConvertTo-NormalizedVersion([string]$Raw) {
 
 $ManifestPath = if ($RequestedVersion) {
   $Norm = ConvertTo-NormalizedVersion $RequestedVersion
-  "releases/download/reins-$($Norm.Substring(1))/latest.json"
+  "releases/download/reins-$Norm/latest.json"
 } else {
   'releases/latest/download/latest.json'
 }

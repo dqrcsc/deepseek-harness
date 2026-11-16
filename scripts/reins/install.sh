@@ -85,7 +85,7 @@ TARGET="$(resolve_target)"
 
 if [ -n "$REINS_VERSION" ]; then
   NORM_VER="$(normalize_version_tag "$REINS_VERSION")"
-  MANIFEST_PATH="releases/download/reins-${NORM_VER#v}/latest.json"
+  MANIFEST_PATH="releases/download/reins-${NORM_VER}/latest.json"
 else
   MANIFEST_PATH="releases/latest/download/latest.json"
 fi

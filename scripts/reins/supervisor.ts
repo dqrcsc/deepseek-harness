@@ -4,17 +4,16 @@
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeSync, closeSync } from 'node:fs'
-import { createServer } from 'node:net'
 import { homedir } from 'node:os'
-import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { pathToFileURL } from 'node:url'
 import {
   RotatingLogWriter,
   atomicWriteText,
   extractWebLaunchUrl,
+  isExecutedAsMain,
   isJsonRecord,
   isProcessAlive,
+  probePortAvailable,
   readCurrentVersion,
   readReinsConfig,
   resolveReinsPaths,
@@ -24,32 +23,13 @@ import {
   type ReinsPaths,
 } from './shared.ts'
 
+export { probePortAvailable } from './shared.ts'
+
 const BACKOFF_DELAYS_MS = [1_500, 4_000, 10_000] as const
 const HEALTHY_UPTIME_RESET_MS = 30_000
 const MAX_CONSECUTIVE_CRASHES = 5
 const STOP_POLL_INTERVAL_MS = 150
 const CHILD_EXIT_GRACE_MS = 4_000
-
-/**
- * Probe whether `host:port` can be bound on the local loopback interface.
- * @param host - Loopback IP address (such as `127.0.0.1`).
- * @param port - Candidate TCP port.
- * @returns True when the port is free to bind, false when already in use.
- */
-export function probePortAvailable(host: string, port: number): Promise<boolean> {
-  return new Promise((resolvePromise) => {
-    const server = createServer()
-    server.unref()
-    server.once('error', () => {
-      resolvePromise(false)
-    })
-    server.listen({ host, port, exclusive: true }, () => {
-      server.close(() => {
-        resolvePromise(true)
-      })
-    })
-  })
-}
 
 /**
  * Enrich `PATH` on macOS using the user's login shell so Agent commands find Homebrew, pyenv, nvm, and cargo.
@@ -443,7 +423,7 @@ export async function runSupervisor(options: SupervisorRunOptions = {}): Promise
   return exitCode
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isExecutedAsMain(import.meta.url)) {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {

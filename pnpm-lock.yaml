@@ -19149,6 +19149,9 @@ importers:
       '@deepseek-ai/dsh-native-command':
         specifier: workspace:*
         version: link:../../packages/util/native-command
+      '@deepseek-ai/dsh-network-proxy':
+        specifier: workspace:*
+        version: link:../../packages/network/network-proxy
       '@deepseek-ai/dsh-office-kit':
         specifier: workspace:*
         version: link:../../packages/document/office-kit
@@ -19413,6 +19416,9 @@ importers:
       '@deepseek-ai/dsh-util-workspace-path':
         specifier: workspace:*
         version: link:../../packages/util/workspace-path
+      '@deepseek-ai/dsh-vpn-tunnel':
+        specifier: workspace:*
+        version: link:../../packages/network/vpn-tunnel
       '@deepseek-ai/dsh-web':
         specifier: workspace:*
         version: link:../../packages/web/web

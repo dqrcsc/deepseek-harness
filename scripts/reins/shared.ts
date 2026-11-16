@@ -6,18 +6,21 @@ import { createHash, randomUUID } from 'node:crypto'
 import {
   appendFileSync,
   chmodSync,
+  createReadStream,
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { createReadStream } from 'node:fs'
+import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { pipeline } from 'node:stream/promises'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 /** Default GitHub repository hosting public Reins releases. */
 export const DEFAULT_GITHUB_REPO = 'dqrcsc/deepseek-harness'
@@ -207,7 +210,7 @@ export interface ReleaseSlotPaths {
   readonly releaseManifestFile: string
   /** Bundled standalone Node 24 executable (`node/bin/node` or `node/bin/node.exe`). */
   readonly nodeExecutable: string
-  /** Deployed `@deepseek-ai/dsh` launcher (`app/lib/bin.js`). */
+  /** Deployed `@deepseek-ai/dsh` launcher (`app/node_modules/@deepseek-ai/dsh/lib/bin.js`). */
   readonly dshBinScript: string
   /** Bundled CLI entrypoint (`supervisor/cli.mjs`). */
   readonly cliScript: string
@@ -233,7 +236,7 @@ export function resolveReleaseSlotPaths(
     slotDir,
     releaseManifestFile: join(slotDir, 'release.json'),
     nodeExecutable: join(slotDir, 'node', 'bin', nodeBinaryName),
-    dshBinScript: join(slotDir, 'app', 'lib', 'bin.js'),
+    dshBinScript: join(slotDir, 'app', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'),
     cliScript: join(slotDir, 'supervisor', 'cli.mjs'),
     supervisorScript: join(slotDir, 'supervisor', 'supervisor.mjs'),
   }
@@ -667,6 +670,45 @@ export async function sha256File(filePath: string): Promise<string> {
   const hash = createHash('sha256')
   await pipeline(createReadStream(filePath), hash)
   return hash.digest('hex')
+}
+
+/**
+ * Probe whether `host:port` can be bound on the local loopback interface.
+ * @param host - Loopback IP address (such as `127.0.0.1`).
+ * @param port - Candidate TCP port.
+ * @returns True when the port is free to bind, false when already in use.
+ */
+export function probePortAvailable(host: string, port: number): Promise<boolean> {
+  return new Promise((resolvePromise) => {
+    const server = createServer()
+    server.unref()
+    server.once('error', () => {
+      resolvePromise(false)
+    })
+    server.listen({ host, port, exclusive: true }, () => {
+      server.close(() => {
+        resolvePromise(true)
+      })
+    })
+  })
+}
+
+/**
+ * Check whether the current ESM module was invoked directly as the Node process entrypoint,
+ * resolving symlinks (`/var` -> `/private/var` on macOS) and 8.3 short paths on Windows.
+ * @param metaUrl - `import.meta.url` of the candidate module.
+ * @param argv1 - `process.argv[1]` value.
+ * @returns True when `metaUrl` matches `argv1`.
+ */
+export function isExecutedAsMain(metaUrl: string, argv1: string | undefined = process.argv[1]): boolean {
+  if (argv1 === undefined || argv1 === '') return false
+  try {
+    return realpathSync.native(fileURLToPath(metaUrl)) === realpathSync.native(resolve(argv1))
+  } catch (error) {
+    // Unmaterialized synthetic paths fall back to normalized file URL comparison.
+    void error
+    return metaUrl === pathToFileURL(resolve(argv1)).href
+  }
 }
 
 /**

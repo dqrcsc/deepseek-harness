@@ -25,8 +25,8 @@ import {
   type ReleaseTarget,
 } from './shared.ts'
 
-/** Default health-check timeout before an upgrade automatically rolls back (15 seconds). */
-export const DEFAULT_UPGRADE_HEALTH_TIMEOUT_MS = 15_000
+/** Default health-check timeout before an upgrade automatically rolls back (30 seconds). */
+export const DEFAULT_UPGRADE_HEALTH_TIMEOUT_MS = 30_000
 
 /** Minimal fetch function signature accepted by network helpers for deterministic testing. */
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>
@@ -75,7 +75,7 @@ export async function fetchReleaseManifest(options: FetchReleaseManifestOptions)
   const fetchFn: FetchLike = options.fetchImpl ?? fetch
   const timeoutMs = options.timeoutMs ?? 20_000
   const assetPath = options.version !== undefined && options.version.trim() !== ''
-    ? `releases/download/reins-${normalizeVersionTag(options.version).slice(1)}/latest.json`
+    ? `releases/download/reins-${normalizeVersionTag(options.version)}/latest.json`
     : 'releases/latest/download/latest.json'
   const url = buildReleaseAssetUrl(options.repo, assetPath, options.mirror)
   const response = await fetchFn(url, {
@@ -412,7 +412,8 @@ export async function performUpgrade(options: PerformUpgradeOptions): Promise<Up
 
   mkdirSync(options.paths.releasesDir, { recursive: true })
   const tempArchive = join(options.paths.releasesDir, `.download-${randomUUID()}-${asset.file}`)
-  const stagingSlotDir = join(options.paths.releasesDir, `.staging-${targetVersion}-${randomUUID()}`)
+  const stagingSlotName = `.staging-${targetVersion}-${randomUUID()}`
+  const stagingSlotDir = join(options.paths.releasesDir, stagingSlotName)
 
   try {
     const assetUrl = buildReleaseAssetUrl(
@@ -422,14 +423,7 @@ export async function performUpgrade(options: PerformUpgradeOptions): Promise<Up
     )
     await downloadVerifiedArchive(assetUrl, asset.sha256, tempArchive, fetchFn)
     extractReleaseArchive(tempArchive, stagingSlotDir, platform)
-    validateExtractedSlot({
-      slotDir: stagingSlotDir,
-      releaseManifestFile: join(stagingSlotDir, 'release.json'),
-      nodeExecutable: join(stagingSlotDir, 'node', 'bin', platform === 'win32' ? 'node.exe' : 'node'),
-      dshBinScript: join(stagingSlotDir, 'app', 'lib', 'bin.js'),
-      cliScript: join(stagingSlotDir, 'supervisor', 'cli.mjs'),
-      supervisorScript: join(stagingSlotDir, 'supervisor', 'supervisor.mjs'),
-    })
+    validateExtractedSlot(resolveReleaseSlotPaths(options.paths.releasesDir, stagingSlotName, platform))
   } finally {
     rmSync(tempArchive, { force: true })
   }

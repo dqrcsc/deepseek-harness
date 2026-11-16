@@ -3,11 +3,12 @@
  */
 
 import { spawn } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http'
 import { createServer as createNetServer, type Server as NetServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { delimiter, join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { c as createTar } from 'tar'
 import { afterEach, describe, expect, it } from 'vitest'
 import { runReinsCli } from '../cli.ts'
@@ -15,6 +16,7 @@ import {
   RotatingLogWriter,
   compareVersions,
   extractWebLaunchUrl,
+  isExecutedAsMain,
   normalizeVersionTag,
   readCurrentVersion,
   readDaemonStatus,
@@ -41,6 +43,7 @@ import {
 import { buildDaemonChildEnv, runSupervisor } from '../supervisor.ts'
 import {
   buildReleaseAssetUrl,
+  fetchReleaseManifest,
   performRollback,
   performUpgrade,
   type DaemonTransactionHooks,
@@ -85,9 +88,9 @@ function seedSyntheticSlot(
   platform: NodeJS.Platform = process.platform,
 ): string {
   const slot = resolveReleaseSlotPaths(releasesDir, version, platform)
-  mkdirSync(join(slot.slotDir, 'node', 'bin'), { recursive: true })
-  mkdirSync(join(slot.slotDir, 'app', 'lib'), { recursive: true })
-  mkdirSync(join(slot.slotDir, 'supervisor'), { recursive: true })
+  mkdirSync(dirname(slot.nodeExecutable), { recursive: true })
+  mkdirSync(dirname(slot.dshBinScript), { recursive: true })
+  mkdirSync(dirname(slot.cliScript), { recursive: true })
 
   if (platform === 'win32') {
     writeFileSync(slot.nodeExecutable, 'stub-node-exe', 'utf8')
@@ -148,6 +151,18 @@ describe('Reins shared metadata, SemVer, brand personas, and log rotation', () =
     expect(resolveBrandIdentity('C:\\Users\\demo\\AppData\\Local\\Reins\\bin\\loom.cmd').displayName).toBe('灵枢 Loom')
     expect(resolveBrandIdentity('/Users/demo/.reins/bin/lumen').displayName).toBe('澄明 Lumen')
     expect(resolveBrandIdentity('custom-wrapper.sh').command).toBe('reins')
+
+    if (process.platform !== 'win32') {
+      const parent = createTempDir('reins-symlink-main-')
+      const realDir = join(parent, 'real')
+      const linkDir = join(parent, 'alias')
+      mkdirSync(realDir, { recursive: true })
+      const realEntry = join(realDir, 'entry.mjs')
+      writeFileSync(realEntry, 'export {}\n', 'utf8')
+      symlinkSync(realDir, linkDir)
+      expect(isExecutedAsMain(pathToFileURL(realEntry).href, join(linkDir, 'entry.mjs'))).toBe(true)
+      expect(isExecutedAsMain(pathToFileURL(realEntry).href, join(linkDir, 'other.mjs'))).toBe(false)
+    }
   })
 
   it('resolves isolated platform roots without touching ~/.dsh', () => {
@@ -376,7 +391,7 @@ describe('Reins background supervisor isolation, crash recovery, and port-confli
 })
 
 describe('Reins dual-slot upgrader, automatic rollback, CLI personas, and POSIX installer', () => {
-  it('builds mirror URLs across prefix proxies, repository mirrors, and templates', () => {
+  it('builds mirror URLs across prefix proxies, repository mirrors, and templates', async () => {
     expect(buildReleaseAssetUrl('dqrcsc/deepseek-harness', 'releases/latest/download/latest.json')).toBe(
       'https://github.com/dqrcsc/deepseek-harness/releases/latest/download/latest.json',
     )
@@ -399,6 +414,28 @@ describe('Reins dual-slot upgrader, automatic rollback, CLI personas, and POSIX 
     ).toBe(
       'https://proxy.internal/fetch?target=https://github.com/dqrcsc/deepseek-harness/releases/latest/download/latest.json',
     )
+
+    let requestedUrl = ''
+    await fetchReleaseManifest({
+      repo: 'dqrcsc/deepseek-harness',
+      version: 'v1.2.0',
+      fetchImpl: async (url) => {
+        requestedUrl = url
+        return new Response(
+          JSON.stringify({
+            schemaVersion: 1,
+            editionVersion: 'v1.2.0',
+            tag: 'reins-v1.2.0',
+            dshCoreVersion: '0.2.2-rc.2',
+            commit: 'abcdef123456',
+            publishedAt: '2026-11-16T00:00:00.000Z',
+            assets: {},
+          }),
+          { status: 200 },
+        )
+      },
+    })
+    expect(requestedUrl).toBe('https://github.com/dqrcsc/deepseek-harness/releases/download/reins-v1.2.0/latest.json')
   })
 
   it('upgrades atomically, prunes third-oldest slots, auto-rolls back on failed health check, and supports manual rollback', async () => {

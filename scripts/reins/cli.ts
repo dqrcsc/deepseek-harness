@@ -8,13 +8,14 @@ import { cpSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync
 import { createInterface } from 'node:readline/promises'
 import { homedir } from 'node:os'
 import { delimiter, join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import {
   DEFAULT_GITHUB_REPO,
   SUPPORTED_ALIASES,
   atomicWriteText,
   isBrandAliasName,
+  isExecutedAsMain,
   isProcessAlive,
+  probePortAvailable,
   readCurrentVersion,
   readDaemonStatus,
   readReinsConfig,
@@ -41,7 +42,6 @@ import {
   upsertPosixShellPath,
   upsertWindowsUserPath,
 } from './shims.ts'
-import { probePortAvailable } from './supervisor.ts'
 import {
   DEFAULT_UPGRADE_HEALTH_TIMEOUT_MS,
   fetchReleaseManifest,
@@ -54,7 +54,7 @@ import {
 } from './upgrader.ts'
 
 const DAEMON_STOP_TIMEOUT_MS = 6_000
-const DAEMON_START_TIMEOUT_MS = 15_000
+const DAEMON_START_TIMEOUT_MS = 30_000
 const POLL_INTERVAL_MS = 120
 
 /** Injectable I/O and environment hooks for `runReinsCli`. */
@@ -1153,7 +1153,7 @@ async function handleInternalPostinstall(
   return 0
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isExecutedAsMain(import.meta.url)) {
   void runReinsCli(process.argv.slice(2)).then((code) => {
     process.exitCode = code
   })

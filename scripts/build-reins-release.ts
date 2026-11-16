@@ -5,22 +5,23 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { chmod, copyFile, glob, mkdir, readdir, rm } from 'node:fs/promises'
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { chmod, copyFile, cp, glob, mkdir, readdir, rm } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve, sep } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { c as createTar } from 'tar'
 import { build as bundle } from 'tsdown'
 import { deduplicateStagedWorkspacePackages, materializeStagedLinks } from './build-exe-for-python-sdk-staging.ts'
+import { resolveWindowsNodePtyAddons } from './executable-native-pty.ts'
 import { pnpmInvocation, verifyStagedDependencies } from './executable-packaging.ts'
 import primaryLock from './primary-runtime/lock.json' with { type: 'json' }
 import { downloadNodeRuntime, type PrimaryRuntimeTarget } from './primary-runtime/prepare.ts'
 import {
   DEFAULT_GITHUB_REPO,
   atomicWriteText,
+  isExecutedAsMain,
   isJsonRecord,
   isReleaseTarget,
   normalizeVersionTag,
@@ -111,8 +112,15 @@ async function assertSymlinkFree(dir: string): Promise<void> {
 }
 
 async function pruneStagedAppPayload(appDir: string, target: ReleaseTarget): Promise<void> {
-  for (const topLevelDoc of ['docs', 'src', 'README.md', 'README.zh.md', 'README.i18n.yaml']) {
-    await rm(join(appDir, topLevelDoc), { recursive: true, force: true })
+  const topLevelCleanup = [
+    'README.md',
+    'README.zh.md',
+    'README.i18n.yaml',
+    'platforms.json',
+    'runtime-bootstrap.mjs',
+  ]
+  for (const name of topLevelCleanup) {
+    await rm(join(appDir, name), { recursive: true, force: true })
   }
 
   for await (const relPath of glob('node_modules/**/*.{map,d.ts,d.mts,d.cts}', {
@@ -122,19 +130,53 @@ async function pruneStagedAppPayload(appDir: string, target: ReleaseTarget): Pro
     await rm(join(appDir, relPath), { force: true })
   }
 
-  for await (const relDir of glob('node_modules/@deepseek-ai/dsh*/{src,docs}', {
-    cwd: appDir,
-  })) {
+  await rm(join(appDir, 'node_modules', '@deepseek-ai', 'dsh', 'src'), { recursive: true, force: true })
+  await rm(join(appDir, 'node_modules', '@deepseek-ai', 'dsh', 'docs'), { recursive: true, force: true })
+  for await (const relDir of glob('node_modules/@deepseek-ai/dsh-*/src', { cwd: appDir })) {
     await rm(join(appDir, relDir), { recursive: true, force: true })
   }
 
-  const ptyPrebuildsDir = join(appDir, 'node_modules', 'node-pty', 'prebuilds')
+  const deepseekScopeDir = join(appDir, 'node_modules', '@deepseek-ai')
+  const nativeOfficeDir = join(deepseekScopeDir, `libreoffice-kit-${target}`)
+  if (existsSync(nativeOfficeDir)) {
+    for (const entry of readdirSync(deepseekScopeDir, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith('libreoffice-kit-') && entry.name !== `libreoffice-kit-${target}`) {
+        await rm(join(deepseekScopeDir, entry.name), { recursive: true, force: true })
+      }
+    }
+  }
+
+  const ptyRoot = join(appDir, 'node_modules', 'node-pty')
+  await rm(join(ptyRoot, 'build'), { recursive: true, force: true })
+  const sourcePrebuild = join(
+    repoRoot,
+    'packages',
+    'subprocess',
+    'subprocess-local',
+    'node_modules',
+    'node-pty',
+    'prebuilds',
+    target,
+  )
+  const ptyPrebuildsDir = join(ptyRoot, 'prebuilds')
+  if (existsSync(sourcePrebuild)) {
+    await mkdir(ptyPrebuildsDir, { recursive: true })
+    await cp(sourcePrebuild, join(ptyPrebuildsDir, target), { recursive: true })
+  }
   if (existsSync(ptyPrebuildsDir)) {
     for (const entry of readdirSync(ptyPrebuildsDir, { withFileTypes: true })) {
       if (entry.isDirectory() && entry.name !== target) {
         await rm(join(ptyPrebuildsDir, entry.name), { recursive: true, force: true })
       }
     }
+  }
+  if (target === 'win32-x64') {
+    resolveWindowsNodePtyAddons(ptyRoot, 'x64')
+  } else {
+    const spawnHelper = join(ptyPrebuildsDir, target, 'spawn-helper')
+    if (existsSync(spawnHelper)) await chmod(spawnHelper, 0o755)
+    const rgBin = join(appDir, 'node_modules', '@vscode', `ripgrep-${target}`, 'bin', 'rg')
+    if (existsSync(rgBin)) await chmod(rgBin, 0o755)
   }
 }
 
@@ -165,17 +207,16 @@ async function runPackagedSlotSmokeTest(slotDir: string, editionVersion: string)
   const port = await allocateEphemeralPort()
 
   const slot = resolveReleaseSlotPaths(join(smokeHome, 'releases'), editionVersion)
-  try {
-    execFileSync(
-      slotDir ? (process.platform === 'win32' ? 'robocopy' : 'cp') : 'cp',
-      process.platform === 'win32'
-        ? [slotDir, slotCopyDir, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NC', '/NS']
-        : ['-R', slotDir, slotCopyDir],
-      { stdio: 'ignore' },
-    )
-  } catch (copyError) {
-    // robocopy returns exit codes 1..7 on success; verify required files below instead of trusting robocopy exit 0.
-    if (process.platform !== 'win32') throw copyError
+  cpSync(slotDir, slotCopyDir, { recursive: true })
+
+  const readSmokeDiagnostics = (stdout: string, stderr: string): string => {
+    const statusJson = existsSync(join(smokeHome, 'run', 'status.json'))
+      ? readFileSync(join(smokeHome, 'run', 'status.json'), 'utf8')
+      : '(no status.json)'
+    const daemonLog = existsSync(join(smokeHome, 'run', 'daemon.log'))
+      ? readFileSync(join(smokeHome, 'run', 'daemon.log'), 'utf8')
+      : '(no daemon.log)'
+    return `stdout:\n${stdout}\nstderr:\n${stderr}\nstatus.json:\n${statusJson}\ndaemon.log:\n${daemonLog}`
   }
 
   try {
@@ -192,27 +233,41 @@ async function runPackagedSlotSmokeTest(slotDir: string, editionVersion: string)
     const startRes = spawnSync(
       slot.nodeExecutable,
       [slot.cliScript, '--invoked-as', 'reins', '--root', smokeHome, 'start'],
-      { encoding: 'utf8', timeout: 30_000, windowsHide: true },
+      { encoding: 'utf8', timeout: 60_000, windowsHide: true },
     )
     if (startRes.status !== 0) {
-      const daemonLog = existsSync(join(smokeHome, 'run', 'daemon.log'))
-        ? readFileSync(join(smokeHome, 'run', 'daemon.log'), 'utf8')
-        : '(no daemon.log)'
       throw new Error(
-        `Smoke test failed to start daemon (status=${String(startRes.status)}):\nstdout: ${startRes.stdout}\nstderr: ${startRes.stderr}\ndaemon.log:\n${daemonLog}`,
+        `Smoke test failed to start daemon (status=${String(startRes.status)}):\n${readSmokeDiagnostics(startRes.stdout, startRes.stderr)}`,
       )
     }
 
     const webUrlFile = join(smokeHome, 'run', 'web-url.txt')
     if (!existsSync(webUrlFile)) {
-      throw new Error('Smoke test: run/web-url.txt was not written by supervisor')
+      throw new Error(
+        `Smoke test: run/web-url.txt was not written by supervisor:\n${readSmokeDiagnostics(startRes.stdout, startRes.stderr)}`,
+      )
     }
     const launchUrl = readFileSync(webUrlFile, 'utf8').trim()
-    const response = await fetch(launchUrl, { signal: AbortSignal.timeout(10_000) })
-    if (!response.ok) {
-      throw new Error(`Smoke test HTTP probe to ${launchUrl} returned ${String(response.status)}`)
+    const authRes = await fetch(launchUrl, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(15_000),
+    })
+    const setCookie = authRes.headers.get('set-cookie')
+    const sessionCookie = setCookie?.split(';', 1)[0]
+    if (authRes.status !== 303 || sessionCookie === undefined || sessionCookie === '') {
+      throw new Error(`Smoke test token exchange at ${launchUrl} returned HTTP ${String(authRes.status)}`)
     }
-    await response.text()
+    const shellRes = await fetch(new URL(launchUrl).origin, {
+      headers: { Cookie: sessionCookie },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!shellRes.ok) {
+      throw new Error(`Smoke test authenticated shell probe returned HTTP ${String(shellRes.status)}`)
+    }
+    const html = await shellRes.text()
+    if (!html.toLowerCase().includes('<!doctype html')) {
+      throw new Error(`Smoke test HTTP probe to ${launchUrl} did not return the Web shell HTML`)
+    }
   } finally {
     if (existsSync(slot.nodeExecutable) && existsSync(slot.cliScript)) {
       spawnSync(
@@ -300,6 +355,9 @@ export async function buildReinsReleaseTarget(options: BuildReinsReleaseOptions)
     throw new Error(`Refusing unsafe workDir ${workDir} overlapping repository root`)
   }
 
+  const [closureCmd, closureArgs] = pnpmInvocation(['run', 'verify-runtime-closure'])
+  await runCommand('verify-runtime-closure', closureCmd, closureArgs)
+
   if (!options.skipBuild) {
     const [pnpmCmd, pnpmArgs] = pnpmInvocation(['run', 'build:artifacts'])
     await runCommand('build:artifacts', pnpmCmd, pnpmArgs, {
@@ -309,7 +367,8 @@ export async function buildReinsReleaseTarget(options: BuildReinsReleaseOptions)
     })
   }
 
-  const slotDir = join(workDir, `slot-${options.target}-${editionVersion}`)
+  const slotFolderName = `slot-${options.target}-${editionVersion}`
+  const slotDir = join(workDir, slotFolderName)
   await rm(slotDir, { recursive: true, force: true })
   await mkdir(slotDir, { recursive: true })
 
@@ -347,28 +406,23 @@ export async function buildReinsReleaseTarget(options: BuildReinsReleaseOptions)
     await copyFile(desktopTrayIcon, join(supervisorDir, 'reins.ico'))
   }
 
-  console.log('build-reins-release: deploying symlink-free @deepseek-ai/dsh closure...')
-  const cliDocsDir = join(repoRoot, 'apps', 'cli', 'docs')
-  const cliDocsExistedBefore = existsSync(cliDocsDir)
-  try {
-    const [pnpmCmd, pnpmArgs] = pnpmInvocation([
-      '--filter',
-      '@deepseek-ai/dsh',
-      'deploy',
-      '--prod',
-      '--config.allow-unused-patches=true',
-      '--config.node-linker=hoisted',
-      `--config.pnpmfile=${join(repoRoot, 'scripts/python-runtime-deploy.pnpmfile.mjs')}`,
-      '--config.link-workspace-packages=true',
-      '--config.hoist-workspace-packages=false',
-      appDir,
-    ])
-    await runCommand('pnpm deploy @deepseek-ai/dsh', pnpmCmd, pnpmArgs)
-  } finally {
-    if (!cliDocsExistedBefore && existsSync(cliDocsDir)) {
-      await rm(cliDocsDir, { recursive: true, force: true })
-    }
-  }
+  console.log('build-reins-release: deploying symlink-free runtime closure...')
+  const [pnpmDeployCmd, pnpmDeployArgs] = pnpmInvocation([
+    '--filter',
+    'dsh-python-runtime-closure',
+    'deploy',
+    '--prod',
+    '--config.allow-unused-patches=true',
+    '--config.node-linker=hoisted',
+    `--config.pnpmfile=${join(repoRoot, 'scripts/python-runtime-deploy.pnpmfile.mjs')}`,
+    '--config.link-workspace-packages=true',
+    '--config.hoist-workspace-packages=false',
+    appDir,
+  ])
+  await runCommand('pnpm deploy dsh-python-runtime-closure', pnpmDeployCmd, pnpmDeployArgs, {
+    ...process.env,
+    CI: 'true',
+  })
 
   await materializeStagedLinks(appDir)
   await deduplicateStagedWorkspacePackages(appDir, appDir)
@@ -390,14 +444,7 @@ export async function buildReinsReleaseTarget(options: BuildReinsReleaseOptions)
   writeFileSync(join(slotDir, 'release.json'), `${JSON.stringify(releaseManifest, null, 2)}\n`, 'utf8')
 
   const targetPlatform: NodeJS.Platform = options.target === 'win32-x64' ? 'win32' : 'darwin'
-  validateExtractedSlot({
-    slotDir,
-    releaseManifestFile: join(slotDir, 'release.json'),
-    nodeExecutable: join(slotDir, 'node', 'bin', targetPlatform === 'win32' ? 'node.exe' : 'node'),
-    dshBinScript: join(slotDir, 'app', 'lib', 'bin.js'),
-    cliScript: join(slotDir, 'supervisor', 'cli.mjs'),
-    supervisorScript: join(slotDir, 'supervisor', 'supervisor.mjs'),
-  })
+  validateExtractedSlot(resolveReleaseSlotPaths(workDir, slotFolderName, targetPlatform))
   await assertSymlinkFree(slotDir)
 
   let hostTarget: ReleaseTarget | undefined
@@ -527,7 +574,7 @@ export async function finalizeReleaseDirectory(
   const latestManifest = parseLatestReleaseManifest({
     schemaVersion: 1,
     editionVersion,
-    tag: `reins-${editionVersion.slice(1)}`,
+    tag: `reins-${editionVersion}`,
     dshCoreVersion,
     commit,
     publishedAt: new Date().toISOString(),
@@ -586,7 +633,7 @@ function parseCliTarget(rawTarget: string | undefined): ReleaseTarget {
   return trimmed
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isExecutedAsMain(import.meta.url)) {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {

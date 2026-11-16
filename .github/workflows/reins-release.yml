@@ -61,7 +61,7 @@ jobs:
             throw new Error(`Invalid Reins edition version: ${rawInput}`)
           }
           const editionVersion = `v${stripped}`
-          const releaseTag = `reins-${stripped}`
+          const releaseTag = `reins-${editionVersion}`
           const shouldPublish = (process.env.EVENT_NAME === 'push' && process.env.REF_TYPE === 'tag')
             || process.env.INPUT_PUBLISH === 'true'
           const prerelease = stripped.includes('-')
