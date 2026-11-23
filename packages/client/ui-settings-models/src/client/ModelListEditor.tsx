@@ -148,6 +148,29 @@ function adopt(candidate: LlmDiscoveredModel): ModelDraft {
   }
 }
 
+/** Backfill unset fields on a hand-declared route's kept row without overwriting user-tuned values. */
+function backfillDisclosed(
+  model: ModelDraft,
+  candidate: LlmDiscoveredModel | undefined,
+  defaultInput: readonly string[] | undefined,
+): ModelDraft {
+  if (candidate === undefined) return model
+  const hasInput = Array.isArray(model['input']) && model['input'].length > 0
+  return {
+    ...model,
+    ...textOf(model, 'name').length === 0 && candidate.name !== undefined ? { name: candidate.name } : {},
+    ...numberOf(model, 'contextWindow') === undefined && candidate.contextWindow !== undefined
+      ? { contextWindow: candidate.contextWindow }
+      : {},
+    ...numberOf(model, 'maxTokens') === undefined && candidate.maxTokens !== undefined
+      ? { maxTokens: candidate.maxTokens }
+      : {},
+    ...!hasInput && defaultInput === undefined && candidate.inputModalities !== undefined
+      ? { input: [...candidate.inputModalities] }
+      : {},
+  }
+}
+
 /**
  * Render the model list with its fetch action.
  * @param props - the drafted rows, probe target, wire face, and copy.
@@ -251,7 +274,8 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const isPicked = (id: string): boolean => pickedByDefault(id) !== flipped.has(id)
 
   const activeCandidates = candidates ?? []
-  const listed = new Set(activeCandidates.map(candidate => candidate.id))
+  const candidateById = new Map(activeCandidates.map(candidate => [candidate.id, candidate]))
+  const listed = new Set(candidateById.keys())
   // An unchecked candidate leaves the list. A row the listing does not name,
   // including a half-typed row without an id, is outside the picker and stays.
   const removedRows = new Set<number>()
@@ -259,8 +283,14 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     const id = textOf(model, 'id')
     if (listed.has(id) && !isPicked(id)) removedRows.add(at)
   })
-  // A kept row the user already tuned wins over the provider's own numbers.
-  const keptRows = models.filter((_model, at) => !removedRows.has(at))
+  // A kept row the user already tuned wins over the provider's own numbers; on
+  // a hand-declared route with no installed catalog to inherit from, unset
+  // fields still adopt newly disclosed endpoint facts.
+  const keptRows = models
+    .filter((_model, at) => !removedRows.has(at))
+    .map(model => catalogProvider === undefined
+      ? backfillDisclosed(model, candidateById.get(textOf(model, 'id')), props.defaultInput)
+      : model)
   const keptIds = new Set(keptRows.map(model => textOf(model, 'id')))
   const addedRows = activeCandidates
     .filter(candidate => isPicked(candidate.id) && !keptIds.has(candidate.id))

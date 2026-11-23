@@ -657,6 +657,59 @@ describe('endpoint interrogation', () => {
     ])
   })
 
+  it('backfills newly disclosed fields onto kept rows of a hand-declared route without overwriting tuned values or route defaultInput', async () => {
+    const discover = vi.fn(() => Promise.resolve(ok([
+      { id: 'bare', name: 'Bare Vision', contextWindow: 65_536, maxTokens: 8192, inputModalities: ['text', 'image'] },
+      { id: 'tuned', name: 'Provider Name', contextWindow: 999_999, maxTokens: 9999, inputModalities: ['text', 'image'] },
+      { id: 'nameless' },
+    ])))
+    const { mutate } = await mountSection({
+      discover,
+      providers: {
+        'acme-gateway': {
+          api: 'openai-completions',
+          baseURL: 'https://gateway.acme.example/v1',
+          models: [
+            { id: 'bare', input: [] },
+            { id: 'tuned', name: 'User Name', contextWindow: 111, maxTokens: 222, input: ['text'] },
+            { id: 'nameless' },
+            { id: 'unlisted' },
+          ],
+        },
+        'defaulted-gateway': {
+          api: 'openai-completions',
+          baseURL: 'https://defaulted.acme.example/v1',
+          defaultInput: ['text', 'image'],
+          models: [{ id: 'bare' }],
+        },
+      },
+      declaredRoutes: ['acme-gateway', 'defaulted-gateway'],
+    })
+
+    openEditor('acme-gateway')
+    fireEvent.click(screen.getByText(en.fetchModels))
+    await screen.findByText(en.fetchTitle)
+    fireEvent.click(screen.getByText(en.fetchAdopt))
+    fireEvent.click(screen.getByText(en.apply))
+    await waitFor(() => { expect(mutate).toHaveBeenCalledTimes(1) })
+    expect(firstMutate(mutate).ops[0]?.value).toEqual([
+      { id: 'bare', name: 'Bare Vision', contextWindow: 65_536, maxTokens: 8192, input: ['text', 'image'] },
+      { id: 'tuned', name: 'User Name', contextWindow: 111, maxTokens: 222, input: ['text'] },
+      { id: 'nameless' },
+      { id: 'unlisted' },
+    ])
+
+    openEditor('defaulted-gateway')
+    fireEvent.click(screen.getByText(en.fetchModels))
+    await screen.findByText(en.fetchTitle)
+    fireEvent.click(screen.getByText(en.fetchAdopt))
+    fireEvent.click(screen.getByText(en.apply))
+    await waitFor(() => { expect(mutate).toHaveBeenCalledTimes(2) })
+    expect(mutate.mock.calls[1]?.[1]?.[0]?.value).toEqual([
+      { id: 'bare', name: 'Bare Vision', contextWindow: 65_536, maxTokens: 8192 },
+    ])
+  })
+
   it('removes an unchecked configured model and keeps one the provider does not list', async () => {
     const discover = vi.fn(() => Promise.resolve(ok([{ id: 'gone' }, { id: 'stays' }, { id: 'new' }])))
     const { mutate } = await mountSection({
