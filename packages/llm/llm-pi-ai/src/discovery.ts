@@ -27,7 +27,8 @@ import { runWithTrafficContext } from '@deepseek-ai/dsh-http-proxy'
 import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@deepseek-ai/dsh-llm'
 import type { LlmDiscoveredModel, LlmModelDiscoveryOperation } from '@deepseek-ai/dsh-llm'
 import { attributionHeaders } from '@deepseek-ai/dsh-llm'
-import { catalogModels } from './catalog.ts'
+import { catalogModels, MODALITIES } from './catalog.ts'
+import type { PiAiModality } from './catalog.ts'
 
 /**
  * Protocols whose model listing this module can read. OpenAI protocols use
@@ -77,8 +78,38 @@ interface ListingTopProvider {
   max_completion_tokens?: unknown
 }
 
+/** Input-modality list nested under `modalities` by models.dev and compatible gateways. */
+interface ListingModalities {
+  input?: unknown
+}
+
+/** Architecture metadata OpenRouter nests under each entry. */
+interface ListingArchitecture {
+  input_modalities?: unknown
+}
+
+/** Boolean capability descriptor nested by Anthropic's `GET /v1/models` reply. */
+interface ListingCapabilitySupport {
+  supported?: unknown
+}
+
+/** Capability flags nested by Anthropic (`image_input.supported`) and LiteLLM or Ollama gateways (`vision`). */
+interface ListingCapabilities {
+  vision?: unknown
+  image_input?: ListingCapabilitySupport | null
+}
+
+/** Optional input-modality fields shared across model-listing entry formats. */
+interface ListingModalityFields {
+  inputModalities?: unknown
+  input_modalities?: unknown
+  modalities?: ListingModalities | null
+  architecture?: ListingArchitecture | null
+  capabilities?: ListingCapabilities | null
+}
+
 /** One entry of a supported `GET /models` reply. */
-interface ListingEntry {
+interface ListingEntry extends ListingModalityFields {
   id?: unknown
   /** Common gateway extensions; absent from the official listings. */
   name?: unknown
@@ -96,6 +127,10 @@ interface ListingEntry {
   top_provider?: ListingTopProvider | null
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
 /** A positive integer field of a listing entry, or `undefined` when absent or unusable. */
 function capacity(...candidates: readonly unknown[]): number | undefined {
   for (const candidate of candidates) {
@@ -108,6 +143,49 @@ function capacity(...candidates: readonly unknown[]): number | undefined {
 function label(...candidates: readonly unknown[]): string | undefined {
   for (const candidate of candidates) {
     if (typeof candidate === 'string' && candidate.length > 0) return candidate
+  }
+  return undefined
+}
+
+/** Classify one string token or MIME type as a supported request modality, or `undefined`. */
+function normalizeModality(raw: unknown): PiAiModality | undefined {
+  if (typeof raw !== 'string') return undefined
+  const value = raw.trim().toLowerCase()
+  if (value === 'text' || /^text\/.+$/u.test(value)) return 'text'
+  if (value === 'image' || /^image\/.+$/u.test(value)) return 'image'
+  return undefined
+}
+
+/** First candidate array that names at least one supported request modality, in canonical order without duplicates. */
+function listedModalities(...candidates: readonly unknown[]): PiAiModality[] | undefined {
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue
+    const recognized = new Set<PiAiModality>()
+    for (const item of candidate as readonly unknown[]) {
+      const modality = normalizeModality(item)
+      if (modality !== undefined) recognized.add(modality)
+    }
+    if (recognized.size > 0) return MODALITIES.filter(modality => recognized.has(modality))
+  }
+  return undefined
+}
+
+/**
+ * Extract the request modalities a listing entry explicitly discloses, or
+ * `undefined` when it discloses none. Explicit modality arrays take precedence
+ * over boolean vision flags; entries with neither stay `undefined` rather than
+ * guessing from the model id.
+ */
+function disclosedInputModalities(entry: ListingModalityFields): PiAiModality[] | undefined {
+  const listed = listedModalities(
+    entry.inputModalities,
+    entry.input_modalities,
+    entry.architecture?.input_modalities,
+    entry.modalities?.input,
+  )
+  if (listed !== undefined) return listed
+  for (const vision of [entry.capabilities?.vision, entry.capabilities?.image_input?.supported]) {
+    if (typeof vision === 'boolean') return vision ? ['text', 'image'] : ['text']
   }
   return undefined
 }
@@ -192,56 +270,57 @@ async function readBounded(response: Response, url: string): Promise<string> {
 function readListing(body: unknown): LlmDiscoveredModel[] {
   const listing = body as { data?: unknown; models?: unknown } | null
   const data = listing?.data
-  let listed: { readonly key?: string; readonly raw: unknown }[]
+  let listed: { readonly key?: string; readonly entry: ListingEntry }[]
   if (Array.isArray(data)) {
     const rows = data as readonly unknown[]
-    listed = rows.map(raw => ({ raw }))
+    listed = rows.filter(isRecord).map(raw => ({ entry: raw as ListingEntry }))
   } else {
     const models = listing?.models
-    if (models === null || typeof models !== 'object' || Array.isArray(models)) {
+    if (!isRecord(models)) {
       throw new LlmError(
         'the endpoint\'s model listing has neither a "data" array nor a "models" object; '
         + 'enter this provider\'s models by hand',
         'DISCOVERY_FAILED',
       )
     }
-    listed = Object.entries(models as Record<string, unknown>)
-      .filter(([, raw]) => raw !== null && typeof raw === 'object' && !Array.isArray(raw))
-      .map(([key, raw]) => ({ key, raw }))
+    listed = Object.entries(models)
+      .filter(([, raw]) => isRecord(raw))
+      .map(([key, raw]) => ({ key, entry: raw as ListingEntry }))
   }
   const models: LlmDiscoveredModel[] = []
-  for (const { key, raw } of listed) {
-    const entry = raw as ListingEntry | null
-    const id = label(key, entry?.id)
+  for (const { key, entry } of listed) {
+    const id = label(key, entry.id)
     if (id === undefined) continue
-    const name = label(entry?.name, entry?.display_name, entry?.displayName) ?? id
+    const name = label(entry.name, entry.display_name, entry.displayName) ?? id
     const contextWindow = capacity(
-      entry?.contextWindow,
-      entry?.context_window,
-      entry?.context_length,
-      entry?.max_input_tokens,
-      entry?.limit?.context,
+      entry.contextWindow,
+      entry.context_window,
+      entry.context_length,
+      entry.max_input_tokens,
+      entry.limit?.context,
     )
     const maxTokens = capacity(
-      entry?.maxOutputTokens,
-      entry?.max_output_tokens,
-      entry?.maxTokens,
-      entry?.max_tokens,
-      entry?.limit?.output,
-      entry?.top_provider?.max_completion_tokens,
+      entry.maxOutputTokens,
+      entry.max_output_tokens,
+      entry.maxTokens,
+      entry.max_tokens,
+      entry.limit?.output,
+      entry.top_provider?.max_completion_tokens,
     )
+    const inputModalities = disclosedInputModalities(entry)
     models.push({
       id,
       name,
       ...contextWindow === undefined ? {} : { contextWindow },
       ...maxTokens === undefined ? {} : { maxTokens },
+      ...inputModalities === undefined ? {} : { inputModalities },
     })
   }
   return models
 }
 
 /** One entry of a Gemini `GET /models` reply. */
-interface GeminiListingEntry {
+interface GeminiListingEntry extends ListingModalityFields {
   name?: unknown
   displayName?: unknown
   inputTokenLimit?: unknown
@@ -266,18 +345,21 @@ function readGeminiListing(body: unknown): LlmDiscoveredModel[] {
   }
   const models: LlmDiscoveredModel[] = []
   for (const raw of listed as readonly unknown[]) {
-    const entry = raw as GeminiListingEntry | null
-    const methods = entry?.supportedGenerationMethods
+    if (!isRecord(raw)) continue
+    const entry = raw as GeminiListingEntry
+    const methods = entry.supportedGenerationMethods
     if (Array.isArray(methods) && !methods.includes('generateContent')) continue
-    const id = label(entry?.name)?.replace(/^models\//, '')
+    const id = label(entry.name)?.replace(/^models\//, '')
     if (id === undefined || id.length === 0) continue
-    const contextWindow = capacity(entry?.inputTokenLimit)
-    const maxTokens = capacity(entry?.outputTokenLimit)
+    const contextWindow = capacity(entry.inputTokenLimit)
+    const maxTokens = capacity(entry.outputTokenLimit)
+    const inputModalities = disclosedInputModalities(entry)
     models.push({
       id,
-      name: label(entry?.displayName) ?? id,
+      name: label(entry.displayName) ?? id,
       ...contextWindow === undefined ? {} : { contextWindow },
       ...maxTokens === undefined ? {} : { maxTokens },
+      ...inputModalities === undefined ? {} : { inputModalities },
     })
   }
   return models

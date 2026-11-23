@@ -220,6 +220,44 @@ describe('draft-provider model discovery', () => {
     expect(server.headers.map(headers => headers['user-agent'])).toEqual([userAgent(), userAgent(), userAgent()])
   })
 
+  it('normalizes disclosed input modalities across gateway formats and leaves undisclosed ones absent', async () => {
+    const server = await listingServer({
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'mime-multimodal',
+            modalities: { input: ['image/png', 'text/plain', 'image/jpeg', 'video/mp4'], output: ['text'] },
+          },
+          { id: 'modalities-text', modalities: { input: ['text'] } },
+          { id: 'arch-multimodal', architecture: { input_modalities: ['text', 'image'] } },
+          { id: 'snake-multimodal', input_modalities: ['text', 'image'] },
+          { id: 'camel-multimodal', inputModalities: ['TEXT', 'image'], capabilities: { vision: false } },
+          { id: 'vision-true', capabilities: { vision: true } },
+          { id: 'vision-false', capabilities: { vision: false } },
+          { id: 'anthropic-vision-false', capabilities: { image_input: { supported: false } } },
+          { id: 'empty-array-falls-through', input_modalities: ['audio', 42, 'image/'], capabilities: { vision: true } },
+          { id: 'unrecognized-only', modalities: { input: ['audio'] }, capabilities: { vision: 'yes', image_input: null } },
+          { id: 'undisclosed', object: 'model' },
+        ],
+      }),
+    })
+    const ctx = await harness()
+
+    expect(await ctx.llm.discoverModels('llm-pi-ai', { baseURL: `${server.url}/v1` })).toEqual([
+      { id: 'mime-multimodal', name: 'mime-multimodal', inputModalities: ['text', 'image'] },
+      { id: 'modalities-text', name: 'modalities-text', inputModalities: ['text'] },
+      { id: 'arch-multimodal', name: 'arch-multimodal', inputModalities: ['text', 'image'] },
+      { id: 'snake-multimodal', name: 'snake-multimodal', inputModalities: ['text', 'image'] },
+      { id: 'camel-multimodal', name: 'camel-multimodal', inputModalities: ['text', 'image'] },
+      { id: 'vision-true', name: 'vision-true', inputModalities: ['text', 'image'] },
+      { id: 'vision-false', name: 'vision-false', inputModalities: ['text'] },
+      { id: 'anthropic-vision-false', name: 'anthropic-vision-false', inputModalities: ['text'] },
+      { id: 'empty-array-falls-through', name: 'empty-array-falls-through', inputModalities: ['text', 'image'] },
+      { id: 'unrecognized-only', name: 'unrecognized-only' },
+      { id: 'undisclosed', name: 'undisclosed' },
+    ])
+  })
+
   it('uses the Gemini model-listing path, header, and fields', async () => {
     const server = await listingServer({
       body: JSON.stringify({
@@ -232,9 +270,10 @@ describe('draft-provider model discovery', () => {
             supportedGenerationMethods: ['generateContent', 'countTokens'],
           },
           { name: 'models/text-embedding', supportedGenerationMethods: ['embedContent'] },
-          { name: 'gateway-alias' },
+          { name: 'gateway-alias', modalities: { input: ['text', 'image/png'] } },
           { name: 'models/' },
           { displayName: 'nameless' },
+          null,
         ],
         nextPageToken: 'ignored',
       }),
@@ -249,7 +288,7 @@ describe('draft-provider model discovery', () => {
 
     expect(models).toEqual([
       { id: 'gemini-pro', name: 'Gemini Pro', contextWindow: 1_048_576, maxTokens: 65_536 },
-      { id: 'gateway-alias', name: 'gateway-alias' },
+      { id: 'gateway-alias', name: 'gateway-alias', inputModalities: ['text', 'image'] },
     ])
     expect(server.paths).toEqual(['/v1beta/models?pageSize=1000'])
     expect(server.headers[0]?.['x-goog-api-key']).toBe('gemini-key')
@@ -550,10 +589,27 @@ const RECORDED_LISTINGS = [
     file: 'openrouter-2026-09-02.json',
     api: 'openai-completions',
     models: [
-      { id: 'anthropic/claude-fable-5.1', name: 'Anthropic: Claude Fable 5.1', contextWindow: 1_000_000, maxTokens: 128_000 },
+      {
+        id: 'anthropic/claude-fable-5.1',
+        name: 'Anthropic: Claude Fable 5.1',
+        contextWindow: 1_000_000,
+        maxTokens: 128_000,
+        inputModalities: ['text', 'image'],
+      },
       // The router's own aggregate route reports no completion cap.
-      { id: 'openrouter/auto-beta', name: 'Auto Router (Beta)', contextWindow: 2_000_000 },
-      { id: 'deepseek/deepseek-v4-flash', name: 'DeepSeek: DeepSeek V4 Flash 0423', contextWindow: 1_048_576, maxTokens: 384_000 },
+      {
+        id: 'openrouter/auto-beta',
+        name: 'Auto Router (Beta)',
+        contextWindow: 2_000_000,
+        inputModalities: ['text', 'image'],
+      },
+      {
+        id: 'deepseek/deepseek-v4-flash',
+        name: 'DeepSeek: DeepSeek V4 Flash 0423',
+        contextWindow: 1_048_576,
+        maxTokens: 384_000,
+        inputModalities: ['text'],
+      },
     ],
   },
   {
@@ -561,9 +617,9 @@ const RECORDED_LISTINGS = [
     file: 'models-dev-anthropic-2026-09-02.json',
     api: 'openai-completions',
     models: [
-      { id: 'claude-opus-4-7', name: 'Claude Opus 4.7', contextWindow: 1_000_000, maxTokens: 128_000 },
-      { id: 'claude-fable-5-1', name: 'Claude Fable 5.1', contextWindow: 1_000_000, maxTokens: 128_000 },
-      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5 (latest)', contextWindow: 200_000, maxTokens: 64_000 },
+      { id: 'claude-opus-4-7', name: 'Claude Opus 4.7', contextWindow: 1_000_000, maxTokens: 128_000, inputModalities: ['text', 'image'] },
+      { id: 'claude-fable-5-1', name: 'Claude Fable 5.1', contextWindow: 1_000_000, maxTokens: 128_000, inputModalities: ['text', 'image'] },
+      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5 (latest)', contextWindow: 200_000, maxTokens: 64_000, inputModalities: ['text', 'image'] },
     ],
   },
   {
@@ -581,8 +637,8 @@ const RECORDED_LISTINGS = [
     file: 'anthropic-reference-example.json',
     api: 'anthropic-messages',
     // The reference example fills both capacities with 0, which is not a
-    // usable capacity, so the row carries the name alone.
-    models: [{ id: 'claude-opus-5', name: 'Claude Opus 5' }],
+    // usable capacity, so the row carries the name and disclosed modalities.
+    models: [{ id: 'claude-opus-5', name: 'Claude Opus 5', inputModalities: ['text', 'image'] }],
   },
 ]
 

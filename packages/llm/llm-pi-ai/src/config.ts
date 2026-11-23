@@ -84,7 +84,7 @@ export const DEFAULT_MAX_TOKENS = 128_000
  * Modalities assumed for a model neither configuration nor the catalog
  * declares. Text is the floor every supported protocol certainly carries, so
  * this is the absence of a declaration rather than a guess at the endpoint:
- * nothing can interrogate a gateway for its modalities, and the two wrong
+ * many model-listing endpoints omit modalities, and the two wrong
  * answers do not cost the same. Under-claiming refuses the image before it is
  * attached, naming the model. Over-claiming admits one the provider then
  * rejects mid-turn, after the message is durable, leaving the session
